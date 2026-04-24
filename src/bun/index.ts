@@ -1,4 +1,4 @@
-import { BrowserWindow, Tray, Updater } from 'electrobun/bun'
+import Electrobun, { BrowserWindow, Tray, Updater } from 'electrobun/bun'
 
 const DEV_SERVER_PORT = 5173
 const DEV_SERVER_URL = `http://localhost:${DEV_SERVER_PORT}`
@@ -15,6 +15,9 @@ async function getMainViewUrl(): Promise<string> {
   }
   return 'views://mainview/index.html'
 }
+
+// Hide dock icon — run as a true menubar-only app
+Electrobun.app.setActivationPolicy('accessory')
 
 const tray = new Tray({
   title: 'Herbie',
@@ -37,27 +40,31 @@ const mainWindow = new BrowserWindow({
   },
 })
 
-// Track whether window is currently shown
-let isWindowShown = true
+// Intercept close → hide to tray instead of quitting
+mainWindow.on('will-close', (e) => {
+  e.preventDefault()
+  mainWindow.hide()
+})
 
-// Tray click → toggle window
+// Tray click → toggle window visibility
 tray.on('tray-clicked', () => {
-  if (isWindowShown) {
-    mainWindow.minimize()
-    isWindowShown = false
+  if (mainWindow.isVisible()) {
+    mainWindow.hide()
   } else {
     mainWindow.show()
-    isWindowShown = true
   }
 })
 
-// Tray menu: Open + Quit
-// Note: menu item actions are handled natively by Electrobun.
-// "Open Herbie" re-shows the window via tray-clicked convention.
 tray.setMenu([
   { type: 'normal', label: 'Open Herbie', action: 'open' },
   { type: 'divider' },
-  { type: 'normal', label: 'Quit Herbie', action: 'quit' },
+  { type: 'normal', label: 'Quit', action: 'quit' },
 ])
 
-void mainWindow
+tray.on('tray-menu-action', (e) => {
+  if (e.data.action === 'open') {
+    mainWindow.show()
+  } else if (e.data.action === 'quit') {
+    Electrobun.app.exit()
+  }
+})
