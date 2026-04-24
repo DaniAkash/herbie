@@ -1,0 +1,8 @@
+node_modules/
+dist/
+build/
+.electrobun/
+*.local
+.env
+.env.*
+!.env.example
