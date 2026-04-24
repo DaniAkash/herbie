@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.4.7/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.4.12/schema.json",
   "root": true,
   "vcs": {
     "enabled": true,
@@ -56,7 +56,10 @@
   },
   "overrides": [
     {
-      "includes": ["src/mainview/components/ui/**"],
+      "includes": [
+        "src/mainview/components/ui/**",
+        "src/mainview/components/ai-elements/**"
+      ],
       "linter": {
         "rules": {
           "complexity": {
@@ -72,8 +75,20 @@
             "noDangerouslySetInnerHtml": "off"
           },
           "suspicious": {
+            "noConsole": "off",
             "noArrayIndexKey": "off",
             "noExplicitAny": "off"
+          },
+          "correctness": {
+            "noUnusedImports": "off",
+            "noUnusedVariables": "off"
+          },
+          "style": {
+            "noProcessEnv": "off"
+          },
+          "nursery": {
+            "useSortedClasses": "off",
+            "noExcessiveLinesPerFile": "off"
           }
         }
       }

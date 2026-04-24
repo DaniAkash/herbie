@@ -20,5 +20,11 @@
     "noFallthroughCasesInSwitch": true
   },
   "include": ["src"],
-  "exclude": ["node_modules", "dist", "build"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    "build",
+    "src/mainview/components/ui",
+    "src/mainview/components/ai-elements"
+  ]
 }
