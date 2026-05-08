@@ -8,7 +8,7 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "includes": ["**", "!src/mainview/routeTree.gen.ts"]
+    "includes": ["**", "!src/mainview/routeTree.gen.ts", "!drizzle/**"]
   },
   "formatter": {
     "enabled": true,
