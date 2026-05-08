@@ -1,4 +1,5 @@
 import { CheckIcon, ChevronDownIcon, SparklesIcon } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -8,7 +9,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { cn } from '@/lib/utils'
 import { useHerbieData } from '@/modules/data/HerbieDataProvider'
 import type { AgentId } from '@/modules/data/herbie-data.types'
 
@@ -31,46 +31,45 @@ export function AgentPicker({
       <DropdownMenuTrigger
         render={
           <Button
-            variant={variant === 'pill' ? 'outline' : 'ghost'}
+            variant={variant === 'pill' ? 'ghost' : 'outline'}
             size="sm"
-            className={cn(
-              'gap-1.5',
-              variant === 'pill' && 'h-7 rounded-full px-2.5 text-xs',
-              variant === 'header' && 'gap-2',
-            )}
           />
         }
       >
-        <SparklesIcon className="h-3.5 w-3.5" />
+        <SparklesIcon data-icon="inline-start" />
         <span>{current.label}</span>
-        <ChevronDownIcon className="h-3.5 w-3.5 opacity-60" />
+        <ChevronDownIcon data-icon="inline-end" className="opacity-60" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-64">
-        <DropdownMenuLabel>Pick an agent</DropdownMenuLabel>
+      <DropdownMenuContent align="start" className="w-72">
+        <DropdownMenuLabel className="text-[10px] text-muted-foreground uppercase tracking-wider">
+          Agents
+        </DropdownMenuLabel>
         <DropdownMenuSeparator />
         {agents.map((agent) => (
           <DropdownMenuItem
             key={agent.id}
             onSelect={() => onChange(agent.id)}
-            className="flex items-start gap-2 py-2"
+            className="flex items-start gap-2 py-2.5"
           >
             <div className="flex-1">
               <div className="flex items-center gap-1.5">
                 <span className="font-medium text-sm">{agent.label}</span>
                 {agent.status === 'signin-required' && (
-                  <span className="rounded bg-amber-500/15 px-1.5 py-0.5 font-medium text-[10px] text-amber-600 dark:text-amber-400">
+                  <Badge variant="secondary" className="text-[9px]">
                     sign in
-                  </span>
+                  </Badge>
                 )}
                 {agent.status === 'not-installed' && (
-                  <span className="rounded bg-muted px-1.5 py-0.5 font-medium text-[10px] text-muted-foreground">
+                  <Badge variant="outline" className="text-[9px]">
                     install
-                  </span>
+                  </Badge>
                 )}
               </div>
               <div className="text-muted-foreground text-xs">{agent.blurb}</div>
             </div>
-            {value === agent.id && <CheckIcon className="mt-0.5 h-4 w-4" />}
+            {value === agent.id && (
+              <CheckIcon className="mt-0.5 size-4 text-primary" />
+            )}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

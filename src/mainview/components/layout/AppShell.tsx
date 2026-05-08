@@ -1,11 +1,12 @@
 import type { ReactNode } from 'react'
-import { Sidebar } from './Sidebar'
+import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
+import { AppSidebar } from './AppSidebar'
 
 export function AppShell({ children }: { children: ReactNode }) {
   return (
-    <div className="dark flex h-screen w-screen overflow-hidden bg-background text-foreground">
-      <Sidebar />
-      <main className="flex flex-1 flex-col overflow-hidden">{children}</main>
-    </div>
+    <SidebarProvider>
+      <AppSidebar />
+      <SidebarInset className="overflow-hidden">{children}</SidebarInset>
+    </SidebarProvider>
   )
 }

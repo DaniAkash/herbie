@@ -8,7 +8,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { cn } from '@/lib/utils'
 import { useHerbieData } from '@/modules/data/HerbieDataProvider'
 
 type WorkspacePickerProps = {
@@ -32,30 +31,32 @@ export function WorkspacePicker({
       <DropdownMenuTrigger
         render={
           <Button
-            variant={variant === 'pill' ? 'outline' : 'ghost'}
+            variant={variant === 'pill' ? 'ghost' : 'outline'}
             size="sm"
-            className={cn(
-              'gap-1.5',
-              variant === 'pill' && 'h-7 rounded-full px-2.5 text-xs',
-            )}
           />
         }
       >
-        <FolderIcon className="h-3.5 w-3.5" />
-        <span>{current ? `in ${current.name}` : 'no workspace'}</span>
-        <ChevronDownIcon className="h-3.5 w-3.5 opacity-60" />
+        <FolderIcon data-icon="inline-start" />
+        <span className="font-mono text-xs">
+          {current ? current.name : '—'}
+        </span>
+        <ChevronDownIcon data-icon="inline-end" className="opacity-60" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-72">
-        <DropdownMenuLabel>Workspace</DropdownMenuLabel>
+      <DropdownMenuContent align="start" className="w-80">
+        <DropdownMenuLabel className="text-[10px] text-muted-foreground uppercase tracking-wider">
+          Workspace
+        </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => onChange(undefined)}>
-          <span className="flex-1 text-muted-foreground">no workspace</span>
-          {value === undefined && <CheckIcon className="h-4 w-4" />}
+          <span className="flex-1 text-muted-foreground italic">
+            no workspace
+          </span>
+          {value === undefined && <CheckIcon className="size-4 text-primary" />}
         </DropdownMenuItem>
         {pinned.length > 0 && (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuLabel className="text-[11px] text-muted-foreground uppercase tracking-wide">
+            <DropdownMenuLabel className="text-[10px] text-muted-foreground uppercase tracking-wider">
               Pinned
             </DropdownMenuLabel>
             {pinned.map((ws) => (
@@ -71,7 +72,7 @@ export function WorkspacePicker({
         {recent.length > 0 && (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuLabel className="text-[11px] text-muted-foreground uppercase tracking-wide">
+            <DropdownMenuLabel className="text-[10px] text-muted-foreground uppercase tracking-wider">
               Recent
             </DropdownMenuLabel>
             {recent.map((ws) => (
@@ -102,9 +103,11 @@ function WorkspaceRow({
     <DropdownMenuItem onSelect={onSelect} className="flex items-start gap-2">
       <div className="flex-1">
         <div className="font-medium text-sm">{ws.name}</div>
-        <div className="text-muted-foreground text-xs">{ws.path}</div>
+        <div className="font-mono text-[11px] text-muted-foreground">
+          {ws.path}
+        </div>
       </div>
-      {checked && <CheckIcon className="mt-0.5 h-4 w-4" />}
+      {checked && <CheckIcon className="mt-0.5 size-4 text-primary" />}
     </DropdownMenuItem>
   )
 }

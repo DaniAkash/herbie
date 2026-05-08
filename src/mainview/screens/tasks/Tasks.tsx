@@ -1,6 +1,14 @@
 import { useNavigate } from '@tanstack/react-router'
 import { ClockIcon, PlusIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty'
 import { LinkButton } from '@/components/ui/link-button'
 import {
   Table,
@@ -35,27 +43,51 @@ export function Tasks() {
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      <header className="flex items-center justify-between border-border border-b bg-background/95 px-6 py-3 backdrop-blur">
-        <h1 className="font-semibold text-base">Scheduled tasks</h1>
-        <LinkButton to="/tasks/new" size="sm" className="gap-1.5">
-          <PlusIcon className="h-3.5 w-3.5" />
+      <header className="flex shrink-0 items-center justify-between gap-4 border-b bg-background/80 px-6 py-3 backdrop-blur">
+        <div className="flex items-baseline gap-3">
+          <h1 className="font-semibold text-base tracking-tight">
+            Scheduled tasks
+          </h1>
+          <span className="font-mono text-muted-foreground text-xs">
+            {sorted.length} task{sorted.length === 1 ? '' : 's'}
+          </span>
+        </div>
+        <LinkButton to="/tasks/new" size="sm">
+          <PlusIcon data-icon="inline-start" />
           New task
         </LinkButton>
       </header>
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-5xl px-6 py-6">
           {sorted.length === 0 ? (
-            <EmptyTasks />
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <ClockIcon />
+                </EmptyMedia>
+                <EmptyTitle>No scheduled tasks yet</EmptyTitle>
+                <EmptyDescription>
+                  Tasks let you run a prompt on a schedule. Results land in your
+                  inbox for review.
+                </EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent>
+                <LinkButton to="/tasks/new">
+                  <PlusIcon data-icon="inline-start" />
+                  Create a task
+                </LinkButton>
+              </EmptyContent>
+            </Empty>
           ) : (
-            <div className="rounded-lg border border-border bg-card">
+            <div className="overflow-hidden rounded-lg border bg-card">
               <Table>
                 <TableHeader>
-                  <TableRow>
+                  <TableRow className="hover:bg-transparent">
                     <TableHead>Name</TableHead>
                     <TableHead>Schedule</TableHead>
                     <TableHead>Agent</TableHead>
                     <TableHead>Last run</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -74,20 +106,29 @@ export function Tasks() {
                       <TableCell className="text-muted-foreground">
                         {describeSchedule(task.schedule)}
                       </TableCell>
-                      <TableCell className="font-mono text-xs">
-                        {task.agent}
+                      <TableCell>
+                        <span className="font-mono text-xs">{task.agent}</span>
                       </TableCell>
-                      <TableCell className="text-muted-foreground text-xs">
+                      <TableCell className="text-muted-foreground text-xs tabular-nums">
                         {task.lastRunAt
                           ? relativeTime(task.lastRunAt)
                           : 'never'}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-right">
                         <Badge
                           variant={
                             task.status === 'active' ? 'default' : 'secondary'
                           }
+                          className="font-mono text-[10px] uppercase tracking-wider"
                         >
+                          <span
+                            className={
+                              task.status === 'active'
+                                ? 'mr-1 inline-block size-1.5 rounded-full bg-current'
+                                : 'mr-1 inline-block size-1.5 rounded-full bg-muted-foreground'
+                            }
+                            aria-hidden
+                          />
                           {task.status}
                         </Badge>
                       </TableCell>
@@ -99,25 +140,6 @@ export function Tasks() {
           )}
         </div>
       </div>
-    </div>
-  )
-}
-
-function EmptyTasks() {
-  return (
-    <div className="flex flex-col items-center gap-3 rounded-lg border border-border border-dashed bg-card/50 px-6 py-16 text-center">
-      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-        <ClockIcon className="h-6 w-6 text-muted-foreground" />
-      </div>
-      <p className="font-medium text-sm">No scheduled tasks yet</p>
-      <p className="max-w-md text-muted-foreground text-xs">
-        Tasks let you run a prompt on a schedule. Results land in your inbox for
-        review.
-      </p>
-      <LinkButton to="/tasks/new" size="sm" className="mt-2 gap-1.5">
-        <PlusIcon className="h-3.5 w-3.5" />
-        Create a task
-      </LinkButton>
     </div>
   )
 }

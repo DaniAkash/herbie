@@ -5,8 +5,16 @@ import {
   StarIcon,
   Trash2Icon,
 } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { useHerbieData } from '@/modules/data/HerbieDataProvider'
 import type { InboxItem } from '@/modules/data/herbie-data.types'
@@ -22,7 +30,7 @@ export function InboxCard({ item }: { item: InboxItem }) {
   } = useHerbieData()
 
   const isUnread = item.status === 'unread'
-  const preview = item.body.split('\n').slice(0, 4).join('\n')
+  const preview = item.body.split('\n').slice(0, 3).join('\n')
 
   function handleContinue() {
     const conv = continueInboxItemInChat(item.id)
@@ -32,74 +40,90 @@ export function InboxCard({ item }: { item: InboxItem }) {
   return (
     <Card
       className={cn(
-        'group p-4 transition-colors hover:border-border/80',
-        isUnread && 'border-l-4 border-l-primary',
+        'group relative gap-3 overflow-hidden py-4 transition-all hover:bg-card/80',
+        isUnread && 'ring-1 ring-primary/30',
       )}
     >
-      <div className="mb-1.5 flex items-center gap-2">
-        {isUnread && (
-          <span className="h-2 w-2 rounded-full bg-primary" aria-hidden />
-        )}
-        <Link
-          to="/inbox/$id"
-          params={{ id: item.id }}
-          className="font-semibold text-base hover:underline"
-        >
-          {item.title}
-        </Link>
-        <div className="ml-auto flex items-center gap-2 text-muted-foreground text-xs">
-          <span>{relativeTime(item.createdAt)}</span>
-          <span>·</span>
-          <span>{clockTime(item.createdAt)}</span>
+      {isUnread && (
+        <span
+          className="absolute top-4 left-0 h-8 w-[3px] rounded-r-full bg-primary"
+          aria-hidden
+        />
+      )}
+      <CardHeader className="gap-1 px-5">
+        <div className="flex items-baseline justify-between gap-3">
+          <CardTitle className="text-base">
+            <Link
+              to="/inbox/$id"
+              params={{ id: item.id }}
+              className="hover:underline"
+            >
+              {item.title}
+            </Link>
+          </CardTitle>
+          <span className="shrink-0 text-muted-foreground text-xs tabular-nums">
+            {relativeTime(item.createdAt)} · {clockTime(item.createdAt)}
+          </span>
         </div>
-      </div>
-      <div className="mb-3 text-muted-foreground text-xs">
-        From task <span className="font-mono">{item.taskName}</span> · agent{' '}
-        <span className="font-mono">{item.agent}</span>
-      </div>
-      <div className="mb-4 line-clamp-3 whitespace-pre-line text-foreground/90 text-sm leading-relaxed">
-        {preview}
-      </div>
-      <div className="flex items-center gap-1.5">
-        <Button size="sm" className="h-8 gap-1.5" onClick={handleContinue}>
-          <MessageSquareIcon className="h-3.5 w-3.5" />
+        <CardDescription className="flex items-center gap-1.5 font-mono text-[11px]">
+          <span className="text-muted-foreground/70">from</span>
+          <span>{item.taskName}</span>
+          <span className="text-muted-foreground/40">/</span>
+          <span>{item.agent}</span>
+          {item.starred && (
+            <StarIcon className="ml-1 size-3 fill-amber-400 stroke-amber-400" />
+          )}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="px-5">
+        <p className="line-clamp-3 whitespace-pre-line text-foreground/85 text-sm leading-relaxed">
+          {preview}
+        </p>
+      </CardContent>
+      <CardFooter className="gap-1 px-5 pt-0">
+        <Button size="sm" onClick={handleContinue}>
+          <MessageSquareIcon data-icon="inline-start" />
           Continue in chat
         </Button>
         {item.status !== 'done' && (
           <Button
             size="sm"
             variant="ghost"
-            className="h-8 gap-1.5"
             onClick={() => setInboxItemStatus(item.id, 'done')}
           >
-            <CheckIcon className="h-3.5 w-3.5" />
+            <CheckIcon data-icon="inline-start" />
             Mark done
           </Button>
         )}
+        <div className="flex-1" />
         <Button
-          size="sm"
+          size="icon-sm"
           variant="ghost"
-          className="h-8 w-8 p-0"
           onClick={() => toggleInboxStar(item.id)}
           aria-label={item.starred ? 'Unstar' : 'Star'}
         >
           <StarIcon
-            className={cn(
-              'h-3.5 w-3.5',
-              item.starred && 'fill-amber-400 text-amber-400',
-            )}
+            className={cn(item.starred && 'fill-amber-400 stroke-amber-400')}
           />
         </Button>
         <Button
-          size="sm"
+          size="icon-sm"
           variant="ghost"
-          className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
           onClick={() => deleteInboxItem(item.id)}
           aria-label="Delete"
+          className="text-muted-foreground hover:text-destructive"
         >
-          <Trash2Icon className="h-3.5 w-3.5" />
+          <Trash2Icon />
         </Button>
-      </div>
+        {!isUnread && (
+          <Badge
+            variant="outline"
+            className="ml-1 font-mono text-[9px] uppercase tracking-wider"
+          >
+            {item.status}
+          </Badge>
+        )}
+      </CardFooter>
     </Card>
   )
 }

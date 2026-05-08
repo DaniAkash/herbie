@@ -1,8 +1,16 @@
-import { ClockIcon, InboxIcon } from 'lucide-react'
+import { ClockIcon, InboxIcon, StarIcon } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { InboxCard } from '@/components/inbox/InboxCard'
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty'
 import { LinkButton } from '@/components/ui/link-button'
-import { cn } from '@/lib/utils'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { useHerbieData } from '@/modules/data/HerbieDataProvider'
 
 type Filter = 'all' | 'unread' | 'starred'
@@ -23,28 +31,35 @@ export function Inbox() {
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      <header className="flex items-center justify-between border-border border-b bg-background/95 px-6 py-3 backdrop-blur">
-        <h1 className="font-semibold text-base">Inbox</h1>
-        <div className="flex items-center gap-1">
-          <FilterChip
-            label="all"
-            active={filter === 'all'}
-            count={inboxItems.length}
-            onClick={() => setFilter('all')}
-          />
-          <FilterChip
-            label="unread"
-            active={filter === 'unread'}
-            count={unreadCount}
-            onClick={() => setFilter('unread')}
-          />
-          <FilterChip
-            label="★"
-            active={filter === 'starred'}
-            count={starredCount}
-            onClick={() => setFilter('starred')}
-          />
+      <header className="flex shrink-0 items-center justify-between gap-4 border-b bg-background/80 px-6 py-3 backdrop-blur">
+        <div className="flex items-baseline gap-3">
+          <h1 className="font-semibold text-base tracking-tight">Inbox</h1>
+          <span className="font-mono text-muted-foreground text-xs">
+            {inboxItems.length} item{inboxItems.length === 1 ? '' : 's'}
+          </span>
         </div>
+        <ToggleGroup
+          value={[filter]}
+          onValueChange={(v: string[]) => v[0] && setFilter(v[0] as Filter)}
+          size="sm"
+          variant="outline"
+        >
+          <ToggleGroupItem value="all" aria-label="All">
+            All
+          </ToggleGroupItem>
+          <ToggleGroupItem value="unread" aria-label="Unread">
+            Unread
+            {unreadCount > 0 && (
+              <span className="ml-1.5 rounded bg-primary/20 px-1 font-mono text-[10px] text-primary">
+                {unreadCount}
+              </span>
+            )}
+          </ToggleGroupItem>
+          <ToggleGroupItem value="starred" aria-label="Starred">
+            <StarIcon data-icon="inline-start" />
+            {starredCount}
+          </ToggleGroupItem>
+        </ToggleGroup>
       </header>
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto flex max-w-3xl flex-col gap-3 px-6 py-6">
@@ -58,69 +73,55 @@ export function Inbox() {
   )
 }
 
-function FilterChip({
-  label,
-  active,
-  count,
-  onClick,
-}: {
-  label: string
-  active: boolean
-  count: number
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        'flex cursor-pointer items-center gap-1.5 rounded-full px-3 py-1 text-xs transition-colors',
-        active
-          ? 'bg-secondary text-secondary-foreground'
-          : 'text-muted-foreground hover:bg-secondary/50',
-      )}
-    >
-      <span>{label}</span>
-      <span className="text-[10px] opacity-60">{count}</span>
-    </button>
-  )
-}
-
 function EmptyInbox({ filter }: { filter: Filter }) {
   if (filter === 'unread') {
     return (
-      <div className="flex flex-col items-center gap-3 py-16 text-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-          <InboxIcon className="h-6 w-6 text-muted-foreground" />
-        </div>
-        <p className="font-medium text-sm">No new items</p>
-        <p className="max-w-sm text-muted-foreground text-xs">
-          When your scheduled tasks finish, their results will land here.
-        </p>
-      </div>
+      <Empty>
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <InboxIcon />
+          </EmptyMedia>
+          <EmptyTitle>You're all caught up</EmptyTitle>
+          <EmptyDescription>
+            When your scheduled tasks finish, their results land here.
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     )
   }
   if (filter === 'starred') {
     return (
-      <div className="py-16 text-center text-muted-foreground text-sm">
-        Nothing starred yet.
-      </div>
+      <Empty>
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <StarIcon />
+          </EmptyMedia>
+          <EmptyTitle>Nothing starred</EmptyTitle>
+          <EmptyDescription>
+            Star items you want to revisit later.
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     )
   }
   return (
-    <div className="flex flex-col items-center gap-3 py-16 text-center">
-      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-        <InboxIcon className="h-6 w-6 text-muted-foreground" />
-      </div>
-      <p className="font-medium text-sm">Inbox is empty</p>
-      <p className="max-w-md text-muted-foreground text-xs">
-        Herbie can run prompts on a schedule and drop the results here. Set up
-        your first scheduled task and check back tomorrow morning.
-      </p>
-      <LinkButton to="/tasks/new" size="sm" className="mt-2 gap-1.5">
-        <ClockIcon className="h-3.5 w-3.5" />
-        Create your first task
-      </LinkButton>
-    </div>
+    <Empty>
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <InboxIcon />
+        </EmptyMedia>
+        <EmptyTitle>Inbox is empty</EmptyTitle>
+        <EmptyDescription>
+          Herbie can run prompts on a schedule and drop results here. Set up
+          your first scheduled task and check back tomorrow morning.
+        </EmptyDescription>
+      </EmptyHeader>
+      <EmptyContent>
+        <LinkButton to="/tasks/new">
+          <ClockIcon data-icon="inline-start" />
+          Create your first task
+        </LinkButton>
+      </EmptyContent>
+    </Empty>
   )
 }

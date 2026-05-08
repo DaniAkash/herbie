@@ -1,10 +1,19 @@
 import { useNavigate } from '@tanstack/react-router'
-import { SparklesIcon } from 'lucide-react'
-import { useMemo } from 'react'
-import { ChatHeader } from '@/components/chat/ChatHeader'
+import { ChevronDownIcon, FolderIcon, SparklesIcon } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import { Composer } from '@/components/chat/Composer'
+import { Badge } from '@/components/ui/badge'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
+import { cn } from '@/lib/utils'
 import { useHerbieData } from '@/modules/data/HerbieDataProvider'
-import type { AgentId, Message } from '@/modules/data/herbie-data.types'
+import type {
+  AgentId,
+  Message as HMessage,
+} from '@/modules/data/herbie-data.types'
 import { clockTime } from '@/modules/utils/relativeTime'
 
 type ChatProps = {
@@ -77,24 +86,25 @@ export function Chat({ conversationId }: ChatProps) {
     setConversationWorkspace(conversationId, id)
   }
 
-  const workspaceLabel = activeWorkspace
-    ? `in ${workspaces.find((w) => w.id === activeWorkspace)?.name ?? activeWorkspace}`
-    : 'no workspace'
+  const activeWorkspaceName = activeWorkspace
+    ? (workspaces.find((w) => w.id === activeWorkspace)?.name ??
+      activeWorkspace)
+    : null
 
   if (isNew) {
     return (
       <div className="flex flex-1 flex-col">
-        <div className="flex flex-1 flex-col items-center justify-center px-6">
-          <div className="flex max-w-xl flex-col items-center text-center">
-            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <SparklesIcon className="h-6 w-6" />
+        <div className="flex flex-1 items-center justify-center px-6">
+          <div className="flex max-w-lg flex-col items-center text-center">
+            <div className="mb-5 flex size-12 items-center justify-center rounded-full bg-primary/15 text-primary ring-1 ring-primary/20">
+              <SparklesIcon className="size-5" />
             </div>
-            <h2 className="font-semibold text-2xl tracking-tight">
+            <h2 className="font-semibold text-3xl tracking-tight">
               What's on your mind?
             </h2>
-            <p className="mt-1 text-muted-foreground text-sm">
+            <p className="mt-2 max-w-md text-balance text-muted-foreground text-sm leading-relaxed">
               Start a chat with your agents. Pick a workspace if you want them
-              to work on a specific project.
+              to work on a specific project — or just ask anything.
             </p>
           </div>
         </div>
@@ -122,15 +132,29 @@ export function Chat({ conversationId }: ChatProps) {
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      <ChatHeader
-        title={conversation.title}
-        agent={activeAgent}
-        workspaceLabel={workspaceLabel}
-      />
+      <header className="flex shrink-0 items-center justify-between gap-4 border-b bg-background/80 px-6 py-3 backdrop-blur">
+        <h1 className="min-w-0 truncate font-semibold text-base tracking-tight">
+          {conversation.title}
+        </h1>
+        <div className="flex shrink-0 items-center gap-1.5 text-xs">
+          <Badge variant="outline" className="font-mono text-[10px]">
+            {activeAgent}
+          </Badge>
+          {activeWorkspaceName && (
+            <Badge
+              variant="outline"
+              className="gap-1 font-mono text-[10px] text-muted-foreground"
+            >
+              <FolderIcon className="size-3" />
+              {activeWorkspaceName}
+            </Badge>
+          )}
+        </div>
+      </header>
       <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-6">
+        <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-6 py-8">
           {conversationMessages.map((m) => (
-            <MessageBubble key={m.id} message={m} />
+            <ChatMessage key={m.id} message={m} />
           ))}
         </div>
       </div>
@@ -146,7 +170,8 @@ export function Chat({ conversationId }: ChatProps) {
   )
 }
 
-function MessageBubble({ message }: { message: Message }) {
+function ChatMessage({ message }: { message: HMessage }) {
+  const [reasoningOpen, setReasoningOpen] = useState(false)
   const isUser = message.role === 'user'
   const text = message.parts
     .filter((p) => p.type === 'text')
@@ -156,34 +181,51 @@ function MessageBubble({ message }: { message: Message }) {
     | { type: 'reasoning'; text: string }
     | undefined
 
+  if (isUser) {
+    return (
+      <div className="flex flex-col items-end gap-1.5">
+        <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl bg-secondary px-4 py-2.5 text-secondary-foreground text-sm leading-relaxed">
+          {text}
+        </div>
+        <span className="px-2 text-[10px] text-muted-foreground/60 tabular-nums">
+          {clockTime(message.createdAt)}
+        </span>
+      </div>
+    )
+  }
+
   return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-center gap-2">
-        <span className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-          {isUser ? 'You' : (message.agent ?? 'assistant')}
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-2 text-xs">
+        <span className="font-mono text-muted-foreground uppercase tracking-wider">
+          {message.agent ?? 'assistant'}
         </span>
         {message.fromTaskId && (
-          <span className="rounded-full bg-primary/10 px-2 py-0.5 font-medium text-[10px] text-primary">
+          <Badge variant="secondary" className="text-[10px]">
             from task
-          </span>
+          </Badge>
         )}
-        <span className="text-muted-foreground text-xs">
+        <span className="text-muted-foreground/60 tabular-nums">
           {clockTime(message.createdAt)}
         </span>
       </div>
       {reasoning && (
-        <details className="rounded-md bg-muted/50 px-3 py-2 text-muted-foreground text-xs">
-          <summary className="cursor-pointer font-medium">Reasoning</summary>
-          <p className="mt-1.5 whitespace-pre-wrap">{reasoning.text}</p>
-        </details>
+        <Collapsible open={reasoningOpen} onOpenChange={setReasoningOpen}>
+          <CollapsibleTrigger className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-muted-foreground text-xs transition-colors hover:bg-muted hover:text-foreground">
+            <ChevronDownIcon
+              className={cn(
+                'size-3 transition-transform',
+                reasoningOpen && 'rotate-180',
+              )}
+            />
+            Reasoning
+          </CollapsibleTrigger>
+          <CollapsibleContent className="mt-1 rounded-md border-muted border-l-2 bg-muted/30 px-3 py-2 text-muted-foreground text-xs leading-relaxed">
+            <div className="whitespace-pre-wrap">{reasoning.text}</div>
+          </CollapsibleContent>
+        </Collapsible>
       )}
-      <div
-        className={
-          isUser
-            ? 'self-start whitespace-pre-wrap rounded-2xl bg-secondary px-4 py-2.5 text-secondary-foreground text-sm'
-            : 'self-start whitespace-pre-wrap text-sm leading-relaxed'
-        }
-      >
+      <div className="whitespace-pre-wrap text-[15px] leading-relaxed">
         {text}
       </div>
     </div>

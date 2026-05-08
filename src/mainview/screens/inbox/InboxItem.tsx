@@ -7,6 +7,7 @@ import {
   Trash2Icon,
 } from 'lucide-react'
 import { useEffect } from 'react'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { LinkButton } from '@/components/ui/link-button'
 import { cn } from '@/lib/utils'
@@ -53,69 +54,63 @@ export function InboxItem({ id }: { id: string }) {
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      <header className="flex items-center gap-2 border-border border-b bg-background/95 px-6 py-3 backdrop-blur">
-        <LinkButton
-          to="/inbox"
-          variant="ghost"
-          size="sm"
-          className="h-8 gap-1.5"
-        >
-          <ArrowLeftIcon className="h-3.5 w-3.5" />
+      <header className="flex shrink-0 items-center gap-2 border-b bg-background/80 px-6 py-3 backdrop-blur">
+        <LinkButton to="/inbox" variant="ghost" size="sm">
+          <ArrowLeftIcon data-icon="inline-start" />
           Inbox
         </LinkButton>
       </header>
       <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto flex max-w-3xl flex-col gap-4 px-6 py-8">
-          <div>
-            <h1 className="font-semibold text-2xl tracking-tight">
+        <div className="mx-auto flex max-w-3xl flex-col gap-5 px-6 py-10">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="font-mono text-[10px]">
+                {item.taskName}
+              </Badge>
+              <Badge variant="secondary" className="font-mono text-[10px]">
+                {item.agent}
+              </Badge>
+              <span className="text-muted-foreground text-xs tabular-nums">
+                {relativeTime(item.createdAt)} · {clockTime(item.createdAt)}
+              </span>
+            </div>
+            <h1 className="font-semibold text-3xl tracking-tight">
               {item.title}
             </h1>
-            <p className="mt-1 text-muted-foreground text-xs">
-              from task <span className="font-mono">{item.taskName}</span> ·
-              agent <span className="font-mono">{item.agent}</span> ·{' '}
-              {relativeTime(item.createdAt)} at {clockTime(item.createdAt)}
-            </p>
           </div>
-          <div className="whitespace-pre-line rounded-lg border border-border bg-card p-5 text-sm leading-relaxed">
+          <article className="whitespace-pre-line rounded-lg border bg-card/60 p-6 text-[15px] leading-relaxed">
             {item.body}
-          </div>
+          </article>
         </div>
       </div>
-      <footer className="flex items-center gap-2 border-border border-t bg-background/95 px-6 py-3 backdrop-blur">
-        <Button onClick={handleContinue} className="gap-1.5">
-          <MessageSquareIcon className="h-4 w-4" />
+      <footer className="flex shrink-0 items-center gap-2 border-t bg-background/80 px-6 py-3 backdrop-blur">
+        <Button onClick={handleContinue}>
+          <MessageSquareIcon data-icon="inline-start" />
           Continue in chat
         </Button>
         {item.status !== 'done' && (
           <Button
             variant="outline"
-            className="gap-1.5"
             onClick={() => setInboxItemStatus(item.id, 'done')}
           >
-            <CheckIcon className="h-4 w-4" />
+            <CheckIcon data-icon="inline-start" />
             Mark done
           </Button>
         )}
-        <Button
-          variant="outline"
-          className="gap-1.5"
-          onClick={() => toggleInboxStar(item.id)}
-        >
+        <Button variant="outline" onClick={() => toggleInboxStar(item.id)}>
           <StarIcon
-            className={cn(
-              'h-4 w-4',
-              item.starred && 'fill-amber-400 text-amber-400',
-            )}
+            data-icon="inline-start"
+            className={cn(item.starred && 'fill-amber-400 stroke-amber-400')}
           />
           {item.starred ? 'Starred' : 'Star'}
         </Button>
         <div className="flex-1" />
         <Button
           variant="ghost"
-          className="gap-1.5 text-muted-foreground hover:text-destructive"
           onClick={handleDelete}
+          className="text-muted-foreground hover:text-destructive"
         >
-          <Trash2Icon className="h-4 w-4" />
+          <Trash2Icon data-icon="inline-start" />
           Delete
         </Button>
       </footer>
