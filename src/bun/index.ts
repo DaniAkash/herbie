@@ -29,6 +29,7 @@ const url = await getMainViewUrl()
 const mainWindow = new BrowserWindow({
   title: 'Herbie',
   url,
+  titleBarStyle: 'hiddenInset',
   frame: {
     width: 380,
     height: 500,
