@@ -8,7 +8,6 @@
     "**/*.css"
   ],
   "ignoreDependencies": [
-    "@ai-sdk/anthropic",
     "@fontsource-variable/geist",
     "tw-animate-css",
     "clsx",
