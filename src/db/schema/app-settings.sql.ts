@@ -12,6 +12,7 @@ export const appSettings = sqliteTable('app_settings', {
   })
     .notNull()
     .default(true),
+  defaultAgent: text('default_agent').notNull().default('claude'),
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 })
 

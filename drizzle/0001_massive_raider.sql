@@ -1,0 +1,1 @@
+ALTER TABLE `app_settings` ADD `default_agent` text DEFAULT 'claude' NOT NULL;

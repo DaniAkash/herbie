@@ -20,6 +20,58 @@ const ACP_AGENT_DISPLAY: Record<string, AcpAgentDisplayMeta> = {
     displayName: 'Hermes Agent',
     installUrl: 'https://hermes-agent.nousresearch.com/',
   },
+  copilot: {
+    displayName: 'GitHub Copilot CLI',
+    installUrl: 'https://github.com/github/gh-copilot',
+  },
+  cursor: {
+    displayName: 'Cursor CLI',
+    installUrl: 'https://docs.cursor.com/en/cli/overview',
+  },
+  droid: {
+    displayName: 'Droid CLI',
+    installUrl: 'https://docs.factory.ai/cli/getting-started/overview',
+  },
+  iflow: {
+    displayName: 'iFlow CLI',
+    installUrl: 'https://www.npmjs.com/package/@iflow-ai/iflow-cli',
+  },
+  kilocode: {
+    displayName: 'Kilo Code',
+    installUrl: 'https://kilocode.ai/',
+  },
+  kimi: {
+    displayName: 'Kimi CLI',
+    installUrl: 'https://github.com/MoonshotAI/kimi-cli',
+  },
+  kiro: {
+    displayName: 'Kiro',
+    installUrl: 'https://kiro.dev/',
+  },
+  openclaw: {
+    displayName: 'OpenClaw',
+    installUrl: 'https://github.com/openclaw/openclaw',
+  },
+  opencode: {
+    displayName: 'OpenCode',
+    installUrl: 'https://opencode.ai/',
+  },
+  pi: {
+    displayName: 'Pi',
+    installUrl: 'https://www.npmjs.com/package/pi-acp',
+  },
+  qoder: {
+    displayName: 'Qoder',
+    installUrl: 'https://qoder.com/',
+  },
+  qwen: {
+    displayName: 'Qwen Code',
+    installUrl: 'https://github.com/QwenLM/qwen-code',
+  },
+  trae: {
+    displayName: 'Trae',
+    installUrl: 'https://www.trae.ai/',
+  },
 }
 
 export function getDisplayMeta(agentId: string): AcpAgentDisplayMeta {

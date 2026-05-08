@@ -7,6 +7,7 @@ import {
   useMemo,
   useState,
 } from 'react'
+import { useAppSettings, useUpdateAppSettings } from '../api/appSettings.hooks'
 import { pickResponse } from './cannedResponses'
 import type {
   AgentId,
@@ -43,7 +44,15 @@ export function HerbieDataProvider({ children }: { children: ReactNode }) {
   const [messages, setMessages] = useState<Message[]>(seedMessages)
   const [tasks, setTasks] = useState<Task[]>(seedTasks)
   const [inboxItems, setInboxItems] = useState<InboxItem[]>(seedInboxItems)
-  const [defaultAgent, setDefaultAgent] = useState<AgentId>('claude')
+  const { data: appSettings } = useAppSettings()
+  const { mutate: updateAppSettings } = useUpdateAppSettings()
+  const defaultAgent = (appSettings?.defaultAgent ?? 'claude') as AgentId
+  const setDefaultAgent = useCallback(
+    (agent: AgentId) => {
+      updateAppSettings({ defaultAgent: agent })
+    },
+    [updateAppSettings],
+  )
 
   const createConversation = useCallback(
     (input: CreateConversationInput): Conversation => {
@@ -246,6 +255,7 @@ export function HerbieDataProvider({ children }: { children: ReactNode }) {
       tasks,
       inboxItems,
       defaultAgent,
+      setDefaultAgent,
       createConversation,
       setConversationAgent,
       setConversationWorkspace,

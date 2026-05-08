@@ -14,6 +14,7 @@ const patchSchema = z
   .object({
     launchAtLogin: z.boolean().optional(),
     minimizeToMenubarOnClose: z.boolean().optional(),
+    defaultAgent: z.string().min(1).optional(),
   })
   .strict()
 
@@ -29,6 +30,7 @@ async function readOrCreate() {
     id: SETTINGS_SINGLETON_ID,
     launchAtLogin: false,
     minimizeToMenubarOnClose: true,
+    defaultAgent: 'claude',
     updatedAt: new Date(),
   }
   await db.insert(appSettings).values(row).run()

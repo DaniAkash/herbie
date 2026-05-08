@@ -137,36 +137,48 @@ function AgentsTab() {
   const { agents, defaultAgent, setDefaultAgent } = useHerbieData()
   const { data, isLoading } = useAgents()
 
-  const primaryRows = (data ?? []).filter((row) => isPrimaryAgent(row.agentId))
+  const rows = data ?? []
+  const primaryRows = rows.filter((row) => isPrimaryAgent(row.agentId))
   const installed = primaryRows.filter((r) => r.installState === 'installed')
   const npxAvailable = primaryRows.filter(
     (r) => r.installState === 'npx-available',
   )
-  const notInstalled = primaryRows.filter(
-    (r) => r.installState === 'not-installed',
+  const notInstalled = rows.filter((r) => r.installState === 'not-installed')
+
+  const installedPrimaryIds = new Set<AgentId>(
+    [...installed, ...npxAvailable]
+      .map((r) => r.agentId)
+      .filter(isPrimaryAgent),
   )
+  const pickerAgents = agents.filter((a) => installedPrimaryIds.has(a.id))
 
   return (
     <div className="flex flex-col gap-8">
       <section className="flex flex-col gap-3">
         <h2 className="font-medium text-sm">Default agent for new chats</h2>
-        <ToggleGroup
-          value={[defaultAgent]}
-          onValueChange={(v: string[]) =>
-            v[0] && setDefaultAgent(v[0] as AgentId)
-          }
-          variant="outline"
-        >
-          {agents.map((agent) => (
-            <ToggleGroupItem
-              key={agent.id}
-              value={agent.id}
-              aria-label={agent.label}
-            >
-              {agent.label}
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
+        {pickerAgents.length === 0 ? (
+          <p className="text-muted-foreground text-xs">
+            Install one of the supported agents below to set a default.
+          </p>
+        ) : (
+          <ToggleGroup
+            value={[defaultAgent]}
+            onValueChange={(v: string[]) =>
+              v[0] && setDefaultAgent(v[0] as AgentId)
+            }
+            variant="outline"
+          >
+            {pickerAgents.map((agent) => (
+              <ToggleGroupItem
+                key={agent.id}
+                value={agent.id}
+                aria-label={agent.label}
+              >
+                {agent.label}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+        )}
       </section>
 
       <section className="flex flex-col gap-3">
