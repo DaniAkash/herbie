@@ -6,6 +6,13 @@ export default {
     identifier: 'herbie.daniakash.com',
     version: '0.0.1',
   },
+  runtime: {
+    // Herbie is a menubar-resident app — closing the window leaves the
+    // app alive in the tray. The "Keep in menu bar on close" toggle in
+    // Settings flips this dynamically by calling Utils.quit() from the
+    // window's close handler when the toggle is off.
+    exitOnLastWindowClosed: false,
+  },
   build: {
     copy: {
       'dist/index.html': 'views/mainview/index.html',
@@ -13,13 +20,6 @@ export default {
       drizzle: 'drizzle',
     },
     watchIgnore: ['dist/**'],
-    runtime: {
-      // Herbie is a menubar-resident app — closing the window leaves the
-      // app alive in the tray. The "Keep in menu bar on close" toggle in
-      // Settings flips this dynamically by calling Utils.quit() from the
-      // window's close handler when the toggle is off.
-      exitOnLastWindowClosed: false,
-    },
     mac: {
       bundleCEF: false,
     },
