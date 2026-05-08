@@ -8,6 +8,13 @@
       "when": 1778234966315,
       "tag": "0000_careful_centennial",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1778263423816,
+      "tag": "0001_massive_raider",
+      "breakpoints": true
     }
   ]
 }

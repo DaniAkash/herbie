@@ -1,3 +1,9 @@
+// TODO(deprecated): Do NOT add anything new here. This provider is a leftover
+// from the UI prototype phase, holding in-memory mock state for domains that
+// don't have a backend yet (conversations, messages, tasks, inbox). As each
+// domain gets a real API + react-query hook, peel it out and shrink this file
+// until it can be deleted. New state belongs in react-query, not here.
+
 import { nanoid } from 'nanoid'
 import {
   createContext,
@@ -43,7 +49,6 @@ export function HerbieDataProvider({ children }: { children: ReactNode }) {
   const [messages, setMessages] = useState<Message[]>(seedMessages)
   const [tasks, setTasks] = useState<Task[]>(seedTasks)
   const [inboxItems, setInboxItems] = useState<InboxItem[]>(seedInboxItems)
-  const [defaultAgent, setDefaultAgent] = useState<AgentId>('claude')
 
   const createConversation = useCallback(
     (input: CreateConversationInput): Conversation => {
@@ -224,8 +229,6 @@ export function HerbieDataProvider({ children }: { children: ReactNode }) {
       messages,
       tasks,
       inboxItems,
-      defaultAgent,
-      setDefaultAgent,
       createConversation,
       setConversationAgent,
       setConversationWorkspace,
@@ -245,7 +248,6 @@ export function HerbieDataProvider({ children }: { children: ReactNode }) {
       messages,
       tasks,
       inboxItems,
-      defaultAgent,
       createConversation,
       setConversationAgent,
       setConversationWorkspace,

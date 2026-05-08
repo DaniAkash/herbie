@@ -51,8 +51,6 @@ export type HerbieDataValue = {
   messages: Message[]
   tasks: Task[]
   inboxItems: InboxItem[]
-  defaultAgent: AgentId
-  setDefaultAgent: (agent: AgentId) => void
   createConversation: (input: CreateConversationInput) => Conversation
   setConversationAgent: (id: string, agent: AgentId) => void
   setConversationWorkspace: (

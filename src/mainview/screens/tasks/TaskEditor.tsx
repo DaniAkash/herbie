@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input'
 import { LinkButton } from '@/components/ui/link-button'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import { useDefaultAgent } from '@/modules/api/appSettings.hooks'
 import { useHerbieData } from '@/modules/data/HerbieDataProvider'
 import type {
   AgentId,
@@ -46,8 +47,8 @@ export function TaskEditor({
   initialWorkspaceId,
 }: EditorProps) {
   const navigate = useNavigate()
-  const { tasks, defaultAgent, createTask, updateTask, deleteTask } =
-    useHerbieData()
+  const { tasks, createTask, updateTask, deleteTask } = useHerbieData()
+  const { defaultAgent } = useDefaultAgent()
 
   const existing = taskId ? tasks.find((t) => t.id === taskId) : undefined
 
