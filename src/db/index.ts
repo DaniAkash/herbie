@@ -12,7 +12,12 @@ const DB_PATH = join(HERBIE_DIR, 'data.db')
 const BACKUP_PATH = `${DB_PATH}.backup`
 
 function migrationsFolder(): string {
-  return new URL('../../drizzle', import.meta.url).pathname
+  // import.meta.url resolves to the bundled location at runtime:
+  //   Herbie.app/Contents/Resources/app/bun/index.js
+  // electrobun.config.ts copies the drizzle/ folder into Resources/app/drizzle,
+  // so going up one level from bun/ lands on it. (Two levels lands at
+  // Resources/drizzle which doesn't exist.)
+  return new URL('../drizzle', import.meta.url).pathname
 }
 
 export type Opened = {
