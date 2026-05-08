@@ -1,6 +1,8 @@
+import { ExternalLinkIcon } from 'lucide-react'
 import { useState } from 'react'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Button, buttonVariants } from '@/components/ui/button'
 import {
   Field,
   FieldDescription,
@@ -13,12 +15,24 @@ import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { cn } from '@/lib/utils'
+import { type AgentDetection, useAgents } from '@/modules/api/agents.hooks'
 import {
   useAppSettings,
   useUpdateAppSettings,
 } from '@/modules/api/appSettings.hooks'
 import { useHerbieData } from '@/modules/data/HerbieDataProvider'
 import type { AgentId } from '@/modules/data/herbie-data.types'
+
+const HERBIE_PRIMARY_AGENTS: ReadonlySet<AgentId> = new Set([
+  'claude',
+  'codex',
+  'gemini',
+  'hermes',
+])
+
+function isPrimaryAgent(agentId: string): agentId is AgentId {
+  return HERBIE_PRIMARY_AGENTS.has(agentId as AgentId)
+}
 
 export function Settings() {
   return (
@@ -121,45 +135,22 @@ function SettingRow({
 
 function AgentsTab() {
   const { agents, defaultAgent, setDefaultAgent } = useHerbieData()
+  const { data, isLoading } = useAgents()
+
+  // Filter the full acpx-enumerated list down to the four agents Herbie
+  // surfaces in the UI. The detector returns everything; the renderer
+  // decides what to show.
+  const primaryRows = (data ?? []).filter((row) => isPrimaryAgent(row.agentId))
+  const installed = primaryRows.filter((r) => r.installState === 'installed')
+  const npxAvailable = primaryRows.filter(
+    (r) => r.installState === 'npx-available',
+  )
+  const notInstalled = primaryRows.filter(
+    (r) => r.installState === 'not-installed',
+  )
+
   return (
     <div className="flex flex-col gap-8">
-      <section className="flex flex-col gap-3">
-        <h2 className="font-medium text-sm">Installed agents</h2>
-        <div className="divide-y divide-border overflow-hidden rounded-lg border bg-card">
-          {agents.map((agent) => (
-            <div
-              key={agent.id}
-              className="flex items-center justify-between gap-4 px-5 py-3.5"
-            >
-              <div className="flex items-center gap-3">
-                <span
-                  className={cn(
-                    'size-2 rounded-full',
-                    agent.status === 'ready' && 'bg-emerald-500',
-                    agent.status === 'signin-required' && 'bg-amber-500',
-                    agent.status === 'not-installed' &&
-                      'bg-muted-foreground/40',
-                  )}
-                  aria-hidden
-                />
-                <div>
-                  <div className="font-medium text-sm">{agent.label}</div>
-                  <div className="text-muted-foreground text-xs">
-                    {agent.status === 'ready' && 'logged in'}
-                    {agent.status === 'signin-required' && 'not logged in'}
-                    {agent.status === 'not-installed' && 'not installed'}
-                  </div>
-                </div>
-              </div>
-              <Button variant="outline" size="sm">
-                {agent.status === 'ready' && 'Sign out'}
-                {agent.status === 'signin-required' && 'Sign in'}
-                {agent.status === 'not-installed' && 'Install'}
-              </Button>
-            </div>
-          ))}
-        </div>
-      </section>
       <section className="flex flex-col gap-3">
         <h2 className="font-medium text-sm">Default agent for new chats</h2>
         <ToggleGroup
@@ -180,6 +171,101 @@ function AgentsTab() {
           ))}
         </ToggleGroup>
       </section>
+
+      <section className="flex flex-col gap-3">
+        <h2 className="font-medium text-sm">Agents</h2>
+        {isLoading || !data ? (
+          <Skeleton className="h-32 rounded-lg" />
+        ) : (
+          <div className="flex flex-col gap-4">
+            {installed.length > 0 && (
+              <AgentSection title="Installed" rows={installed} />
+            )}
+            {npxAvailable.length > 0 && (
+              <AgentSection
+                title="Auto-installs via npx"
+                description="These agents fetch on first use. The first session takes a few extra seconds."
+                rows={npxAvailable}
+              />
+            )}
+            {notInstalled.length > 0 && (
+              <AgentSection
+                title="Not installed on this machine"
+                rows={notInstalled}
+              />
+            )}
+          </div>
+        )}
+      </section>
+    </div>
+  )
+}
+
+function AgentSection({
+  title,
+  description,
+  rows,
+}: {
+  title: string
+  description?: string
+  rows: AgentDetection[]
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <div>
+        <div className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+          {title}
+        </div>
+        {description && (
+          <div className="mt-0.5 text-muted-foreground text-xs">
+            {description}
+          </div>
+        )}
+      </div>
+      <div className="divide-y divide-border overflow-hidden rounded-lg border bg-card">
+        {rows.map((row) => (
+          <AgentRow key={row.agentId} row={row} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function AgentRow({ row }: { row: AgentDetection }) {
+  return (
+    <div className="flex items-center justify-between gap-4 px-5 py-3.5">
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <div className="flex items-center gap-2">
+          <span className="truncate font-medium text-sm">
+            {row.displayName}
+          </span>
+          {row.npxBased && row.installState === 'installed' && (
+            <Badge variant="secondary" className="font-mono text-[10px]">
+              npx
+            </Badge>
+          )}
+        </div>
+        {row.version ? (
+          <span className="font-mono text-muted-foreground text-xs">
+            {row.version}
+          </span>
+        ) : row.installState === 'npx-available' ? (
+          <span className="text-muted-foreground text-xs">
+            fetches on first use
+          </span>
+        ) : null}
+      </div>
+      {row.installState === 'not-installed' ? (
+        <a
+          href={row.installUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
+        >
+          Install
+          <ExternalLinkIcon data-icon="inline-end" />
+        </a>
+      ) : null}
     </div>
   )
 }
