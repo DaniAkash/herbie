@@ -1,6 +1,7 @@
 import { ClockIcon, InboxIcon, StarIcon } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { InboxCard } from '@/components/inbox/InboxCard'
+import { PageHeader } from '@/components/layout/PageHeader'
 import {
   Empty,
   EmptyContent,
@@ -31,7 +32,7 @@ export function Inbox() {
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      <header className="electrobun-webkit-app-region-drag flex shrink-0 items-center justify-between gap-4 border-b bg-background/80 px-6 py-3 backdrop-blur">
+      <PageHeader maxWidth="max-w-3xl" className="justify-between">
         <div className="flex items-baseline gap-3">
           <h1 className="font-semibold text-base tracking-tight">Inbox</h1>
           <span className="font-mono text-muted-foreground text-xs">
@@ -60,9 +61,9 @@ export function Inbox() {
             {starredCount}
           </ToggleGroupItem>
         </ToggleGroup>
-      </header>
+      </PageHeader>
       <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto flex max-w-3xl flex-col gap-3 px-6 py-6">
+        <div className="mx-auto flex max-w-3xl flex-col gap-3 px-6 py-6 2xl:max-w-4xl">
           {filtered.length === 0 ? <EmptyInbox filter={filter} /> : null}
           {filtered.map((item) => (
             <InboxCard key={item.id} item={item} />

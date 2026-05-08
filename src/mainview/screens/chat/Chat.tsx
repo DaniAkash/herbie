@@ -2,6 +2,7 @@ import { useNavigate } from '@tanstack/react-router'
 import { ChevronDownIcon, FolderIcon, SparklesIcon } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Composer } from '@/components/chat/Composer'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { Badge } from '@/components/ui/badge'
 import {
   Collapsible,
@@ -94,6 +95,9 @@ export function Chat({ conversationId }: ChatProps) {
   if (isNew) {
     return (
       <div className="flex flex-1 flex-col">
+        <PageHeader maxWidth="max-w-3xl">
+          <div className="md:hidden" />
+        </PageHeader>
         <div className="flex flex-1 items-center justify-center px-6">
           <div className="flex max-w-lg flex-col items-center text-center">
             <div className="mb-5 flex size-12 items-center justify-center rounded-full bg-primary/15 text-primary ring-1 ring-primary/20">
@@ -132,7 +136,7 @@ export function Chat({ conversationId }: ChatProps) {
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      <header className="electrobun-webkit-app-region-drag flex shrink-0 items-center justify-between gap-4 border-b bg-background/80 px-6 py-3 backdrop-blur">
+      <PageHeader maxWidth="max-w-3xl" className="justify-between">
         <h1 className="min-w-0 truncate font-semibold text-base tracking-tight">
           {conversation.title}
         </h1>
@@ -150,9 +154,9 @@ export function Chat({ conversationId }: ChatProps) {
             </Badge>
           )}
         </div>
-      </header>
+      </PageHeader>
       <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-6 py-8">
+        <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-6 py-8 2xl:max-w-4xl">
           {conversationMessages.map((m) => (
             <ChatMessage key={m.id} message={m} />
           ))}

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import {
   Field,
@@ -16,9 +17,9 @@ import type { AgentId } from '@/modules/data/herbie-data.types'
 export function Settings() {
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      <header className="electrobun-webkit-app-region-drag flex shrink-0 items-center border-b bg-background/80 px-6 py-3 backdrop-blur">
+      <PageHeader maxWidth="max-w-3xl">
         <h1 className="font-semibold text-base tracking-tight">Settings</h1>
-      </header>
+      </PageHeader>
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-3xl px-6 py-8">
           <Tabs defaultValue="agents">

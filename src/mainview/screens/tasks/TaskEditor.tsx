@@ -3,6 +3,7 @@ import { ArrowLeftIcon, PauseIcon, PlayIcon, Trash2Icon } from 'lucide-react'
 import { type FormEvent, useState } from 'react'
 import { AgentPicker } from '@/components/chat/AgentPicker'
 import { WorkspacePicker } from '@/components/chat/WorkspacePicker'
+import { PageFooter, PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import {
   Field,
@@ -108,7 +109,7 @@ export function TaskEditor({
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      <header className="electrobun-webkit-app-region-drag flex shrink-0 items-center gap-3 border-b bg-background/80 px-6 py-3 backdrop-blur">
+      <PageHeader maxWidth="max-w-2xl">
         <LinkButton to="/tasks" variant="ghost" size="sm">
           <ArrowLeftIcon data-icon="inline-start" />
           Tasks
@@ -116,7 +117,7 @@ export function TaskEditor({
         <h1 className="font-semibold text-base tracking-tight">
           {mode === 'create' ? 'New scheduled task' : existing?.name}
         </h1>
-      </header>
+      </PageHeader>
       <form
         onSubmit={handleSubmit}
         className="flex flex-1 flex-col overflow-hidden"
@@ -191,7 +192,7 @@ export function TaskEditor({
             </FieldGroup>
           </div>
         </div>
-        <footer className="flex shrink-0 items-center gap-2 border-t bg-background/80 px-6 py-3 backdrop-blur">
+        <PageFooter maxWidth="max-w-2xl">
           <Button type="submit" disabled={!canSave}>
             {mode === 'create' ? 'Create task' : 'Save'}
           </Button>
@@ -222,7 +223,7 @@ export function TaskEditor({
               </Button>
             </>
           )}
-        </footer>
+        </PageFooter>
       </form>
     </div>
   )

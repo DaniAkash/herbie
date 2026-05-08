@@ -7,6 +7,7 @@ import {
   Trash2Icon,
 } from 'lucide-react'
 import { useEffect } from 'react'
+import { PageFooter, PageHeader } from '@/components/layout/PageHeader'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { LinkButton } from '@/components/ui/link-button'
@@ -54,14 +55,14 @@ export function InboxItem({ id }: { id: string }) {
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      <header className="electrobun-webkit-app-region-drag flex shrink-0 items-center gap-2 border-b bg-background/80 px-6 py-3 backdrop-blur">
+      <PageHeader maxWidth="max-w-3xl">
         <LinkButton to="/inbox" variant="ghost" size="sm">
           <ArrowLeftIcon data-icon="inline-start" />
           Inbox
         </LinkButton>
-      </header>
+      </PageHeader>
       <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto flex max-w-3xl flex-col gap-5 px-6 py-10">
+        <div className="mx-auto flex max-w-3xl flex-col gap-5 px-6 py-10 2xl:max-w-4xl">
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="font-mono text-[10px]">
@@ -83,7 +84,7 @@ export function InboxItem({ id }: { id: string }) {
           </article>
         </div>
       </div>
-      <footer className="flex shrink-0 items-center gap-2 border-t bg-background/80 px-6 py-3 backdrop-blur">
+      <PageFooter maxWidth="max-w-3xl">
         <Button onClick={handleContinue}>
           <MessageSquareIcon data-icon="inline-start" />
           Continue in chat
@@ -113,7 +114,7 @@ export function InboxItem({ id }: { id: string }) {
           <Trash2Icon data-icon="inline-start" />
           Delete
         </Button>
-      </footer>
+      </PageFooter>
     </div>
   )
 }

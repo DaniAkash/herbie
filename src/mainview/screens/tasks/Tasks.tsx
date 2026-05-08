@@ -1,5 +1,6 @@
 import { useNavigate } from '@tanstack/react-router'
 import { ClockIcon, PlusIcon } from 'lucide-react'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { Badge } from '@/components/ui/badge'
 import {
   Empty,
@@ -43,7 +44,7 @@ export function Tasks() {
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      <header className="electrobun-webkit-app-region-drag flex shrink-0 items-center justify-between gap-4 border-b bg-background/80 px-6 py-3 backdrop-blur">
+      <PageHeader maxWidth="max-w-5xl" className="justify-between">
         <div className="flex items-baseline gap-3">
           <h1 className="font-semibold text-base tracking-tight">
             Scheduled tasks
@@ -56,9 +57,9 @@ export function Tasks() {
           <PlusIcon data-icon="inline-start" />
           New task
         </LinkButton>
-      </header>
+      </PageHeader>
       <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-5xl px-6 py-6">
+        <div className="mx-auto max-w-5xl px-6 py-6 2xl:max-w-6xl">
           {sorted.length === 0 ? (
             <Empty>
               <EmptyHeader>
@@ -79,7 +80,7 @@ export function Tasks() {
               </EmptyContent>
             </Empty>
           ) : (
-            <div className="overflow-hidden rounded-lg border bg-card">
+            <div className="overflow-x-auto rounded-lg border bg-card">
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">

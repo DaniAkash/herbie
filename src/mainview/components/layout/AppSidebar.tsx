@@ -42,7 +42,7 @@ export function AppSidebar() {
   }, [conversations])
 
   return (
-    <Sidebar collapsible="none" className="border-r">
+    <Sidebar className="border-r">
       <SidebarHeader className="electrobun-webkit-app-region-drag px-3 pt-9 pb-2">
         <div className="flex items-center justify-between px-1">
           <span className="font-semibold text-base tracking-tight">Herbie</span>
