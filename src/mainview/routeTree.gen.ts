@@ -9,38 +9,153 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as TasksIndexRouteImport } from './routes/tasks.index'
+import { Route as InboxIndexRouteImport } from './routes/inbox.index'
+import { Route as TasksNewRouteImport } from './routes/tasks.new'
+import { Route as TasksIdRouteImport } from './routes/tasks.$id'
+import { Route as InboxIdRouteImport } from './routes/inbox.$id'
+import { Route as CNewRouteImport } from './routes/c.new'
+import { Route as CIdRouteImport } from './routes/c.$id'
 
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TasksIndexRoute = TasksIndexRouteImport.update({
+  id: '/tasks/',
+  path: '/tasks/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InboxIndexRoute = InboxIndexRouteImport.update({
+  id: '/inbox/',
+  path: '/inbox/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TasksNewRoute = TasksNewRouteImport.update({
+  id: '/tasks/new',
+  path: '/tasks/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TasksIdRoute = TasksIdRouteImport.update({
+  id: '/tasks/$id',
+  path: '/tasks/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InboxIdRoute = InboxIdRouteImport.update({
+  id: '/inbox/$id',
+  path: '/inbox/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CNewRoute = CNewRouteImport.update({
+  id: '/c/new',
+  path: '/c/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CIdRoute = CIdRouteImport.update({
+  id: '/c/$id',
+  path: '/c/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/settings': typeof SettingsRoute
+  '/c/$id': typeof CIdRoute
+  '/c/new': typeof CNewRoute
+  '/inbox/$id': typeof InboxIdRoute
+  '/tasks/$id': typeof TasksIdRoute
+  '/tasks/new': typeof TasksNewRoute
+  '/inbox/': typeof InboxIndexRoute
+  '/tasks/': typeof TasksIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/settings': typeof SettingsRoute
+  '/c/$id': typeof CIdRoute
+  '/c/new': typeof CNewRoute
+  '/inbox/$id': typeof InboxIdRoute
+  '/tasks/$id': typeof TasksIdRoute
+  '/tasks/new': typeof TasksNewRoute
+  '/inbox': typeof InboxIndexRoute
+  '/tasks': typeof TasksIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/settings': typeof SettingsRoute
+  '/c/$id': typeof CIdRoute
+  '/c/new': typeof CNewRoute
+  '/inbox/$id': typeof InboxIdRoute
+  '/tasks/$id': typeof TasksIdRoute
+  '/tasks/new': typeof TasksNewRoute
+  '/inbox/': typeof InboxIndexRoute
+  '/tasks/': typeof TasksIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/settings'
+    | '/c/$id'
+    | '/c/new'
+    | '/inbox/$id'
+    | '/tasks/$id'
+    | '/tasks/new'
+    | '/inbox/'
+    | '/tasks/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/settings'
+    | '/c/$id'
+    | '/c/new'
+    | '/inbox/$id'
+    | '/tasks/$id'
+    | '/tasks/new'
+    | '/inbox'
+    | '/tasks'
+  id:
+    | '__root__'
+    | '/'
+    | '/settings'
+    | '/c/$id'
+    | '/c/new'
+    | '/inbox/$id'
+    | '/tasks/$id'
+    | '/tasks/new'
+    | '/inbox/'
+    | '/tasks/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  SettingsRoute: typeof SettingsRoute
+  CIdRoute: typeof CIdRoute
+  CNewRoute: typeof CNewRoute
+  InboxIdRoute: typeof InboxIdRoute
+  TasksIdRoute: typeof TasksIdRoute
+  TasksNewRoute: typeof TasksNewRoute
+  InboxIndexRoute: typeof InboxIndexRoute
+  TasksIndexRoute: typeof TasksIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,11 +163,69 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/tasks/': {
+      id: '/tasks/'
+      path: '/tasks'
+      fullPath: '/tasks/'
+      preLoaderRoute: typeof TasksIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/inbox/': {
+      id: '/inbox/'
+      path: '/inbox'
+      fullPath: '/inbox/'
+      preLoaderRoute: typeof InboxIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tasks/new': {
+      id: '/tasks/new'
+      path: '/tasks/new'
+      fullPath: '/tasks/new'
+      preLoaderRoute: typeof TasksNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tasks/$id': {
+      id: '/tasks/$id'
+      path: '/tasks/$id'
+      fullPath: '/tasks/$id'
+      preLoaderRoute: typeof TasksIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/inbox/$id': {
+      id: '/inbox/$id'
+      path: '/inbox/$id'
+      fullPath: '/inbox/$id'
+      preLoaderRoute: typeof InboxIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/c/new': {
+      id: '/c/new'
+      path: '/c/new'
+      fullPath: '/c/new'
+      preLoaderRoute: typeof CNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/c/$id': {
+      id: '/c/$id'
+      path: '/c/$id'
+      fullPath: '/c/$id'
+      preLoaderRoute: typeof CIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  SettingsRoute: SettingsRoute,
+  CIdRoute: CIdRoute,
+  CNewRoute: CNewRoute,
+  InboxIdRoute: InboxIdRoute,
+  TasksIdRoute: TasksIdRoute,
+  TasksNewRoute: TasksNewRoute,
+  InboxIndexRoute: InboxIndexRoute,
+  TasksIndexRoute: TasksIndexRoute,
 }
-
-export const routeTree = rootRouteImport._addFileChildren(rootRouteChildren)
+export const routeTree = rootRouteImport
+  ._addFileChildren(rootRouteChildren)
+  ._addFileTypes<FileRouteTypes>()
