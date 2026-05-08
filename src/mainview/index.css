@@ -143,21 +143,30 @@ body {
 }
 
 @layer utilities {
-  .drag-region {
+  .electrobun-webkit-app-region-drag {
     -webkit-app-region: drag;
     app-region: drag;
+    -webkit-user-select: none;
+    user-select: none;
+    cursor: default;
   }
-  .no-drag,
-  .drag-region button,
-  .drag-region a,
-  .drag-region input,
-  .drag-region textarea,
-  .drag-region select,
-  .drag-region [role="button"],
-  .drag-region [data-slot="toggle-group"],
-  .drag-region [data-slot="toggle-group-item"],
-  .drag-region [data-slot="dropdown-menu-trigger"] {
+  .electrobun-webkit-app-region-no-drag,
+  .electrobun-webkit-app-region-drag button,
+  .electrobun-webkit-app-region-drag a,
+  .electrobun-webkit-app-region-drag input,
+  .electrobun-webkit-app-region-drag textarea,
+  .electrobun-webkit-app-region-drag select,
+  .electrobun-webkit-app-region-drag [role="button"],
+  .electrobun-webkit-app-region-drag [data-slot="toggle-group"],
+  .electrobun-webkit-app-region-drag [data-slot="toggle-group-item"],
+  .electrobun-webkit-app-region-drag [data-slot="dropdown-menu-trigger"] {
     -webkit-app-region: no-drag;
     app-region: no-drag;
+  }
+  .electrobun-webkit-app-region-drag input,
+  .electrobun-webkit-app-region-drag textarea {
+    -webkit-user-select: text;
+    user-select: text;
+    cursor: text;
   }
 }

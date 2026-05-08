@@ -43,7 +43,7 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="none" className="border-r">
-      <SidebarHeader className="drag-region px-3 pt-9 pb-2">
+      <SidebarHeader className="electrobun-webkit-app-region-drag px-3 pt-9 pb-2">
         <div className="flex items-center justify-between px-1">
           <span className="font-semibold text-base tracking-tight">Herbie</span>
           <span className="font-mono text-[10px] text-muted-foreground uppercase tracking-widest">

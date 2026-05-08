@@ -31,7 +31,7 @@ export function Inbox() {
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      <header className="drag-region flex shrink-0 items-center justify-between gap-4 border-b bg-background/80 px-6 py-3 backdrop-blur">
+      <header className="electrobun-webkit-app-region-drag flex shrink-0 items-center justify-between gap-4 border-b bg-background/80 px-6 py-3 backdrop-blur">
         <div className="flex items-baseline gap-3">
           <h1 className="font-semibold text-base tracking-tight">Inbox</h1>
           <span className="font-mono text-muted-foreground text-xs">
