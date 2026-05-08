@@ -7,3 +7,7 @@ build/
 .env
 .env.*
 !.env.example
+
+# Override global .gitignore that blanket-ignores `lib/` (catches src/mainview/lib/utils.ts)
+!src/mainview/lib/
+!src/mainview/lib/**
