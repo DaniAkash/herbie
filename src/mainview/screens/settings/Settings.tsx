@@ -16,7 +16,7 @@ import type { AgentId } from '@/modules/data/herbie-data.types'
 export function Settings() {
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      <header className="flex shrink-0 items-center border-b bg-background/80 px-6 py-3 backdrop-blur">
+      <header className="drag-region flex shrink-0 items-center border-b bg-background/80 px-6 py-3 backdrop-blur">
         <h1 className="font-semibold text-base tracking-tight">Settings</h1>
       </header>
       <div className="flex-1 overflow-y-auto">

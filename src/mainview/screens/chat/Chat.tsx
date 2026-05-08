@@ -132,7 +132,7 @@ export function Chat({ conversationId }: ChatProps) {
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      <header className="flex shrink-0 items-center justify-between gap-4 border-b bg-background/80 px-6 py-3 backdrop-blur">
+      <header className="drag-region flex shrink-0 items-center justify-between gap-4 border-b bg-background/80 px-6 py-3 backdrop-blur">
         <h1 className="min-w-0 truncate font-semibold text-base tracking-tight">
           {conversation.title}
         </h1>

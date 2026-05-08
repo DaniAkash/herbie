@@ -108,7 +108,7 @@ export function TaskEditor({
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      <header className="flex shrink-0 items-center gap-3 border-b bg-background/80 px-6 py-3 backdrop-blur">
+      <header className="drag-region flex shrink-0 items-center gap-3 border-b bg-background/80 px-6 py-3 backdrop-blur">
         <LinkButton to="/tasks" variant="ghost" size="sm">
           <ArrowLeftIcon data-icon="inline-start" />
           Tasks

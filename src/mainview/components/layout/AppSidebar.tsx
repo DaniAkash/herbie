@@ -43,14 +43,8 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="none" className="border-r">
-      <SidebarHeader
-        className="px-3 pt-9 pb-2"
-        style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
-      >
-        <div
-          className="flex items-center justify-between px-1"
-          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-        >
+      <SidebarHeader className="drag-region px-3 pt-9 pb-2">
+        <div className="flex items-center justify-between px-1">
           <span className="font-semibold text-base tracking-tight">Herbie</span>
           <span className="font-mono text-[10px] text-muted-foreground uppercase tracking-widest">
             v0.1
