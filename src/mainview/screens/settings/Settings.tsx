@@ -271,7 +271,10 @@ function AgentRow({ row }: { row: AgentDetection }) {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => openExternal(row.installUrl)}
+          onClick={() => {
+            // biome-ignore lint/suspicious/noConsole: surface failed openExternal calls; no toast wired yet
+            void openExternal(row.installUrl).catch(console.error)
+          }}
         >
           Install
           <ExternalLinkIcon data-icon="inline-end" />

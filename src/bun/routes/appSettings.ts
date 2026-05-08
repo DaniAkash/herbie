@@ -10,11 +10,15 @@ import { getDb } from '../db-singleton'
 import { setLoginItem } from '../loginItems'
 import { serializeTimestamps } from './serialize'
 
+// Mirrors the AgentId union in src/mainview/modules/data/herbie-data.types.ts.
+// Bun can't import renderer code; keep these in sync when the union grows.
+const AGENT_IDS = ['claude', 'codex', 'gemini', 'hermes'] as const
+
 const patchSchema = z
   .object({
     launchAtLogin: z.boolean().optional(),
     minimizeToMenubarOnClose: z.boolean().optional(),
-    defaultAgent: z.string().min(1).optional(),
+    defaultAgent: z.enum(AGENT_IDS).optional(),
   })
   .strict()
 

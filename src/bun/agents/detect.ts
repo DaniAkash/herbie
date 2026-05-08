@@ -30,6 +30,7 @@ const registry = createAgentRegistry({
 export interface DetectAgentsOptions {
   binProbeOverride?: (
     bin: string,
+    timeoutMs: number,
   ) => Promise<{ found: boolean; version: string | null }>
   npxProbeOverride?: (packageName: string) => Promise<boolean>
   timeoutMs?: number
@@ -82,9 +83,10 @@ async function probeAgent(
     )
   }
 
-  const result = await withTimeout(binProbe(parsed.bin), timeoutMs).catch(
-    () => ({ found: false, version: null }),
-  )
+  const result = await binProbe(parsed.bin, timeoutMs).catch(() => ({
+    found: false,
+    version: null,
+  }))
   return buildResult(
     agentId,
     overlay,
@@ -114,8 +116,11 @@ function buildResult(
 
 async function probeBinary(
   bin: string,
+  timeoutMs: number,
 ): Promise<{ found: boolean; version: string | null }> {
-  const lookup = await runCommand('command', ['-v', bin]).catch(() => null)
+  const lookup = await runCommand('command', ['-v', bin], timeoutMs).catch(
+    () => null,
+  )
   const found = !!(
     lookup &&
     lookup.code === 0 &&
@@ -123,7 +128,9 @@ async function probeBinary(
   )
   if (!found) return { found: false, version: null }
 
-  const versionResult = await runCommand(bin, ['--version']).catch(() => null)
+  const versionResult = await runCommand(bin, ['--version'], timeoutMs).catch(
+    () => null,
+  )
   const version =
     versionResult && versionResult.code === 0
       ? (versionResult.stdout.trim().split('\n')[0] ?? null)
@@ -137,7 +144,11 @@ interface CommandResult {
   stderr: string
 }
 
-function runCommand(cmd: string, args: string[]): Promise<CommandResult> {
+function runCommand(
+  cmd: string,
+  args: string[],
+  timeoutMs: number,
+): Promise<CommandResult> {
   return new Promise((resolve, reject) => {
     let stdout = ''
     let stderr = ''
@@ -147,14 +158,23 @@ function runCommand(cmd: string, args: string[]): Promise<CommandResult> {
         ? spawn('sh', ['-c', `command -v ${args[1]}`])
         : spawn(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'] })
 
+    const timer = setTimeout(() => {
+      child.kill('SIGKILL')
+      reject(new Error(`Probe timed out after ${timeoutMs}ms`))
+    }, timeoutMs)
+
     child.stdout?.on('data', (chunk) => {
       stdout += chunk.toString()
     })
     child.stderr?.on('data', (chunk) => {
       stderr += chunk.toString()
     })
-    child.once('error', reject)
+    child.once('error', (err) => {
+      clearTimeout(timer)
+      reject(err)
+    })
     child.once('close', (code) => {
+      clearTimeout(timer)
       resolve({ code: code ?? 1, stdout, stderr })
     })
   })
@@ -168,9 +188,7 @@ interface ParsedSpawnCommand {
 function parseSpawnCommand(command: string): ParsedSpawnCommand {
   const tokens = command.trim().split(/\s+/)
   const head = tokens[0] ?? ''
-  if (head === 'npx' || head === 'npm' || head === 'pnpm' || head === 'yarn') {
-    return { npxBased: true, bin: head }
-  }
+  if (head === 'npx') return { npxBased: true, bin: head }
   return { npxBased: false, bin: head }
 }
 
@@ -187,19 +205,4 @@ function parseNpxPackageName(command: string): string | null {
   const lastAt = raw.lastIndexOf('@')
   if (lastAt > 0) return raw.slice(0, lastAt)
   return raw
-}
-
-function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | null = null
-  return Promise.race([
-    p,
-    new Promise<T>((_, reject) => {
-      timer = setTimeout(
-        () => reject(new Error(`Probe timed out after ${ms}ms`)),
-        ms,
-      )
-    }),
-  ]).finally(() => {
-    if (timer) clearTimeout(timer)
-  })
 }
