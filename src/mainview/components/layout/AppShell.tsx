@@ -4,7 +4,7 @@ import { AppSidebar } from './AppSidebar'
 
 export function AppShell({ children }: { children: ReactNode }) {
   return (
-    <SidebarProvider>
+    <SidebarProvider className="h-full">
       <AppSidebar />
       <SidebarInset className="overflow-hidden">{children}</SidebarInset>
     </SidebarProvider>
