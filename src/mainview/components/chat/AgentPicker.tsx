@@ -12,7 +12,7 @@ import {
 import { useHerbieData } from '@/modules/data/HerbieDataProvider'
 import type { AgentId } from '@/modules/data/herbie-data.types'
 
-type AgentPickerProps = {
+export type AgentPickerProps = {
   value: AgentId
   onChange: (agent: AgentId) => void
   variant?: 'pill' | 'header'

@@ -23,7 +23,7 @@ import type {
 } from '@/modules/data/herbie-data.types'
 import { ScheduleField } from './ScheduleField'
 
-type EditorProps = {
+export type EditorProps = {
   mode: 'create' | 'edit'
   taskId?: string
   initialPrompt?: string

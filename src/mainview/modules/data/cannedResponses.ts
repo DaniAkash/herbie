@@ -1,6 +1,6 @@
 import type { AgentId } from './herbie-data.types'
 
-export const cannedResponses: Record<AgentId, string[]> = {
+const cannedResponses: Record<AgentId, string[]> = {
   claude: [
     'Looking at the relevant files now…\n\nThis looks like a clean refactor. The supervisor wrapper is what tied old agents to the lifecycle — once `ContainerAgentRuntime` owns the AbortController, the wrapper becomes redundant.',
     'Reading through the codebase. I see three places this pattern is used — happy to walk through them one at a time.',

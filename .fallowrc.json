@@ -1,0 +1,84 @@
+{
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+  "entry": ["src/bun/index.ts", "src/mainview/main.tsx"],
+  "ignorePatterns": [
+    "**/*.d.ts",
+    "**/dist/**",
+    "**/node_modules/**",
+    "**/*.css"
+  ],
+  "ignoreDependencies": [
+    "@ai-sdk/anthropic",
+    "@fontsource-variable/geist",
+    "tw-animate-css",
+    "clsx",
+    "tailwind-merge",
+    "shadcn"
+  ],
+  "rules": {
+    "private-type-leaks": "warn",
+    "unused-class-members": "off",
+    "duplicate-exports": "off"
+  },
+  "overrides": [
+    {
+      "files": ["**/*.test.ts", "**/*.spec.ts", "**/test/**", "**/*.config.ts"],
+      "rules": { "unused-exports": "off", "unused-files": "off" }
+    },
+    {
+      "files": [
+        "src/mainview/components/ui/**",
+        "src/mainview/components/ai-elements/**",
+        "src/mainview/routeTree.gen.ts"
+      ],
+      "rules": {
+        "unused-exports": "off",
+        "unused-files": "off",
+        "unused-types": "off",
+        "private-type-leaks": "off",
+        "duplicate-exports": "off"
+      }
+    },
+    {
+      "files": ["src/mainview/routes/**"],
+      "rules": {
+        "duplicate-exports": "off"
+      }
+    }
+  ],
+  "boundaries": {
+    "zones": [
+      { "name": "bun-process", "patterns": ["src/bun/**"] },
+      { "name": "routes", "patterns": ["src/mainview/routes/**"] },
+      { "name": "screens", "patterns": ["src/mainview/screens/**"] },
+      { "name": "components", "patterns": ["src/mainview/components/**"] },
+      { "name": "modules", "patterns": ["src/mainview/modules/**"] },
+      { "name": "lib", "patterns": ["src/mainview/lib/**"] },
+      { "name": "hooks", "patterns": ["src/mainview/hooks/**"] }
+    ],
+    "rules": [
+      { "from": "routes", "allow": ["screens", "components", "modules"] },
+      {
+        "from": "screens",
+        "allow": ["screens", "components", "modules", "lib", "hooks"]
+      },
+      {
+        "from": "components",
+        "allow": ["components", "modules", "lib", "hooks"]
+      },
+      { "from": "modules", "allow": ["modules", "lib"] },
+      { "from": "lib", "allow": ["lib"] },
+      { "from": "hooks", "allow": ["hooks", "lib"] }
+    ]
+  },
+  "health": {
+    "maxCyclomatic": 20,
+    "maxCognitive": 15,
+    "ignore": [
+      "**/dist/**",
+      "src/mainview/components/ui/**",
+      "src/mainview/components/ai-elements/**",
+      "src/mainview/routeTree.gen.ts"
+    ]
+  }
+}

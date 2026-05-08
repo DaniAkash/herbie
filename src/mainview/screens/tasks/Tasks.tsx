@@ -24,7 +24,7 @@ import { relativeTime } from '@/modules/utils/relativeTime'
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
-export function describeSchedule(s: ScheduleConfig): string {
+function describeSchedule(s: ScheduleConfig): string {
   if (s.kind === 'daily') return `every day at ${pad(s.hour)}:${pad(s.minute)}`
   if (s.kind === 'interval') return `every ${s.hours} hours`
   if (s.kind === 'weekly')

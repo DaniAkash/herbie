@@ -16,7 +16,7 @@ import type {
 } from '@/modules/data/herbie-data.types'
 import { clockTime } from '@/modules/utils/relativeTime'
 
-type ChatProps = {
+export type ChatProps = {
   conversationId: string | 'new'
 }
 

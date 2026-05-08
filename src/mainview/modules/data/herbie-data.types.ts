@@ -38,8 +38,6 @@ export type Conversation = {
   updatedAt: number
 }
 
-export type ScheduleKind = 'daily' | 'interval' | 'weekly' | 'cron'
-
 export type ScheduleConfig =
   | { kind: 'daily'; hour: number; minute: number }
   | { kind: 'interval'; hours: number }

@@ -25,12 +25,12 @@ function timeOf(s: ScheduleConfig | undefined, fallback = '09:00') {
   return fallback
 }
 
-type Props = {
+export type ScheduleFieldProps = {
   value: ScheduleConfig
   onChange: (next: ScheduleConfig) => void
 }
 
-export function ScheduleField({ value, onChange }: Props) {
+export function ScheduleField({ value, onChange }: ScheduleFieldProps) {
   const [kind, setKind] = useState<ScheduleConfig['kind']>(value.kind)
   const [dailyTime, setDailyTime] = useState(
     value.kind === 'daily' ? timeOf(value) : '09:00',

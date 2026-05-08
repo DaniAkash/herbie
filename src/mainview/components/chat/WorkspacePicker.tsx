@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useHerbieData } from '@/modules/data/HerbieDataProvider'
 
-type WorkspacePickerProps = {
+export type WorkspacePickerProps = {
   value: string | undefined
   onChange: (id: string | undefined) => void
   variant?: 'pill' | 'header'

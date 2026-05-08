@@ -11,7 +11,7 @@ import type { AgentId } from '@/modules/data/herbie-data.types'
 import { AgentPicker } from './AgentPicker'
 import { WorkspacePicker } from './WorkspacePicker'
 
-type ComposerProps = {
+export type ComposerProps = {
   agent: AgentId
   workspaceId: string | undefined
   onAgentChange: (agent: AgentId) => void
