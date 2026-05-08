@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs'
 import { copyFile, mkdir, rename, unlink } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { type Client, createClient } from '@libsql/client'
 import { drizzle } from 'drizzle-orm/libsql'
 import { migrate } from 'drizzle-orm/libsql/migrator'
@@ -17,7 +18,9 @@ function migrationsFolder(): string {
   // electrobun.config.ts copies the drizzle/ folder into Resources/app/drizzle,
   // so going up one level from bun/ lands on it. (Two levels lands at
   // Resources/drizzle which doesn't exist.)
-  return new URL('../drizzle', import.meta.url).pathname
+  // fileURLToPath decodes percent-encoded segments — install paths with
+  // spaces or special chars would otherwise break Drizzle's fs read.
+  return fileURLToPath(new URL('../drizzle', import.meta.url))
 }
 
 export type Opened = {
