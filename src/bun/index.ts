@@ -1,8 +1,16 @@
 import { BrowserWindow, Tray, Updater } from 'electrobun/bun'
+import { initializeDatabase } from '../db'
+import { setDb } from './db-singleton'
+import app from './server'
 import { loadFrame, persistFrame } from './windowState'
 
 const DEV_SERVER_PORT = 5173
 const DEV_SERVER_URL = `http://localhost:${DEV_SERVER_PORT}`
+const API_PORT = 4575
+
+const { db } = await initializeDatabase()
+setDb(db)
+Bun.serve({ port: API_PORT, hostname: '127.0.0.1', fetch: app.fetch })
 
 async function getMainViewUrl(): Promise<string> {
   const channel = await Updater.localInfo.channel()
