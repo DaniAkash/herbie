@@ -7,6 +7,7 @@ import {
   SETTINGS_SINGLETON_ID,
 } from '../../db/schema/app-settings.sql'
 import { getDb } from '../db-singleton'
+import { setLoginItem } from '../loginItems'
 import { serializeTimestamps } from './serialize'
 
 const patchSchema = z
@@ -55,6 +56,9 @@ export const appSettingsRoute = new Hono()
       .get()
     if (!updated) {
       return c.json({ error: 'failed to load updated row' }, 500)
+    }
+    if (typeof patch.launchAtLogin === 'boolean') {
+      await setLoginItem(patch.launchAtLogin)
     }
     return c.json(serializeTimestamps(updated))
   })
