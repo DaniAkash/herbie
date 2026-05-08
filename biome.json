@@ -77,7 +77,8 @@
           "suspicious": {
             "noConsole": "off",
             "noArrayIndexKey": "off",
-            "noExplicitAny": "off"
+            "noExplicitAny": "off",
+            "noDocumentCookie": "off"
           },
           "correctness": {
             "noUnusedImports": "off",

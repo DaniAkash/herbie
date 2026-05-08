@@ -5,14 +5,7 @@
 
 @custom-variant dark (&:is(.dark *));
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -132,6 +125,11 @@ body {
   * {
     @apply border-border outline-ring/50;
   }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
   body {
     @apply bg-background text-foreground;
   }
@@ -141,5 +139,34 @@ body {
   button:not(:disabled),
   [role="button"]:not(:disabled) {
     cursor: pointer;
+  }
+}
+
+@layer utilities {
+  .electrobun-webkit-app-region-drag {
+    -webkit-app-region: drag;
+    app-region: drag;
+    -webkit-user-select: none;
+    user-select: none;
+    cursor: default;
+  }
+  .electrobun-webkit-app-region-no-drag,
+  .electrobun-webkit-app-region-drag button,
+  .electrobun-webkit-app-region-drag a,
+  .electrobun-webkit-app-region-drag input,
+  .electrobun-webkit-app-region-drag textarea,
+  .electrobun-webkit-app-region-drag select,
+  .electrobun-webkit-app-region-drag [role="button"],
+  .electrobun-webkit-app-region-drag [data-slot="toggle-group"],
+  .electrobun-webkit-app-region-drag [data-slot="toggle-group-item"],
+  .electrobun-webkit-app-region-drag [data-slot="dropdown-menu-trigger"] {
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+  }
+  .electrobun-webkit-app-region-drag input,
+  .electrobun-webkit-app-region-drag textarea {
+    -webkit-user-select: text;
+    user-select: text;
+    cursor: text;
   }
 }

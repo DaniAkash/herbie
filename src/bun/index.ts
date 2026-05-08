@@ -1,4 +1,5 @@
 import { BrowserWindow, Tray, Updater } from 'electrobun/bun'
+import { loadFrame, persistFrame } from './windowState'
 
 const DEV_SERVER_PORT = 5173
 const DEV_SERVER_URL = `http://localhost:${DEV_SERVER_PORT}`
@@ -26,15 +27,40 @@ const tray = new Tray({
 
 const url = await getMainViewUrl()
 
+const initialFrame = await loadFrame()
+
 const mainWindow = new BrowserWindow({
   title: 'Herbie',
   url,
-  frame: {
-    width: 380,
-    height: 500,
-    x: 200,
-    y: 200,
-  },
+  titleBarStyle: 'hiddenInset',
+  frame: initialFrame,
+})
+
+type WindowEvent<T> = { data: T }
+let currentFrame = { ...initialFrame }
+
+mainWindow.on('resize', (event) => {
+  const data = (
+    event as WindowEvent<{
+      x: number
+      y: number
+      width: number
+      height: number
+    }>
+  ).data
+  currentFrame = {
+    x: data.x,
+    y: data.y,
+    width: data.width,
+    height: data.height,
+  }
+  persistFrame(currentFrame)
+})
+
+mainWindow.on('move', (event) => {
+  const data = (event as WindowEvent<{ x: number; y: number }>).data
+  currentFrame = { ...currentFrame, x: data.x, y: data.y }
+  persistFrame(currentFrame)
 })
 
 // Track whether window is currently shown
