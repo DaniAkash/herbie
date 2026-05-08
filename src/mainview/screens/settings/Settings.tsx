@@ -8,9 +8,15 @@ import {
   FieldLabel,
 } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { cn } from '@/lib/utils'
+import {
+  useAppSettings,
+  useUpdateAppSettings,
+} from '@/modules/api/appSettings.hooks'
 import { useHerbieData } from '@/modules/data/HerbieDataProvider'
 import type { AgentId } from '@/modules/data/herbie-data.types'
 
@@ -22,14 +28,18 @@ export function Settings() {
       </PageHeader>
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-3xl px-6 py-8">
-          <Tabs defaultValue="agents">
+          <Tabs defaultValue="general">
             <TabsList variant="line" className="mb-6 gap-4">
+              <TabsTrigger value="general">General</TabsTrigger>
               <TabsTrigger value="agents">Agents</TabsTrigger>
               <TabsTrigger value="registry">Registry</TabsTrigger>
               <TabsTrigger value="skills">Skills</TabsTrigger>
               <TabsTrigger value="mobile">Mobile</TabsTrigger>
               <TabsTrigger value="about">About</TabsTrigger>
             </TabsList>
+            <TabsContent value="general">
+              <GeneralTab />
+            </TabsContent>
             <TabsContent value="agents">
               <AgentsTab />
             </TabsContent>
@@ -54,6 +64,57 @@ export function Settings() {
           </Tabs>
         </div>
       </div>
+    </div>
+  )
+}
+
+function GeneralTab() {
+  const { data, isLoading } = useAppSettings()
+  const { mutate } = useUpdateAppSettings()
+
+  if (isLoading || !data) {
+    return <Skeleton className="h-40 rounded-lg" />
+  }
+
+  return (
+    <section className="flex flex-col gap-3">
+      <h2 className="font-medium text-sm">Application</h2>
+      <div className="divide-y divide-border rounded-lg border bg-card">
+        <SettingRow
+          label="Launch at login"
+          description="Open Herbie automatically when you log in to your Mac."
+          checked={data.launchAtLogin}
+          onChange={(v) => mutate({ launchAtLogin: v })}
+        />
+        <SettingRow
+          label="Keep in menu bar on close"
+          description="When the window is closed, hide it instead of quitting. Reach Herbie again via the menu bar icon."
+          checked={data.minimizeToMenubarOnClose}
+          onChange={(v) => mutate({ minimizeToMenubarOnClose: v })}
+        />
+      </div>
+    </section>
+  )
+}
+
+function SettingRow({
+  label,
+  description,
+  checked,
+  onChange,
+}: {
+  label: string
+  description: string
+  checked: boolean
+  onChange: (next: boolean) => void
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 px-5 py-4">
+      <div>
+        <div className="font-medium text-sm">{label}</div>
+        <div className="text-muted-foreground text-xs">{description}</div>
+      </div>
+      <Switch checked={checked} onCheckedChange={onChange} />
     </div>
   )
 }
