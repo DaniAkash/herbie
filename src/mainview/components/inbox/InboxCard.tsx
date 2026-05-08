@@ -80,49 +80,53 @@ export function InboxCard({ item }: { item: InboxItem }) {
           {preview}
         </p>
       </CardContent>
-      <CardFooter className="gap-1 px-5 pt-0">
-        <Button size="sm" onClick={handleContinue}>
-          <MessageSquareIcon data-icon="inline-start" />
-          Continue in chat
-        </Button>
-        {item.status !== 'done' && (
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => setInboxItemStatus(item.id, 'done')}
-          >
-            <CheckIcon data-icon="inline-start" />
-            Mark done
+      <CardFooter className="px-5 pt-0">
+        <div className="-ml-2.5 flex items-center gap-1">
+          <Button size="sm" onClick={handleContinue}>
+            <MessageSquareIcon data-icon="inline-start" />
+            Continue in chat
           </Button>
-        )}
+          {item.status !== 'done' && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setInboxItemStatus(item.id, 'done')}
+            >
+              <CheckIcon data-icon="inline-start" />
+              Mark done
+            </Button>
+          )}
+        </div>
         <div className="flex-1" />
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          onClick={() => toggleInboxStar(item.id)}
-          aria-label={item.starred ? 'Unstar' : 'Star'}
-        >
-          <StarIcon
-            className={cn(item.starred && 'fill-amber-400 stroke-amber-400')}
-          />
-        </Button>
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          onClick={() => deleteInboxItem(item.id)}
-          aria-label="Delete"
-          className="text-muted-foreground hover:text-destructive"
-        >
-          <Trash2Icon />
-        </Button>
-        {!isUnread && (
-          <Badge
-            variant="outline"
-            className="ml-1 font-mono text-[9px] uppercase tracking-wider"
+        <div className="-mr-2 flex items-center gap-1">
+          {!isUnread && (
+            <Badge
+              variant="outline"
+              className="mr-1 font-mono text-[9px] uppercase tracking-wider"
+            >
+              {item.status}
+            </Badge>
+          )}
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            onClick={() => toggleInboxStar(item.id)}
+            aria-label={item.starred ? 'Unstar' : 'Star'}
           >
-            {item.status}
-          </Badge>
-        )}
+            <StarIcon
+              className={cn(item.starred && 'fill-amber-400 stroke-amber-400')}
+            />
+          </Button>
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            onClick={() => deleteInboxItem(item.id)}
+            aria-label="Delete"
+            className="text-muted-foreground hover:text-destructive"
+          >
+            <Trash2Icon />
+          </Button>
+        </div>
       </CardFooter>
     </Card>
   )
