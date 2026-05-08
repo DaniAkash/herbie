@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
+import { agentsRoute } from './routes/agents'
 import { appSettingsRoute } from './routes/appSettings'
 
 const app = new Hono()
@@ -13,6 +14,7 @@ app.use('*', cors({ origin: '*' }))
 const routes = app
   .get('/health', (c) => c.json({ status: 'ok' }))
   .route('/', appSettingsRoute)
+  .route('/', agentsRoute)
 
 export type AppType = typeof routes
 export default routes
