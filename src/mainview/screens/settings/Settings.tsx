@@ -137,9 +137,6 @@ function AgentsTab() {
   const { agents, defaultAgent, setDefaultAgent } = useHerbieData()
   const { data, isLoading } = useAgents()
 
-  // Filter the full acpx-enumerated list down to the four agents Herbie
-  // surfaces in the UI. The detector returns everything; the renderer
-  // decides what to show.
   const primaryRows = (data ?? []).filter((row) => isPrimaryAgent(row.agentId))
   const installed = primaryRows.filter((r) => r.installState === 'installed')
   const npxAvailable = primaryRows.filter(

@@ -1,24 +1,3 @@
-/**
- * Detect which ACP agents are usable on this machine.
- *
- * For each agent enumerated by acpx's runtime registry:
- *   - parse the spawn command,
- *   - probe the underlying binary with `command -v` (PATH-based agents)
- *     OR scan the npx cache for a cached install (npx-fronted agents),
- *   - try `<bin> --version` for a version string when PATH-resolved
- *     (best-effort; some CLIs use non-standard flags),
- *   - overlay display metadata (display name, install URL).
- *
- * Auth state is *not* probed here — the honest verifier is to actually
- * try bringing up an ACP session via acpx-ai-provider's prepare() in
- * response to a user-initiated "Test" action. Anything we'd compute
- * here would be fragile per-agent guesswork that often disagrees with
- * the real session bring-up.
- *
- * Probes run in parallel under a per-probe timeout so a misbehaving
- * binary cannot hang the response.
- */
-
 import { spawn } from 'node:child_process'
 import { createAgentRegistry } from 'acpx/runtime'
 import { probeNpxCache } from './npx-cache'
@@ -35,12 +14,9 @@ export interface AcpAgentDetection {
   agentId: string
   displayName: string
   installState: AcpInstallState
-  /** Best-effort version string (PATH-resolved binaries only). */
   version: string | null
   installUrl: string
-  /** True when starting an ACP session right now is feasible. */
   acpReady: boolean
-  /** True when the agent runs via `npx`. */
   npxBased: boolean
 }
 
@@ -52,18 +28,14 @@ const STATE_ORDER: Record<AcpInstallState, number> = {
   'not-installed': 2,
 }
 
-// Hermes isn't in acpx 0.7.0 built-ins yet — register via override.
-// Drop this when acpx ships native hermes support.
 const registry = createAgentRegistry({
   overrides: { hermes: 'hermes acp' },
 })
 
 export interface DetectAgentsOptions {
-  /** Override the binary probe (testing). */
   binProbeOverride?: (
     bin: string,
   ) => Promise<{ found: boolean; version: string | null }>
-  /** Override the npx-cache probe (testing). */
   npxProbeOverride?: (packageName: string) => Promise<boolean>
   timeoutMs?: number
 }
@@ -145,7 +117,6 @@ function buildResult(
   }
 }
 
-/** `command -v <bin>` followed by `<bin> --version`. */
 async function probeBinary(
   bin: string,
 ): Promise<{ found: boolean; version: string | null }> {
@@ -175,7 +146,7 @@ function runCommand(cmd: string, args: string[]): Promise<CommandResult> {
   return new Promise((resolve, reject) => {
     let stdout = ''
     let stderr = ''
-    // `command -v` is a shell builtin — invoke through `sh -c` for it.
+    // `command -v` is a shell builtin — invoke through `sh -c`.
     const child =
       cmd === 'command'
         ? spawn('sh', ['-c', `command -v ${args[1]}`])
