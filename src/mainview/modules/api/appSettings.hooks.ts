@@ -1,5 +1,7 @@
 import type { InferRequestType, InferResponseType } from 'hono/client'
+import { useCallback } from 'react'
 import { createMutation, createQuery } from 'react-query-kit'
+import type { AgentId } from '../data/herbie-data.types'
 import { api } from './client'
 import { parseResponse } from './parseResponse'
 import { queryClient } from './queryClient'
@@ -26,3 +28,21 @@ export const useUpdateAppSettings = createMutation<
     queryClient.invalidateQueries({ queryKey: useAppSettings.getKey() })
   },
 })
+
+export function useDefaultAgent(): {
+  defaultAgent: AgentId
+  setDefaultAgent: (agent: AgentId) => void
+} {
+  const { data } = useAppSettings()
+  const { mutate } = useUpdateAppSettings()
+  const setDefaultAgent = useCallback(
+    (agent: AgentId) => {
+      mutate({ defaultAgent: agent })
+    },
+    [mutate],
+  )
+  return {
+    defaultAgent: (data?.defaultAgent ?? 'claude') as AgentId,
+    setDefaultAgent,
+  }
+}

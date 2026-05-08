@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils'
 import { type AgentDetection, useAgents } from '@/modules/api/agents.hooks'
 import {
   useAppSettings,
+  useDefaultAgent,
   useUpdateAppSettings,
 } from '@/modules/api/appSettings.hooks'
 import { useHerbieData } from '@/modules/data/HerbieDataProvider'
@@ -134,7 +135,8 @@ function SettingRow({
 }
 
 function AgentsTab() {
-  const { agents, defaultAgent, setDefaultAgent } = useHerbieData()
+  const { agents } = useHerbieData()
+  const { defaultAgent, setDefaultAgent } = useDefaultAgent()
   const { data, isLoading } = useAgents()
 
   const rows = data ?? []

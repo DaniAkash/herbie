@@ -10,6 +10,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
 import { cn } from '@/lib/utils'
+import { useDefaultAgent } from '@/modules/api/appSettings.hooks'
 import { useHerbieData } from '@/modules/data/HerbieDataProvider'
 import type {
   AgentId,
@@ -27,12 +28,12 @@ export function Chat({ conversationId }: ChatProps) {
     conversations,
     messages,
     workspaces,
-    defaultAgent,
     createConversation,
     appendMessage,
     setConversationAgent,
     setConversationWorkspace,
   } = useHerbieData()
+  const { defaultAgent } = useDefaultAgent()
 
   const isNew = conversationId === 'new'
   const conversation = isNew
