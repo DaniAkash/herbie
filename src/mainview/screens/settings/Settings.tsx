@@ -2,7 +2,7 @@ import { ExternalLinkIcon } from 'lucide-react'
 import { useState } from 'react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Badge } from '@/components/ui/badge'
-import { Button, buttonVariants } from '@/components/ui/button'
+import { Button } from '@/components/ui/button'
 import {
   Field,
   FieldDescription,
@@ -23,6 +23,7 @@ import {
 } from '@/modules/api/appSettings.hooks'
 import { useHerbieData } from '@/modules/data/HerbieDataProvider'
 import type { AgentId } from '@/modules/data/herbie-data.types'
+import { openExternal } from '@/modules/system/openExternal'
 
 const HERBIE_PRIMARY_AGENTS: ReadonlySet<AgentId> = new Set([
   'claude',
@@ -267,15 +268,14 @@ function AgentRow({ row }: { row: AgentDetection }) {
         ) : null}
       </div>
       {row.installState === 'not-installed' ? (
-        <a
-          href={row.installUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => openExternal(row.installUrl)}
         >
           Install
           <ExternalLinkIcon data-icon="inline-end" />
-        </a>
+        </Button>
       ) : null}
     </div>
   )
