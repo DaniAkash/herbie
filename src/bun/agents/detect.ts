@@ -1,12 +1,7 @@
 import { spawn } from 'node:child_process'
 import { createAgentRegistry } from 'acpx/runtime'
+import { type AcpAgentDisplayMeta, getDisplayMeta } from './agent-display'
 import { probeNpxCache } from './npx-cache'
-import {
-  type AcpAgentDisplayMeta,
-  getDisplayMeta,
-  parseNpxPackageName,
-  parseSpawnCommand,
-} from './registry-meta'
 
 export type AcpInstallState = 'installed' | 'npx-available' | 'not-installed'
 
@@ -163,6 +158,35 @@ function runCommand(cmd: string, args: string[]): Promise<CommandResult> {
       resolve({ code: code ?? 1, stdout, stderr })
     })
   })
+}
+
+interface ParsedSpawnCommand {
+  npxBased: boolean
+  bin: string
+}
+
+function parseSpawnCommand(command: string): ParsedSpawnCommand {
+  const tokens = command.trim().split(/\s+/)
+  const head = tokens[0] ?? ''
+  if (head === 'npx' || head === 'npm' || head === 'pnpm' || head === 'yarn') {
+    return { npxBased: true, bin: head }
+  }
+  return { npxBased: false, bin: head }
+}
+
+function parseNpxPackageName(command: string): string | null {
+  const tokens = command.trim().split(/\s+/)
+  if (tokens[0] !== 'npx') return null
+  const pkgIndex = tokens.findIndex(
+    (token, idx) => idx > 0 && !token.startsWith('-'),
+  )
+  if (pkgIndex < 0) return null
+  const raw = tokens[pkgIndex] ?? ''
+  if (!raw) return null
+  // Strip trailing `@<spec>` version pin; leading `@` of scoped names is at index 0.
+  const lastAt = raw.lastIndexOf('@')
+  if (lastAt > 0) return raw.slice(0, lastAt)
+  return raw
 }
 
 function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
