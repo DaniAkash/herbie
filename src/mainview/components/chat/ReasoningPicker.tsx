@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -37,30 +38,32 @@ export function ReasoningPicker({
         <ChevronDownIcon data-icon="inline-end" className="opacity-60" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-56">
-        <DropdownMenuLabel className="text-[10px] text-muted-foreground uppercase tracking-wider">
-          Reasoning
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onSelect={() => onChange(null)}
-          className="flex items-center gap-2"
-        >
-          <span className="flex-1 text-muted-foreground italic">
-            agent default
-          </span>
-          {value === null && <CheckIcon className="size-4 text-primary" />}
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        {reasoning.values.map((v) => (
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="text-[10px] text-muted-foreground uppercase tracking-wider">
+            Reasoning
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
           <DropdownMenuItem
-            key={v}
-            onSelect={() => onChange(v)}
+            onSelect={() => onChange(null)}
             className="flex items-center gap-2"
           >
-            <span className="flex-1 text-sm capitalize">{v}</span>
-            {value === v && <CheckIcon className="size-4 text-primary" />}
+            <span className="flex-1 text-muted-foreground italic">
+              agent default
+            </span>
+            {value === null && <CheckIcon className="size-4 text-primary" />}
           </DropdownMenuItem>
-        ))}
+          <DropdownMenuSeparator />
+          {reasoning.values.map((v) => (
+            <DropdownMenuItem
+              key={v}
+              onSelect={() => onChange(v)}
+              className="flex items-center gap-2"
+            >
+              <span className="flex-1 text-sm capitalize">{v}</span>
+              {value === v && <CheckIcon className="size-4 text-primary" />}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   )

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -40,36 +41,38 @@ export function AgentPicker({ value, onChange }: AgentPickerProps) {
         <ChevronDownIcon data-icon="inline-end" className="opacity-60" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-72">
-        <DropdownMenuLabel className="text-[10px] text-muted-foreground uppercase tracking-wider">
-          Agent
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        {AGENT_IDS.map((id) => {
-          const detection = detectionMap.get(id)
-          const installState = detection?.installState ?? 'not-installed'
-          return (
-            <DropdownMenuItem
-              key={id}
-              onSelect={() => onChange(id)}
-              className="flex items-center gap-2 py-2"
-            >
-              <span className="flex-1 font-medium text-sm">
-                {AGENT_LABELS[id]}
-              </span>
-              {installState === 'npx-available' && (
-                <Badge variant="outline" className="text-[9px]">
-                  npx
-                </Badge>
-              )}
-              {installState === 'not-installed' && (
-                <Badge variant="outline" className="text-[9px]">
-                  install
-                </Badge>
-              )}
-              {value === id && <CheckIcon className="size-4 text-primary" />}
-            </DropdownMenuItem>
-          )
-        })}
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="text-[10px] text-muted-foreground uppercase tracking-wider">
+            Agent
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          {AGENT_IDS.map((id) => {
+            const detection = detectionMap.get(id)
+            const installState = detection?.installState ?? 'not-installed'
+            return (
+              <DropdownMenuItem
+                key={id}
+                onSelect={() => onChange(id)}
+                className="flex items-center gap-2 py-2"
+              >
+                <span className="flex-1 font-medium text-sm">
+                  {AGENT_LABELS[id]}
+                </span>
+                {installState === 'npx-available' && (
+                  <Badge variant="outline" className="text-[9px]">
+                    npx
+                  </Badge>
+                )}
+                {installState === 'not-installed' && (
+                  <Badge variant="outline" className="text-[9px]">
+                    install
+                  </Badge>
+                )}
+                {value === id && <CheckIcon className="size-4 text-primary" />}
+              </DropdownMenuItem>
+            )
+          })}
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   )

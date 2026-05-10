@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -39,30 +40,32 @@ export function ModelPicker({ agentId, value, onChange }: ModelPickerProps) {
         )}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-72">
-        <DropdownMenuLabel className="text-[10px] text-muted-foreground uppercase tracking-wider">
-          Model
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onSelect={() => onChange(null)}
-          className="flex items-center gap-2"
-        >
-          <span className="flex-1 text-muted-foreground italic">
-            agent default
-          </span>
-          {value === null && <CheckIcon className="size-4 text-primary" />}
-        </DropdownMenuItem>
-        {models.length > 0 && <DropdownMenuSeparator />}
-        {models.map((m) => (
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="text-[10px] text-muted-foreground uppercase tracking-wider">
+            Model
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
           <DropdownMenuItem
-            key={m}
-            onSelect={() => onChange(m)}
+            onSelect={() => onChange(null)}
             className="flex items-center gap-2"
           >
-            <span className="flex-1 font-mono text-xs">{m}</span>
-            {value === m && <CheckIcon className="size-4 text-primary" />}
+            <span className="flex-1 text-muted-foreground italic">
+              agent default
+            </span>
+            {value === null && <CheckIcon className="size-4 text-primary" />}
           </DropdownMenuItem>
-        ))}
+          {models.length > 0 && <DropdownMenuSeparator />}
+          {models.map((m) => (
+            <DropdownMenuItem
+              key={m}
+              onSelect={() => onChange(m)}
+              className="flex items-center gap-2"
+            >
+              <span className="flex-1 font-mono text-xs">{m}</span>
+              {value === m && <CheckIcon className="size-4 text-primary" />}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   )
