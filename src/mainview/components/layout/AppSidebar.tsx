@@ -58,8 +58,8 @@ export function AppSidebar() {
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  render={<Link to="/c/new" />}
-                  isActive={pathname === '/c/new'}
+                  render={<Link to="/chat/new" />}
+                  isActive={pathname === '/chat/new'}
                   className="font-medium"
                 >
                   <PlusIcon />
@@ -102,8 +102,10 @@ export function AppSidebar() {
                   {bucket.items.map((conv) => (
                     <SidebarMenuItem key={conv.id}>
                       <SidebarMenuButton
-                        render={<Link to="/c/$id" params={{ id: conv.id }} />}
-                        isActive={pathname === `/c/${conv.id}`}
+                        render={
+                          <Link to="/chat/$id" params={{ id: conv.id }} />
+                        }
+                        isActive={pathname === `/chat/${conv.id}`}
                         size="sm"
                       >
                         <MessageSquareIcon />

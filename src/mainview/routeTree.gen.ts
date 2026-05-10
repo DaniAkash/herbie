@@ -13,11 +13,12 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TasksIndexRouteImport } from './routes/tasks.index'
 import { Route as InboxIndexRouteImport } from './routes/inbox.index'
+import { Route as ChatIndexRouteImport } from './routes/chat.index'
 import { Route as TasksNewRouteImport } from './routes/tasks.new'
 import { Route as TasksIdRouteImport } from './routes/tasks.$id'
 import { Route as InboxIdRouteImport } from './routes/inbox.$id'
-import { Route as CNewRouteImport } from './routes/c.new'
-import { Route as CIdRouteImport } from './routes/c.$id'
+import { Route as ChatNewRouteImport } from './routes/chat.new'
+import { Route as ChatIdRouteImport } from './routes/chat.$id'
 
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
@@ -39,6 +40,11 @@ const InboxIndexRoute = InboxIndexRouteImport.update({
   path: '/inbox/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ChatIndexRoute = ChatIndexRouteImport.update({
+  id: '/chat/',
+  path: '/chat/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TasksNewRoute = TasksNewRouteImport.update({
   id: '/tasks/new',
   path: '/tasks/new',
@@ -54,36 +60,38 @@ const InboxIdRoute = InboxIdRouteImport.update({
   path: '/inbox/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
-const CNewRoute = CNewRouteImport.update({
-  id: '/c/new',
-  path: '/c/new',
+const ChatNewRoute = ChatNewRouteImport.update({
+  id: '/chat/new',
+  path: '/chat/new',
   getParentRoute: () => rootRouteImport,
 } as any)
-const CIdRoute = CIdRouteImport.update({
-  id: '/c/$id',
-  path: '/c/$id',
+const ChatIdRoute = ChatIdRouteImport.update({
+  id: '/chat/$id',
+  path: '/chat/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/settings': typeof SettingsRoute
-  '/c/$id': typeof CIdRoute
-  '/c/new': typeof CNewRoute
+  '/chat/$id': typeof ChatIdRoute
+  '/chat/new': typeof ChatNewRoute
   '/inbox/$id': typeof InboxIdRoute
   '/tasks/$id': typeof TasksIdRoute
   '/tasks/new': typeof TasksNewRoute
+  '/chat/': typeof ChatIndexRoute
   '/inbox/': typeof InboxIndexRoute
   '/tasks/': typeof TasksIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/settings': typeof SettingsRoute
-  '/c/$id': typeof CIdRoute
-  '/c/new': typeof CNewRoute
+  '/chat/$id': typeof ChatIdRoute
+  '/chat/new': typeof ChatNewRoute
   '/inbox/$id': typeof InboxIdRoute
   '/tasks/$id': typeof TasksIdRoute
   '/tasks/new': typeof TasksNewRoute
+  '/chat': typeof ChatIndexRoute
   '/inbox': typeof InboxIndexRoute
   '/tasks': typeof TasksIndexRoute
 }
@@ -91,11 +99,12 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/settings': typeof SettingsRoute
-  '/c/$id': typeof CIdRoute
-  '/c/new': typeof CNewRoute
+  '/chat/$id': typeof ChatIdRoute
+  '/chat/new': typeof ChatNewRoute
   '/inbox/$id': typeof InboxIdRoute
   '/tasks/$id': typeof TasksIdRoute
   '/tasks/new': typeof TasksNewRoute
+  '/chat/': typeof ChatIndexRoute
   '/inbox/': typeof InboxIndexRoute
   '/tasks/': typeof TasksIndexRoute
 }
@@ -104,33 +113,36 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/settings'
-    | '/c/$id'
-    | '/c/new'
+    | '/chat/$id'
+    | '/chat/new'
     | '/inbox/$id'
     | '/tasks/$id'
     | '/tasks/new'
+    | '/chat/'
     | '/inbox/'
     | '/tasks/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/settings'
-    | '/c/$id'
-    | '/c/new'
+    | '/chat/$id'
+    | '/chat/new'
     | '/inbox/$id'
     | '/tasks/$id'
     | '/tasks/new'
+    | '/chat'
     | '/inbox'
     | '/tasks'
   id:
     | '__root__'
     | '/'
     | '/settings'
-    | '/c/$id'
-    | '/c/new'
+    | '/chat/$id'
+    | '/chat/new'
     | '/inbox/$id'
     | '/tasks/$id'
     | '/tasks/new'
+    | '/chat/'
     | '/inbox/'
     | '/tasks/'
   fileRoutesById: FileRoutesById
@@ -138,11 +150,12 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SettingsRoute: typeof SettingsRoute
-  CIdRoute: typeof CIdRoute
-  CNewRoute: typeof CNewRoute
+  ChatIdRoute: typeof ChatIdRoute
+  ChatNewRoute: typeof ChatNewRoute
   InboxIdRoute: typeof InboxIdRoute
   TasksIdRoute: typeof TasksIdRoute
   TasksNewRoute: typeof TasksNewRoute
+  ChatIndexRoute: typeof ChatIndexRoute
   InboxIndexRoute: typeof InboxIndexRoute
   TasksIndexRoute: typeof TasksIndexRoute
 }
@@ -177,6 +190,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InboxIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/chat/': {
+      id: '/chat/'
+      path: '/chat'
+      fullPath: '/chat/'
+      preLoaderRoute: typeof ChatIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/tasks/new': {
       id: '/tasks/new'
       path: '/tasks/new'
@@ -198,18 +218,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InboxIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/c/new': {
-      id: '/c/new'
-      path: '/c/new'
-      fullPath: '/c/new'
-      preLoaderRoute: typeof CNewRouteImport
+    '/chat/new': {
+      id: '/chat/new'
+      path: '/chat/new'
+      fullPath: '/chat/new'
+      preLoaderRoute: typeof ChatNewRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/c/$id': {
-      id: '/c/$id'
-      path: '/c/$id'
-      fullPath: '/c/$id'
-      preLoaderRoute: typeof CIdRouteImport
+    '/chat/$id': {
+      id: '/chat/$id'
+      path: '/chat/$id'
+      fullPath: '/chat/$id'
+      preLoaderRoute: typeof ChatIdRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -218,11 +238,12 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SettingsRoute: SettingsRoute,
-  CIdRoute: CIdRoute,
-  CNewRoute: CNewRoute,
+  ChatIdRoute: ChatIdRoute,
+  ChatNewRoute: ChatNewRoute,
   InboxIdRoute: InboxIdRoute,
   TasksIdRoute: TasksIdRoute,
   TasksNewRoute: TasksNewRoute,
+  ChatIndexRoute: ChatIndexRoute,
   InboxIndexRoute: InboxIndexRoute,
   TasksIndexRoute: TasksIndexRoute,
 }

@@ -61,7 +61,7 @@ export function Chat({ conversationId }: ChatProps) {
         workspaceId: activeWorkspace,
       })
       appendMessage({ conversationId: conv.id, role: 'user', text })
-      navigate({ to: '/c/$id', params: { id: conv.id } })
+      navigate({ to: '/chat/$id', params: { id: conv.id } })
       return
     }
     appendMessage({ conversationId, role: 'user', text })

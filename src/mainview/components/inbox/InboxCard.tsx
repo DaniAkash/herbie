@@ -34,7 +34,7 @@ export function InboxCard({ item }: { item: InboxItem }) {
 
   function handleContinue() {
     const conv = continueInboxItemInChat(item.id)
-    navigate({ to: '/c/$id', params: { id: conv.id } })
+    navigate({ to: '/chat/$id', params: { id: conv.id } })
   }
 
   return (
