@@ -1,1 +1,1 @@
-export * from './app-settings.sql'
+export * from './settings.sql'

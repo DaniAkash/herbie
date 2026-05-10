@@ -10,7 +10,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
 import { cn } from '@/lib/utils'
-import { useDefaultAgent } from '@/modules/api/appSettings.hooks'
+import { useDefaultAgent } from '@/modules/api/settings.hooks'
 import { useHerbieData } from '@/modules/data/HerbieDataProvider'
 import type {
   AgentId,

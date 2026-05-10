@@ -1,10 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { BrowserWindow, Tray, Updater, Utils } from 'electrobun/bun'
 import { initializeDatabase } from '../db'
-import {
-  appSettings,
-  SETTINGS_SINGLETON_ID,
-} from '../db/schema/app-settings.sql'
+import { settings as settingsTable } from '../db/schema/settings.sql'
 import { setDb } from './db-singleton'
 import { setLoginItem } from './loginItems'
 import app from './server'
@@ -17,20 +14,31 @@ const API_PORT = 4575
 const { db } = await initializeDatabase()
 setDb(db)
 
-async function readSettings() {
-  return db
-    .select()
-    .from(appSettings)
-    .where(eq(appSettings.id, SETTINGS_SINGLETON_ID))
-    .get()
+interface GeneralSettings {
+  launchAtLogin: boolean
+  minimizeToMenubarOnClose: boolean
 }
 
-const bootSettings = await readSettings()
-if (bootSettings) {
+async function readGeneralSettings(): Promise<GeneralSettings | null> {
+  const row = await db
+    .select()
+    .from(settingsTable)
+    .where(eq(settingsTable.key, 'general'))
+    .get()
+  if (!row) return null
+  try {
+    return JSON.parse(row.value) as GeneralSettings
+  } catch {
+    return null
+  }
+}
+
+const bootGeneral = await readGeneralSettings()
+if (bootGeneral) {
   // Reconcile the LaunchAgent state with what's in the DB at boot — the
   // user may have removed the plist manually, or this might be the first
   // boot after the toggle was set on a previous machine.
-  await setLoginItem(bootSettings.launchAtLogin)
+  await setLoginItem(bootGeneral.launchAtLogin)
 }
 
 Bun.serve({ port: API_PORT, hostname: '127.0.0.1', fetch: app.fetch })
@@ -98,7 +106,7 @@ function createMainWindow(): BrowserWindow {
 
   win.on('close', () => {
     mainWindow = null
-    void readSettings().then((row) => {
+    void readGeneralSettings().then((row) => {
       if (row && row.minimizeToMenubarOnClose === false) {
         Utils.quit()
       }
