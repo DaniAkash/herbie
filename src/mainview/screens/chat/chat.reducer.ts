@@ -67,7 +67,7 @@ export function applyEvent(ctx: ReducerCtx, ev: PersistedEventDTO): void {
       transitionToolState(ctx, ev, 'input-available')
       break
     case 'stream.tool-call':
-      // Full payload landed; tool-input-* deltas already populated input.
+      handleToolCall(ctx, ev)
       break
     case 'stream.tool-result':
       handleToolResult(ctx, ev)
@@ -226,6 +226,36 @@ function transitionToolState(
 ): void {
   const p = ev.payload as { id?: string }
   patchPart<ToolPart>(ctx, p.id, 'tool', (part) => ({ ...part, state }))
+}
+
+function handleToolCall(ctx: ReducerCtx, ev: PersistedEventDTO): void {
+  // tool-input-* events identify the part by an internal block id (e.g.
+  // "acpx-4"). The terminal tool-call event carries the agent's real
+  // toolCallId (e.g. "toolu_01...") with no link back to the block id.
+  // Bind by walking back from the latest tool part that hasn't received
+  // a real toolCallId yet (its `toolCallId === id` placeholder set on
+  // input-start). Without the bind, downstream tool-result / tool-error
+  // lookups by toolCallId silently miss and the card stays "Running".
+  const p = ev.payload as {
+    toolCallId?: string
+    toolName?: string
+  }
+  if (!p.toolCallId || ctx.activeAssistantIdx < 0) return
+  const msg = ctx.messages[ctx.activeAssistantIdx]
+  if (!msg) return
+  for (let i = msg.parts.length - 1; i >= 0; i--) {
+    const part = msg.parts[i]
+    if (!part || part.kind !== 'tool') continue
+    if (part.toolCallId !== part.id) continue
+    const nextParts = [...msg.parts]
+    nextParts[i] = {
+      ...part,
+      toolCallId: p.toolCallId,
+      toolName: p.toolName ?? part.toolName,
+    }
+    ctx.messages[ctx.activeAssistantIdx] = { ...msg, parts: nextParts }
+    return
+  }
 }
 
 function handleToolResult(ctx: ReducerCtx, ev: PersistedEventDTO): void {
