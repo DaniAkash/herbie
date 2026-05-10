@@ -12,8 +12,7 @@
     "tw-animate-css",
     "clsx",
     "tailwind-merge",
-    "shadcn",
-    "acpx-ai-provider"
+    "shadcn"
   ],
   "rules": {
     "private-type-leaks": "warn",
@@ -43,6 +42,14 @@
       "files": ["src/mainview/routes/**"],
       "rules": {
         "duplicate-exports": "off"
+      }
+    },
+    {
+      "files": ["src/bun/chat/**"],
+      "rules": {
+        "unused-files": "off",
+        "unused-exports": "off",
+        "unused-types": "off"
       }
     }
   ],
