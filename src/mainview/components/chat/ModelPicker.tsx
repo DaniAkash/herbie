@@ -46,7 +46,7 @@ export function ModelPicker({ agentId, value, onChange }: ModelPickerProps) {
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem
-            onSelect={() => onChange(null)}
+            onClick={() => onChange(null)}
             className="flex items-center gap-2"
           >
             <span className="flex-1 text-muted-foreground italic">
@@ -58,7 +58,7 @@ export function ModelPicker({ agentId, value, onChange }: ModelPickerProps) {
           {models.map((m) => (
             <DropdownMenuItem
               key={m}
-              onSelect={() => onChange(m)}
+              onClick={() => onChange(m)}
               className="flex items-center gap-2"
             >
               <span className="flex-1 font-mono text-xs">{m}</span>

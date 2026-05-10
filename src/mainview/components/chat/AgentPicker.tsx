@@ -52,7 +52,7 @@ export function AgentPicker({ value, onChange }: AgentPickerProps) {
             return (
               <DropdownMenuItem
                 key={id}
-                onSelect={() => onChange(id)}
+                onClick={() => onChange(id)}
                 className="flex items-center gap-2 py-2"
               >
                 <span className="flex-1 font-medium text-sm">

@@ -51,7 +51,7 @@ export function WorkspacePicker({ value, onChange }: WorkspacePickerProps) {
           <DropdownMenuSeparator />
           {defaultPath && (
             <DropdownMenuItem
-              onSelect={() => onChange(null)}
+              onClick={() => onChange(null)}
               className="flex items-start gap-2"
             >
               <div className="flex-1">
@@ -74,7 +74,7 @@ export function WorkspacePicker({ value, onChange }: WorkspacePickerProps) {
           {recent.map((path) => (
             <DropdownMenuItem
               key={path}
-              onSelect={() => onChange(path)}
+              onClick={() => onChange(path)}
               className="flex items-start gap-2"
             >
               <div className="flex-1">
@@ -93,7 +93,7 @@ export function WorkspacePicker({ value, onChange }: WorkspacePickerProps) {
             // The native file dialog opens after the menu closes — kicking
             // the actual call to a microtask via the void/async boundary
             // is enough to let the menu animation finish.
-            onSelect={() => {
+            onClick={() => {
               void handlePick()
             }}
             className="flex items-center gap-2"

@@ -44,7 +44,7 @@ export function ReasoningPicker({
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem
-            onSelect={() => onChange(null)}
+            onClick={() => onChange(null)}
             className="flex items-center gap-2"
           >
             <span className="flex-1 text-muted-foreground italic">
@@ -56,7 +56,7 @@ export function ReasoningPicker({
           {reasoning.values.map((v) => (
             <DropdownMenuItem
               key={v}
-              onSelect={() => onChange(v)}
+              onClick={() => onChange(v)}
               className="flex items-center gap-2"
             >
               <span className="flex-1 text-sm capitalize">{v}</span>
