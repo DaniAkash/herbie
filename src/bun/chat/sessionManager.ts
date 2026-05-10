@@ -1,7 +1,14 @@
 import { getDb } from '../db-singleton'
 import { ChatSession } from './ChatSession'
 
-export class SessionManager {
+export interface SessionManager {
+  getOrCreate(conversationId: string): Promise<ChatSession>
+  get(conversationId: string): ChatSession | undefined
+  dispose(conversationId: string): Promise<void>
+  disposeAll(): Promise<void>
+}
+
+class SessionManagerImpl implements SessionManager {
   private readonly sessions = new Map<string, ChatSession>()
   private readonly inflight = new Map<string, Promise<ChatSession>>()
 
@@ -47,6 +54,6 @@ export class SessionManager {
 let instance: SessionManager | null = null
 
 export function getSessionManager(): SessionManager {
-  if (!instance) instance = new SessionManager()
+  if (!instance) instance = new SessionManagerImpl()
   return instance
 }

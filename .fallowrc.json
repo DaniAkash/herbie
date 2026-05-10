@@ -43,14 +43,6 @@
       "rules": {
         "duplicate-exports": "off"
       }
-    },
-    {
-      "files": ["src/bun/chat/**"],
-      "rules": {
-        "unused-files": "off",
-        "unused-exports": "off",
-        "unused-types": "off"
-      }
     }
   ],
   "boundaries": {

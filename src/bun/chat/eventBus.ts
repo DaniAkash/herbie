@@ -2,7 +2,12 @@ import type { PersistedEvent } from './events.types'
 
 export type ChatEventListener = (event: PersistedEvent) => void
 
-export class EventBus {
+export interface EventBus {
+  subscribe(conversationId: string, listener: ChatEventListener): () => void
+  emit(conversationId: string, event: PersistedEvent): void
+}
+
+class EventBusImpl implements EventBus {
   private readonly channels = new Map<string, Set<ChatEventListener>>()
 
   subscribe(conversationId: string, listener: ChatEventListener): () => void {
@@ -34,6 +39,6 @@ export class EventBus {
 let instance: EventBus | null = null
 
 export function getEventBus(): EventBus {
-  if (!instance) instance = new EventBus()
+  if (!instance) instance = new EventBusImpl()
   return instance
 }
