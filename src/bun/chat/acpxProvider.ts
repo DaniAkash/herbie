@@ -2,7 +2,7 @@ import { homedir } from 'node:os'
 import path from 'node:path'
 import { type AcpxProvider, createAcpxProvider } from 'acpx-ai-provider'
 
-const STATE_DIR = path.join(homedir(), '.herbie', 'acpx-state')
+export const ACPX_STATE_DIR = path.join(homedir(), '.herbie', 'acpx-state')
 
 // Mirror the override in src/bun/agents/detect.ts so a session can spin up
 // hermes — acpx 0.6.x doesn't ship hermes in built-ins yet.
@@ -11,6 +11,10 @@ const REGISTRY_OVERRIDES: Record<string, string> = { hermes: 'hermes acp' }
 export interface BuildAcpxProviderOptions {
   conversationId: string
   agentId: string
+  // Optional explicit overrides; default to single-provider-per-conversation
+  // behaviour (sessionKey = conversationId, cwd = $HOME).
+  workspacePath?: string
+  sessionKey?: string
   resumeSessionId?: string | null
 }
 
@@ -19,13 +23,10 @@ export function buildAcpxProvider(
 ): AcpxProvider {
   return createAcpxProvider({
     agent: opts.agentId,
-    // TODO(workspaces): when conversations gain a real backing workspace
-    // (with a filesystem path), thread it through here. Until then the agent
-    // boots in $HOME.
-    cwd: homedir(),
-    sessionKey: opts.conversationId,
+    cwd: opts.workspacePath ?? homedir(),
+    sessionKey: opts.sessionKey ?? opts.conversationId,
     sessionMode: 'persistent',
-    stateDir: STATE_DIR,
+    stateDir: ACPX_STATE_DIR,
     resumeSessionId: opts.resumeSessionId ?? undefined,
     agentRegistryOverrides: REGISTRY_OVERRIDES,
     // TODO(permissions): blanket-approve every tool call until the in-app

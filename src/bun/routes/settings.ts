@@ -58,6 +58,7 @@ const DOMAINS = ['general', 'agents', 'composer'] as const
 
 type Settings = z.infer<typeof settingsSchema>
 type Domain = keyof Settings
+export type AgentCapability = z.infer<typeof agentCapabilitySchema>
 
 // Accepts either the top-level db or a transaction handle — both expose
 // the same SQLite query surface we use here (select / insert / update).
@@ -130,9 +131,36 @@ async function writeDomain<K extends Domain>(
 }
 
 // Programmatic accessor for non-route callers (bootstrap, capability cache).
-// `patchSettings` will be added alongside the next caller (capability cache).
 export async function readSettings(): Promise<Settings> {
   return readAll(getDb())
+}
+
+export async function readAgentCapability(
+  db: DbLike,
+  agentId: string,
+): Promise<AgentCapability | undefined> {
+  const settings = await readAll(db)
+  return settings.composer.agentCapabilities[agentId]
+}
+
+// Merges new capability entries into composer.agentCapabilities. Used by
+// the discovery probe — runs in its own transaction so a concurrent PATCH
+// on another domain can't lose the write.
+export async function patchAgentCapabilities(
+  db: ReturnType<typeof getDb>,
+  patch: Record<string, AgentCapability>,
+): Promise<void> {
+  await db.transaction(async (tx) => {
+    const current = await readAll(tx)
+    const merged = {
+      ...current.composer,
+      agentCapabilities: {
+        ...current.composer.agentCapabilities,
+        ...patch,
+      },
+    }
+    await writeDomain(tx, 'composer', merged)
+  })
 }
 
 export const settingsRoute = new Hono()
