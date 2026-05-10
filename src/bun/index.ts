@@ -1,10 +1,12 @@
 import { eq } from 'drizzle-orm'
-import { BrowserWindow, Tray, Updater, Utils } from 'electrobun/bun'
+import Electrobun, { BrowserWindow, Tray, Updater, Utils } from 'electrobun/bun'
 import { initializeDatabase } from '../db'
 import {
   appSettings,
   SETTINGS_SINGLETON_ID,
 } from '../db/schema/app-settings.sql'
+import { conversations } from '../db/schema/conversations.sql'
+import { getSessionManager } from './chat/sessionManager'
 import { setDb } from './db-singleton'
 import { setLoginItem } from './loginItems'
 import app from './server'
@@ -131,3 +133,23 @@ tray.setMenu([
   { type: 'divider' },
   { type: 'normal', label: 'Quit Herbie', action: 'quit' },
 ])
+
+// Best-effort cleanup on quit. Electrobun's quit sequence emits this
+// synchronously and won't await async listeners, but acpx persists session
+// state to disk so a half-finished close still leaves resumable state for
+// the next launch via resumeSessionId.
+Electrobun.events.on('before-quit', () => {
+  void shutdown()
+})
+
+async function shutdown(): Promise<void> {
+  // Flip any in-flight conversations back to idle so the UI doesn't render
+  // them stuck on 'streaming' next launch.
+  await db
+    .update(conversations)
+    .set({ status: 'idle', updatedAt: new Date() })
+    .where(eq(conversations.status, 'streaming'))
+    .run()
+    .catch(() => {})
+  await getSessionManager().disposeAll()
+}
