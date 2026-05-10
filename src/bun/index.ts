@@ -33,7 +33,15 @@ if (bootSettings) {
   await setLoginItem(bootSettings.launchAtLogin)
 }
 
-Bun.serve({ port: API_PORT, hostname: '127.0.0.1', fetch: app.fetch })
+// idleTimeout: 0 disables Bun's per-connection 10s reaper. SSE chat streams
+// can sit idle for minutes during a long agent thinking pause; the default
+// would close them mid-turn.
+Bun.serve({
+  port: API_PORT,
+  hostname: '127.0.0.1',
+  idleTimeout: 0,
+  fetch: app.fetch,
+})
 
 async function getMainViewUrl(): Promise<string> {
   const channel = await Updater.localInfo.channel()
