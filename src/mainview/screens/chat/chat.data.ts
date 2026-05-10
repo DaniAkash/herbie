@@ -3,6 +3,7 @@ import { emptyChatViewState, reduceChatEvents } from './chat.helpers'
 import {
   type ConversationDetail,
   useCancelTurn,
+  useChatLiveStream,
   useConversation,
   useSendMessage,
 } from './chat.hooks'
@@ -23,6 +24,7 @@ export function useChatData(conversationId: string): UseChatDataResult {
   const query = useConversation({ variables: { id: conversationId } })
   const sendMutation = useSendMessage()
   const cancelMutation = useCancelTurn()
+  useChatLiveStream(conversationId)
 
   const view = useMemo(() => {
     const events = (query.data?.events ?? []).map((e) => ({

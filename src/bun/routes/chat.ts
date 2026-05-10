@@ -141,12 +141,15 @@ export const chatRoute = new Hono()
       const buffer: PersistedEvent[] = []
       let replaying = true
 
-      const writeOne = (ev: PersistedEvent) =>
+      const writeLive = (ev: PersistedEvent) =>
         stream
           .writeSSE({
             id: String(ev.seq),
-            event: ev.type,
-            data: JSON.stringify(ev.payload),
+            data: JSON.stringify({
+              type: ev.type,
+              payload: ev.payload,
+              createdAt: ev.createdAt.getTime(),
+            }),
           })
           .catch(() => {
             // Connection closed mid-write; the abort handler will clean up.
@@ -156,7 +159,7 @@ export const chatRoute = new Hono()
         if (replaying) {
           buffer.push(ev)
         } else {
-          void writeOne(ev)
+          void writeLive(ev)
         }
       })
       stream.onAbort(unsub)
@@ -164,10 +167,11 @@ export const chatRoute = new Hono()
       const replay = await loadEvents(id, after)
       for (const e of replay) {
         if (stream.aborted || stream.closed) return
+        // Hand-build the JSON envelope so we don't parse + re-stringify the
+        // already-encoded payload column for every replayed event.
         await stream.writeSSE({
           id: String(e.seq),
-          event: e.type,
-          data: e.payload,
+          data: `{"type":${JSON.stringify(e.type)},"payload":${e.payload},"createdAt":${e.createdAt.getTime()}}`,
         })
       }
       const lastReplaySeq =
@@ -175,7 +179,7 @@ export const chatRoute = new Hono()
 
       replaying = false
       for (const e of buffer) {
-        if (e.seq > lastReplaySeq) await writeOne(e)
+        if (e.seq > lastReplaySeq) await writeLive(e)
       }
       buffer.length = 0
 
