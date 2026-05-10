@@ -26,5 +26,9 @@ export function buildAcpxProvider(
     stateDir: STATE_DIR,
     resumeSessionId: opts.resumeSessionId ?? undefined,
     agentRegistryOverrides: REGISTRY_OVERRIDES,
+    // TODO(permissions): blanket-approve every tool call until the in-app
+    // permission UX is wired. Revisit before any non-personal use.
+    permissionMode: 'approve-all',
+    nonInteractivePermissions: 'deny',
   })
 }
