@@ -1,10 +1,8 @@
 import { eq } from 'drizzle-orm'
 import { BrowserWindow, Tray, Updater, Utils } from 'electrobun/bun'
+import { z } from 'zod'
 import { initializeDatabase } from '../db'
-import {
-  appSettings,
-  SETTINGS_SINGLETON_ID,
-} from '../db/schema/app-settings.sql'
+import { settings as settingsTable } from '../db/schema/settings.sql'
 import { setDb } from './db-singleton'
 import { setLoginItem } from './loginItems'
 import app from './server'
@@ -17,21 +15,32 @@ const API_PORT = 4575
 const { db } = await initializeDatabase()
 setDb(db)
 
-async function readSettings() {
-  return db
+const generalDefaults = { launchAtLogin: false, minimizeToMenubarOnClose: true }
+const generalSchema = z.object({
+  launchAtLogin: z.boolean(),
+  minimizeToMenubarOnClose: z.boolean(),
+})
+type GeneralSettings = z.infer<typeof generalSchema>
+
+async function readGeneralSettings(): Promise<GeneralSettings> {
+  const row = await db
     .select()
-    .from(appSettings)
-    .where(eq(appSettings.id, SETTINGS_SINGLETON_ID))
+    .from(settingsTable)
+    .where(eq(settingsTable.key, 'general'))
     .get()
+  if (!row) return generalDefaults
+  try {
+    const merged = { ...generalDefaults, ...JSON.parse(row.value) }
+    return generalSchema.parse(merged)
+  } catch {
+    return generalDefaults
+  }
 }
 
-const bootSettings = await readSettings()
-if (bootSettings) {
-  // Reconcile the LaunchAgent state with what's in the DB at boot — the
-  // user may have removed the plist manually, or this might be the first
-  // boot after the toggle was set on a previous machine.
-  await setLoginItem(bootSettings.launchAtLogin)
-}
+// Always reconcile the LaunchAgent — if the row is missing/corrupt, default
+// to disabled so a stale plist from a previous install doesn't linger.
+const bootGeneral = await readGeneralSettings()
+await setLoginItem(bootGeneral.launchAtLogin)
 
 Bun.serve({ port: API_PORT, hostname: '127.0.0.1', fetch: app.fetch })
 
@@ -98,7 +107,7 @@ function createMainWindow(): BrowserWindow {
 
   win.on('close', () => {
     mainWindow = null
-    void readSettings().then((row) => {
+    void readGeneralSettings().then((row) => {
       if (row && row.minimizeToMenubarOnClose === false) {
         Utils.quit()
       }
