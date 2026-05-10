@@ -1,3 +1,5 @@
+import { homedir } from 'node:os'
+import path from 'node:path'
 import { zValidator } from '@hono/zod-validator'
 import type { ResultSet } from '@libsql/client'
 import type { ExtractTablesWithRelations } from 'drizzle-orm'
@@ -25,12 +27,34 @@ const agentsSchema = z.object({
   defaultAgent: z.enum(AGENT_IDS),
 })
 
+const reasoningCapabilitySchema = z.object({
+  key: z.string().min(1),
+  values: z.array(z.string().min(1)).min(1),
+})
+
+const agentCapabilitySchema = z.object({
+  models: z.array(z.string().min(1)),
+  reasoning: reasoningCapabilitySchema.optional(),
+  // ms timestamp of when this entry was discovered — lets us refresh stale
+  // caches without needing a separate column.
+  discoveredAt: z.number().int().nonnegative(),
+})
+
+const composerSchema = z.object({
+  workspaces: z.object({
+    default: z.string().min(1),
+    recent: z.array(z.string().min(1)),
+  }),
+  agentCapabilities: z.record(z.string(), agentCapabilitySchema),
+})
+
 const settingsSchema = z.object({
   general: generalSchema,
   agents: agentsSchema,
+  composer: composerSchema,
 })
 
-const DOMAINS = ['general', 'agents'] as const
+const DOMAINS = ['general', 'agents', 'composer'] as const
 
 type Settings = z.infer<typeof settingsSchema>
 type Domain = keyof Settings
@@ -46,9 +70,18 @@ type DbLike =
       ExtractTablesWithRelations<typeof schema>
     >
 
+// Pre-resolved at module load — settings can be read before the workspace
+// bootstrap mkdirs the directory, so the default has to be a usable path
+// without requiring a row in the KV table.
+const DEFAULT_WORKSPACE_PATH = path.join(homedir(), 'herbie-workspace')
+
 const SETTINGS_DEFAULTS: Settings = {
   general: { launchAtLogin: false, minimizeToMenubarOnClose: true },
   agents: { defaultAgent: 'claude' },
+  composer: {
+    workspaces: { default: DEFAULT_WORKSPACE_PATH, recent: [] },
+    agentCapabilities: {},
+  },
 }
 
 // Schemas for PATCH bodies: validation only, no defaults — defaults belong to
@@ -59,6 +92,7 @@ const patchSchema = z
   .object({
     general: generalSchema.partial().optional(),
     agents: agentsSchema.partial().optional(),
+    composer: composerSchema.partial().optional(),
   })
   .strict()
 
@@ -95,6 +129,12 @@ async function writeDomain<K extends Domain>(
     .run()
 }
 
+// Programmatic accessor for non-route callers (bootstrap, capability cache).
+// `patchSettings` will be added alongside the next caller (capability cache).
+export async function readSettings(): Promise<Settings> {
+  return readAll(getDb())
+}
+
 export const settingsRoute = new Hono()
   .get('/settings', async (c) => {
     return c.json(await readAll(getDb()))
@@ -116,6 +156,12 @@ export const settingsRoute = new Hono()
         await writeDomain(tx, 'agents', {
           ...current.agents,
           ...patch.agents,
+        })
+      }
+      if (patch.composer) {
+        await writeDomain(tx, 'composer', {
+          ...current.composer,
+          ...patch.composer,
         })
       }
       return readAll(tx)
