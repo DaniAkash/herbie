@@ -43,7 +43,7 @@ function launcherPath(): string {
   const exec = process.execPath
   const idx = exec.indexOf('.app/Contents/')
   if (idx === -1) return exec
-  return exec.slice(0, idx + '.app/Contents/'.length) + 'MacOS/launcher'
+  return `${exec.slice(0, idx + '.app/Contents/'.length)}MacOS/launcher`
 }
 
 export async function setLoginItem(enabled: boolean): Promise<void> {
