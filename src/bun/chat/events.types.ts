@@ -42,3 +42,14 @@ export interface PersistedEvent {
   payload: unknown
   createdAt: Date
 }
+
+// Stream subtypes the rich reducer explicitly no-ops as "framing events
+// with no UI surface" (see chat.reducer.ts). They consume seqs on the bus
+// for live ordering but never hit chat_events.
+export const EPHEMERAL_STREAM_SUBTYPES: ReadonlySet<string> = new Set([
+  'start',
+  'start-step',
+  'finish-step',
+  'finish',
+  'abort',
+])

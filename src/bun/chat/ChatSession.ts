@@ -10,10 +10,11 @@ import {
 } from '../../db/schema/conversations.sql'
 import { buildAcpxProvider } from './acpxProvider'
 import { getEventBus } from './eventBus'
-import type {
-  PersistedEvent,
-  ProtocolEvent,
-  TurnFinishReason,
+import {
+  EPHEMERAL_STREAM_SUBTYPES,
+  type PersistedEvent,
+  type ProtocolEvent,
+  type TurnFinishReason,
 } from './events.types'
 
 export class TurnInProgressError extends Error {
@@ -170,14 +171,24 @@ export class ChatSession {
   }
 
   private async writeStreamEvent(part: unknown): Promise<void> {
-    const type =
-      typeof part === 'object' &&
-      part !== null &&
-      'type' in part &&
-      typeof (part as { type: unknown }).type === 'string'
-        ? `stream.${(part as { type: string }).type}`
-        : 'stream.unknown'
+    const subtype = extractStreamSubtype(part)
+    const type = `stream.${subtype}`
+    if (EPHEMERAL_STREAM_SUBTYPES.has(subtype)) {
+      this.emitTransient(type, part)
+      return
+    }
     await this.writeEvent(type, part)
+  }
+
+  private emitTransient(type: string, payload: unknown): void {
+    const seq = this.nextSeq++
+    this.bus.emit(this.conversation.id, {
+      conversationId: this.conversation.id,
+      seq,
+      type,
+      payload,
+      createdAt: new Date(),
+    })
   }
 
   private async writeEvent(type: string, payload: unknown): Promise<void> {
@@ -233,4 +244,16 @@ export class ChatSession {
       // next turn just starts a fresh ACP session under the same key.
     }
   }
+}
+
+function extractStreamSubtype(part: unknown): string {
+  if (
+    typeof part === 'object' &&
+    part !== null &&
+    'type' in part &&
+    typeof (part as { type: unknown }).type === 'string'
+  ) {
+    return (part as { type: string }).type
+  }
+  return 'unknown'
 }
