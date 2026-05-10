@@ -24,6 +24,11 @@ export class TurnInProgressError extends Error {
 interface ActiveTurn {
   requestId: string
   controller: AbortController
+  // Holds every event emitted during the turn (durable + ephemeral).
+  // Drained on turn end. SSE subscribers that connect mid-turn read this
+  // after their DB replay so they catch up to live without missing the
+  // bus events they weren't around for.
+  buffer: PersistedEvent[]
 }
 
 export class ChatSession {
@@ -65,13 +70,21 @@ export class ChatSession {
     return this.activeTurn !== null
   }
 
+  // Bridge the gap between DB replay and live bus for an SSE subscriber
+  // that connects mid-turn. Returns events from the active turn's buffer
+  // with seq > afterSeq. Empty when no turn is active.
+  getActiveTurnSnapshot(afterSeq: number): PersistedEvent[] {
+    if (!this.activeTurn) return []
+    return this.activeTurn.buffer.filter((e) => e.seq > afterSeq)
+  }
+
   async appendUserMessage(text: string): Promise<{ requestId: string }> {
     if (this.activeTurn)
       throw new TurnInProgressError('turn already in progress')
 
     const requestId = nanoid(8)
     const controller = new AbortController()
-    this.activeTurn = { requestId, controller }
+    this.activeTurn = { requestId, controller, buffer: [] }
     await this.setStatus('streaming')
     await this.writeProtocolEvent({
       type: 'turn.start',
@@ -181,14 +194,14 @@ export class ChatSession {
   }
 
   private emitTransient(type: string, payload: unknown): void {
-    const seq = this.nextSeq++
-    this.bus.emit(this.conversation.id, {
+    const event: PersistedEvent = {
       conversationId: this.conversation.id,
-      seq,
+      seq: this.nextSeq++,
       type,
       payload,
       createdAt: new Date(),
-    })
+    }
+    this.deliver(event)
   }
 
   private async writeEvent(type: string, payload: unknown): Promise<void> {
@@ -204,14 +217,21 @@ export class ChatSession {
         createdAt,
       })
       .run()
-    const persisted: PersistedEvent = {
+    this.deliver({
       conversationId: this.conversation.id,
       seq,
       type,
       payload,
       createdAt,
-    }
-    this.bus.emit(this.conversation.id, persisted)
+    })
+  }
+
+  // Append to the active-turn buffer (if any) and emit on the bus.
+  // Buffer captures every event emitted during the turn so a mid-turn
+  // SSE subscriber gets a faithful replay of the live bus stream.
+  private deliver(event: PersistedEvent): void {
+    if (this.activeTurn) this.activeTurn.buffer.push(event)
+    this.bus.emit(this.conversation.id, event)
   }
 
   private async setStatus(status: Conversation['status']): Promise<void> {
