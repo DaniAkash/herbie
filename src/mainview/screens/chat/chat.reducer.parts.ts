@@ -39,6 +39,34 @@ export function patchPart<T extends MessagePart>(
   ctx.messages[ctx.activeAssistantIdx] = { ...msg, parts: nextParts }
 }
 
+// tool-input-* events identify the part by an internal block id (e.g.
+// "acpx-4"). The terminal tool-call event carries the agent's real
+// toolCallId (e.g. "toolu_01..."). Bind the latest tool part whose
+// toolCallId still equals its id placeholder so downstream tool-result /
+// tool-error lookups resolve.
+export function bindToolCallId(
+  ctx: ReducerCtx,
+  toolCallId: string,
+  toolName: string | undefined,
+): void {
+  if (ctx.activeAssistantIdx < 0) return
+  const msg = ctx.messages[ctx.activeAssistantIdx]
+  if (!msg) return
+  for (let i = msg.parts.length - 1; i >= 0; i--) {
+    const part = msg.parts[i]
+    if (!part || part.kind !== 'tool') continue
+    if (part.toolCallId !== part.id) continue
+    const nextParts = [...msg.parts]
+    nextParts[i] = {
+      ...part,
+      toolCallId,
+      toolName: toolName ?? part.toolName,
+    }
+    ctx.messages[ctx.activeAssistantIdx] = { ...msg, parts: nextParts }
+    return
+  }
+}
+
 export function patchToolByCallId(
   ctx: ReducerCtx,
   toolCallId: string,

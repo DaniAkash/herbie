@@ -314,25 +314,34 @@ function ToolPartView({ part }: { part: ToolPart }) {
         state={part.state}
       />
       <ToolContent>
-        <ToolInput input={inputValue} />
-        {part.output !== null && (
-          <ToolOutput
-            output={
-              outputValue === undefined ? null : (
-                <pre className="whitespace-pre-wrap font-mono text-xs">
-                  {typeof outputValue === 'string'
-                    ? outputValue
-                    : JSON.stringify(outputValue, null, 2)}
-                </pre>
-              )
-            }
-            errorText={
-              part.isError ? (part.errorMessage ?? 'error') : undefined
-            }
-          />
+        {/* ToolInput JSON-stringifies its input, which mangles raw strings
+            with escaped quotes. Render plain text inline; only feed JSON
+            shapes to ToolInput. */}
+        {typeof inputValue === 'string' ? (
+          <PlainParameters text={inputValue} />
+        ) : (
+          <ToolInput input={inputValue} />
         )}
+        <ToolOutput
+          output={outputValue ?? null}
+          errorText={part.isError ? (part.errorMessage ?? 'error') : undefined}
+        />
       </ToolContent>
     </Tool>
+  )
+}
+
+function PlainParameters({ text }: { text: string }) {
+  if (!text) return null
+  return (
+    <div className="space-y-2 overflow-hidden">
+      <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+        Parameters
+      </h4>
+      <pre className="whitespace-pre-wrap rounded-md bg-muted/50 px-3 py-2 font-mono text-xs">
+        {text}
+      </pre>
+    </div>
   )
 }
 
