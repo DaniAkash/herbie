@@ -25,6 +25,9 @@ const createSchema = z
 
 const sendSchema = z.object({ text: z.string().min(1) }).strict()
 const cancelSchema = z.object({ reason: z.string().optional() }).strict()
+const conversationQuery = z
+  .object({ afterSeq: z.string().optional() })
+  .optional()
 
 function parseAfter(raw: string | undefined | null): number {
   if (!raw) return -1
@@ -73,7 +76,7 @@ export const chatRoute = new Hono()
       .all()
     return c.json(rows.map((r) => serializeTimestamps(r)))
   })
-  .get('/chat/:id', async (c) => {
+  .get('/chat/:id', zValidator('query', conversationQuery), async (c) => {
     const id = c.req.param('id')
     const conv = await getDb()
       .select()
@@ -82,7 +85,7 @@ export const chatRoute = new Hono()
       .get()
     if (!conv) return c.json({ error: 'not found' }, 404)
 
-    const after = parseAfter(c.req.query('afterSeq'))
+    const after = parseAfter(c.req.valid('query')?.afterSeq)
     const events = await loadEvents(id, after)
     return c.json({
       conversation: serializeTimestamps(conv),
