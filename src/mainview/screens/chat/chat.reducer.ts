@@ -158,10 +158,15 @@ function handleStreamError(ctx: ReducerCtx, ev: PersistedEventDTO): void {
   }))
 }
 
-// Replay path for coalesced text segments. Live tail still uses stream.text-*.
+// During a live turn the bus emits this event right before stream.text-end
+// (ChatSession flushes the segment before emitting the end marker). The
+// live deltas have already filled the open TextPart, so no-op when an
+// active block with this id exists. On replay there's no live part —
+// push a fresh closed one.
 function handleAssistantText(ctx: ReducerCtx, ev: PersistedEventDTO): void {
   const p = ev.payload as { textId: string; text: string }
   if (!p.textId) return
+  if (ctx.activeBlocks.has(p.textId)) return
   pushPart(ctx, {
     kind: 'text',
     id: p.textId,
@@ -170,10 +175,12 @@ function handleAssistantText(ctx: ReducerCtx, ev: PersistedEventDTO): void {
   })
 }
 
-// Replay for coalesced reasoning. isPlan derivation matches live path.
+// Same idempotency guard as handleAssistantText. isPlan derivation
+// matches the live appendReasoningDelta path.
 function handleReasoningComplete(ctx: ReducerCtx, ev: PersistedEventDTO): void {
   const p = ev.payload as { reasoningId: string; text: string }
   if (!p.reasoningId) return
+  if (ctx.activeBlocks.has(p.reasoningId)) return
   const raw = p.text ?? ''
   const isPlan = raw.startsWith(PLAN_PREFIX)
   pushPart(ctx, {
