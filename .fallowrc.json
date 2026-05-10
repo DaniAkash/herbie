@@ -12,7 +12,8 @@
     "tw-animate-css",
     "clsx",
     "tailwind-merge",
-    "shadcn"
+    "shadcn",
+    "acpx-ai-provider"
   ],
   "rules": {
     "private-type-leaks": "warn",
