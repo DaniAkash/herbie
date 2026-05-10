@@ -1,8 +1,8 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { agentsRoute } from './routes/agents'
-import { appSettingsRoute } from './routes/appSettings'
 import { chatRoute } from './routes/chat'
+import { settingsRoute } from './routes/settings'
 import { systemRoute } from './routes/system'
 
 const app = new Hono()
@@ -15,7 +15,7 @@ app.use('*', cors({ origin: '*' }))
 
 const routes = app
   .get('/health', (c) => c.json({ status: 'ok' }))
-  .route('/', appSettingsRoute)
+  .route('/', settingsRoute)
   .route('/', agentsRoute)
   .route('/', systemRoute)
   .route('/', chatRoute)

@@ -17,10 +17,10 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { cn } from '@/lib/utils'
 import { type AgentDetection, useAgents } from '@/modules/api/agents.hooks'
 import {
-  useAppSettings,
   useDefaultAgent,
-  useUpdateAppSettings,
-} from '@/modules/api/appSettings.hooks'
+  useSettings,
+  useUpdateSettings,
+} from '@/modules/api/settings.hooks'
 import { useHerbieData } from '@/modules/data/HerbieDataProvider'
 import type { AgentId } from '@/modules/data/herbie-data.types'
 import { openExternal } from '@/modules/system/openExternal'
@@ -85,8 +85,8 @@ export function Settings() {
 }
 
 function GeneralTab() {
-  const { data, isLoading } = useAppSettings()
-  const { mutate } = useUpdateAppSettings()
+  const { data, isLoading } = useSettings()
+  const { mutate } = useUpdateSettings()
 
   if (isLoading || !data) {
     return <Skeleton className="h-40 rounded-lg" />
@@ -99,14 +99,14 @@ function GeneralTab() {
         <SettingRow
           label="Launch at login"
           description="Open Herbie automatically when you log in to your Mac."
-          checked={data.launchAtLogin}
-          onChange={(v) => mutate({ launchAtLogin: v })}
+          checked={data.general.launchAtLogin}
+          onChange={(v) => mutate({ general: { launchAtLogin: v } })}
         />
         <SettingRow
           label="Keep in menu bar on close"
           description="When the window is closed, hide it instead of quitting. Reach Herbie again via the menu bar icon."
-          checked={data.minimizeToMenubarOnClose}
-          onChange={(v) => mutate({ minimizeToMenubarOnClose: v })}
+          checked={data.general.minimizeToMenubarOnClose}
+          onChange={(v) => mutate({ general: { minimizeToMenubarOnClose: v } })}
         />
       </div>
     </section>

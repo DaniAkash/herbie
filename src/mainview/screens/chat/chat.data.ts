@@ -7,7 +7,7 @@ import {
   useConversation,
   useSendMessage,
 } from './chat.hooks'
-import type { ChatMessage } from './chat.types'
+import type { ChatMessage, PersistedEventDTO } from './chat.types'
 
 export interface UseChatDataResult {
   isLoading: boolean
@@ -27,12 +27,14 @@ export function useChatData(conversationId: string): UseChatDataResult {
   useChatLiveStream(conversationId)
 
   const view = useMemo(() => {
-    const events = (query.data?.events ?? []).map((e) => ({
-      seq: e.seq,
-      type: e.type,
-      payload: e.payload,
-      createdAt: e.createdAt,
-    }))
+    const events: PersistedEventDTO[] = (query.data?.events ?? []).map(
+      (e: PersistedEventDTO) => ({
+        seq: e.seq,
+        type: e.type,
+        payload: e.payload,
+        createdAt: e.createdAt,
+      }),
+    )
     return reduceChatEvents(emptyChatViewState(), events)
   }, [query.data?.events])
 

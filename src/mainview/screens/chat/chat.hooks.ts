@@ -95,12 +95,14 @@ function appendEventToCache(
 ): void {
   queryClient.setQueryData<ConversationDetail>(
     useConversation.getKey({ id: conversationId }),
-    (old) => {
+    (old: ConversationDetail | undefined) => {
       if (!old) return old
-      if (old.events.some((e) => e.seq === ev.seq)) return old
+      if (old.events.some((e: { seq: number }) => e.seq === ev.seq)) return old
       return {
         ...old,
-        events: [...old.events, ev].sort((a, b) => a.seq - b.seq),
+        events: [...old.events, ev].sort(
+          (a: { seq: number }, b: { seq: number }) => a.seq - b.seq,
+        ),
       }
     },
   )

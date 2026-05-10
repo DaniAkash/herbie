@@ -16,7 +16,7 @@ import { Input } from '@/components/ui/input'
 import { LinkButton } from '@/components/ui/link-button'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
-import { useDefaultAgent } from '@/modules/api/appSettings.hooks'
+import { useDefaultAgent } from '@/modules/api/settings.hooks'
 import { useHerbieData } from '@/modules/data/HerbieDataProvider'
 import type {
   AgentId,

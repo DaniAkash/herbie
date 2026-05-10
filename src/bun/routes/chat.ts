@@ -11,9 +11,18 @@ import { getEventBus } from '../chat/eventBus'
 import type { PersistedEvent } from '../chat/events.types'
 import { getSessionManager } from '../chat/sessionManager'
 import { getDb } from '../db-singleton'
-import { serializeTimestamps } from './serialize'
 
 const AGENT_IDS = ['claude', 'codex', 'gemini', 'hermes'] as const
+
+type ConversationRow = typeof conversations.$inferSelect
+
+function serializeConversation(row: ConversationRow) {
+  return {
+    ...row,
+    createdAt: row.createdAt.getTime(),
+    updatedAt: row.updatedAt.getTime(),
+  }
+}
 
 const createSchema = z
   .object({
@@ -66,7 +75,7 @@ export const chatRoute = new Hono()
       updatedAt: now,
     }
     await getDb().insert(conversations).values(row).run()
-    return c.json(serializeTimestamps(row))
+    return c.json(serializeConversation(row))
   })
   .get('/chat', async (c) => {
     const rows = await getDb()
@@ -74,7 +83,7 @@ export const chatRoute = new Hono()
       .from(conversations)
       .orderBy(desc(conversations.updatedAt))
       .all()
-    return c.json(rows.map((r) => serializeTimestamps(r)))
+    return c.json(rows.map((r) => serializeConversation(r)))
   })
   .get('/chat/:id', zValidator('query', conversationQuery), async (c) => {
     const id = c.req.param('id')
@@ -88,7 +97,7 @@ export const chatRoute = new Hono()
     const after = parseAfter(c.req.valid('query')?.afterSeq)
     const events = await loadEvents(id, after)
     return c.json({
-      conversation: serializeTimestamps(conv),
+      conversation: serializeConversation(conv),
       events: events.map((e) => ({
         seq: e.seq,
         type: e.type,
