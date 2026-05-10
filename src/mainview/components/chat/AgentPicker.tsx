@@ -16,12 +16,14 @@ export type AgentPickerProps = {
   value: AgentId
   onChange: (agent: AgentId) => void
   variant?: 'pill' | 'header'
+  readOnly?: boolean
 }
 
 export function AgentPicker({
   value,
   onChange,
   variant = 'pill',
+  readOnly,
 }: AgentPickerProps) {
   const { agents } = useHerbieData()
   const current = agents.find((a) => a.id === value) ?? agents[0]
@@ -29,6 +31,7 @@ export function AgentPicker({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
+        disabled={readOnly}
         render={
           <Button
             variant={variant === 'pill' ? 'ghost' : 'outline'}

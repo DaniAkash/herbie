@@ -12,7 +12,6 @@ export const conversations = sqliteTable('conversations', {
   id: text('id').primaryKey(),
   title: text('title').notNull(),
   agentId: text('agent_id').notNull(),
-  workspaceId: text('workspace_id'),
   acpxSessionId: text('acpx_session_id'),
   acpxRecordId: text('acpx_record_id'),
   agentSessionId: text('agent_session_id'),

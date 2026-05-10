@@ -84,35 +84,31 @@ function handleTurnStart(ctx: ReducerCtx, ev: PersistedEventDTO): void {
 }
 
 function handleTurnFinish(ctx: ReducerCtx): void {
-  patchActive(ctx, (m) => {
-    m.isStreaming = false
-  })
+  patchActive(ctx, (m) => ({ ...m, isStreaming: false }))
   closeActive(ctx)
 }
 
 function handleTurnCancel(ctx: ReducerCtx): void {
-  patchActive(ctx, (m) => {
-    m.isStreaming = false
-    m.isCancelled = true
-  })
+  patchActive(ctx, (m) => ({ ...m, isStreaming: false, isCancelled: true }))
   closeActive(ctx)
 }
 
 function handleTurnError(ctx: ReducerCtx, ev: PersistedEventDTO): void {
   const p = ev.payload as { message: string; code?: string }
-  patchActive(ctx, (m) => {
-    m.isStreaming = false
-    m.isError = true
-    m.errorMessage = p.message
-  })
+  patchActive(ctx, (m) => ({
+    ...m,
+    isStreaming: false,
+    isError: true,
+    errorMessage: p.message,
+  }))
   closeActive(ctx)
 }
 
 function handleTextDelta(ctx: ReducerCtx, ev: PersistedEventDTO): void {
   const p = ev.payload as { text?: string }
   if (!p.text) return
-  const msg = findById(ctx.messages, ctx.activeAssistantId)
-  if (msg) msg.text += p.text
+  const text = p.text
+  patchActive(ctx, (m) => ({ ...m, text: m.text + text }))
 }
 
 function closeActive(ctx: ReducerCtx): void {
@@ -120,9 +116,20 @@ function closeActive(ctx: ReducerCtx): void {
   ctx.activeAssistantId = null
 }
 
-function patchActive(ctx: ReducerCtx, patch: (m: ChatMessage) => void): void {
-  const msg = findById(ctx.messages, ctx.activeAssistantId)
-  if (msg) patch(msg)
+// Replace the active assistant message with a new object instead of mutating
+// in place — the incremental reducer in chat.data.ts keeps the previous state
+// alive across renders, and React relies on object identity for reconciliation.
+function patchActive(
+  ctx: ReducerCtx,
+  patch: (m: ChatMessage) => ChatMessage,
+): void {
+  const id = ctx.activeAssistantId
+  if (!id) return
+  const idx = ctx.messages.findIndex((m) => m.id === id)
+  if (idx < 0) return
+  const old = ctx.messages[idx]
+  if (!old) return
+  ctx.messages[idx] = patch(old)
 }
 
 function lastActiveAssistantId(messages: ChatMessage[]): string | null {
@@ -131,12 +138,4 @@ function lastActiveAssistantId(messages: ChatMessage[]): string | null {
     if (m && m.role === 'assistant' && m.isStreaming) return m.id
   }
   return null
-}
-
-function findById(
-  messages: ChatMessage[],
-  id: string | null,
-): ChatMessage | undefined {
-  if (!id) return undefined
-  return messages.find((m) => m.id === id)
 }

@@ -20,6 +20,9 @@ export type ComposerProps = {
   onSchedule?: (text: string) => void
   placeholder?: string
   autoFocus?: boolean
+  /** Disables the agent + workspace pickers (e.g., once a conversation has a
+   *  baked-in ACP session that can't switch agent/cwd mid-flight). */
+  pickersReadOnly?: boolean
 }
 
 export function Composer({
@@ -31,6 +34,7 @@ export function Composer({
   onSchedule,
   placeholder = 'Type a message…',
   autoFocus,
+  pickersReadOnly,
 }: ComposerProps) {
   const [text, setText] = useState('')
   const trimmed = text.trim()
@@ -75,8 +79,16 @@ export function Composer({
             rows={2}
           />
           <InputGroupAddon align="block-end" className="gap-2">
-            <AgentPicker value={agent} onChange={onAgentChange} />
-            <WorkspacePicker value={workspaceId} onChange={onWorkspaceChange} />
+            <AgentPicker
+              value={agent}
+              onChange={onAgentChange}
+              readOnly={pickersReadOnly}
+            />
+            <WorkspacePicker
+              value={workspaceId}
+              onChange={onWorkspaceChange}
+              readOnly={pickersReadOnly}
+            />
             <div className="flex-1" />
             {onSchedule && (
               <InputGroupButton

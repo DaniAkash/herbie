@@ -123,7 +123,6 @@ export class ChatSession {
     this.provider = buildAcpxProvider({
       conversationId: this.conversation.id,
       agentId: this.conversation.agentId,
-      cwd: this.conversation.workspaceId,
       resumeSessionId: this.conversation.acpxSessionId,
     })
     return this.provider

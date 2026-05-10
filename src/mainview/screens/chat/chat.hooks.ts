@@ -74,9 +74,14 @@ export function useChatLiveStream(conversationId: string | null): void {
       afterSeq: lastSeqRef.current,
       onEvent: (ev) => {
         if (ev.seq <= lastSeqRef.current) return
+        const appended = appendEventToCache(conversationId, ev)
+        // On cache miss, the conversation query hasn't loaded yet — leave
+        // the cursor where it is so the refetch (triggered inside
+        // appendEventToCache) catches up. Otherwise we'd advance past
+        // events the cache never received.
+        if (!appended) return
         lastSeqRef.current = ev.seq
         writeCursor(conversationId, ev.seq)
-        appendEventToCache(conversationId, ev)
         // turn boundaries flip status / bump updatedAt server-side; refresh
         // the sidebar list so it re-orders when activity moves around.
         if (ev.type.startsWith('turn.')) {
@@ -92,18 +97,27 @@ export function useChatLiveStream(conversationId: string | null): void {
 function appendEventToCache(
   conversationId: string,
   ev: { seq: number; type: string; payload: unknown; createdAt: number },
-): void {
-  queryClient.setQueryData<ConversationDetail>(
-    useConversation.getKey({ id: conversationId }),
-    (old: ConversationDetail | undefined) => {
-      if (!old) return old
-      if (old.events.some((e: { seq: number }) => e.seq === ev.seq)) return old
-      return {
-        ...old,
-        events: [...old.events, ev].sort(
+): boolean {
+  const key = useConversation.getKey({ id: conversationId })
+  const cached = queryClient.getQueryData<ConversationDetail>(key)
+  if (!cached) {
+    // The initial GET hasn't resolved yet. Don't drop the event — kick a
+    // refetch and let the next round pull it from the DB.
+    void queryClient.invalidateQueries({ queryKey: key })
+    return false
+  }
+  if (cached.events.some((e: { seq: number }) => e.seq === ev.seq)) return true
+
+  // SSE delivers events in monotonic seq order in the common case, so the
+  // straight append is the hot path. Sort only if the new event landed
+  // before the current tail (replay race, retry, etc).
+  const last = cached.events[cached.events.length - 1]
+  const events =
+    !last || ev.seq > last.seq
+      ? [...cached.events, ev]
+      : [...cached.events, ev].sort(
           (a: { seq: number }, b: { seq: number }) => a.seq - b.seq,
-        ),
-      }
-    },
-  )
+        )
+  queryClient.setQueryData<ConversationDetail>(key, { ...cached, events })
+  return true
 }

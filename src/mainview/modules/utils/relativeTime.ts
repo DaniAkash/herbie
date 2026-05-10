@@ -8,8 +8,13 @@ export function relativeTime(ts: number, ref: number = Date.now()): string {
   return dayjs(ts).from(dayjs(ref))
 }
 
+// Locale-aware clock format — dayjs's format mask is fixed, so fall through to
+// Intl which honors the user's regional 12/24-hour preference.
 export function clockTime(ts: number): string {
-  return dayjs(ts).format('h:mm A')
+  return new Date(ts).toLocaleTimeString(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+  })
 }
 
 export function dayBucket(ts: number, ref: number = Date.now()): string {

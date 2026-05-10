@@ -27,7 +27,6 @@ function serializeConversation(row: ConversationRow) {
 const createSchema = z
   .object({
     agentId: z.enum(AGENT_IDS),
-    workspaceId: z.string().min(1).nullish(),
     title: z.string().min(1).max(200).optional(),
   })
   .strict()
@@ -66,7 +65,6 @@ export const chatRoute = new Hono()
       id: nanoid(),
       title: body.title ?? 'New conversation',
       agentId: body.agentId,
-      workspaceId: body.workspaceId ?? null,
       acpxSessionId: null,
       acpxRecordId: null,
       agentSessionId: null,

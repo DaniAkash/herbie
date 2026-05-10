@@ -37,7 +37,6 @@ export function InboxCard({ item }: { item: InboxItem }) {
     const conv = await createConversation.mutateAsync({
       agentId: item.agent,
       title: item.title,
-      workspaceId: item.workspaceId ?? null,
     })
     setInboxItemStatus(item.id, 'read')
     navigate({ to: '/chat/$id', params: { id: conv.id } })

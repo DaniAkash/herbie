@@ -11,7 +11,6 @@ const REGISTRY_OVERRIDES: Record<string, string> = { hermes: 'hermes acp' }
 export interface BuildAcpxProviderOptions {
   conversationId: string
   agentId: string
-  cwd?: string | null
   resumeSessionId?: string | null
 }
 
@@ -20,7 +19,10 @@ export function buildAcpxProvider(
 ): AcpxProvider {
   return createAcpxProvider({
     agent: opts.agentId,
-    cwd: opts.cwd ?? homedir(),
+    // TODO(workspaces): when conversations gain a real backing workspace
+    // (with a filesystem path), thread it through here. Until then the agent
+    // boots in $HOME.
+    cwd: homedir(),
     sessionKey: opts.conversationId,
     sessionMode: 'persistent',
     stateDir: STATE_DIR,

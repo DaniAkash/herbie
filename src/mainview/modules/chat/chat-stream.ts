@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://127.0.0.1:4575'
+import { API_BASE_URL } from '@/modules/api/client'
 
 export interface ChatStreamEvent {
   seq: number

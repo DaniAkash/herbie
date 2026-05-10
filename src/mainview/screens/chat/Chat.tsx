@@ -7,7 +7,6 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useCreateConversation } from '@/modules/api/chat.hooks'
 import { useDefaultAgent } from '@/modules/api/settings.hooks'
-import { useHerbieData } from '@/modules/data/HerbieDataProvider'
 import type { AgentId } from '@/modules/data/herbie-data.types'
 import { clockTime } from '@/modules/utils/relativeTime'
 import { useChatData } from './chat.data'
@@ -26,7 +25,11 @@ export function Chat({ conversationId }: ChatProps) {
 function NewChat() {
   const navigate = useNavigate()
   const { defaultAgent } = useDefaultAgent()
-  const [agent, setAgent] = useState<AgentId>(defaultAgent)
+  // Agent stays derived from the saved default until the user explicitly
+  // picks one — that way the settings query resolving after first paint
+  // doesn't leave us frozen on the fallback.
+  const [pickedAgent, setPickedAgent] = useState<AgentId | null>(null)
+  const agent = pickedAgent ?? defaultAgent
   const [workspaceId, setWorkspaceId] = useState<string | undefined>()
 
   const createMutation = useCreateConversation()
@@ -36,7 +39,6 @@ function NewChat() {
     const conv = await createMutation.mutateAsync({
       agentId: agent,
       title: text.slice(0, 60),
-      workspaceId: workspaceId ?? null,
     })
     await sendMutation.mutateAsync({ id: conv.id, text })
     navigate({ to: '/chat/$id', params: { id: conv.id } })
@@ -71,7 +73,7 @@ function NewChat() {
       <Composer
         agent={agent}
         workspaceId={workspaceId}
-        onAgentChange={setAgent}
+        onAgentChange={setPickedAgent}
         onWorkspaceChange={setWorkspaceId}
         onSubmit={handleSubmit}
         onSchedule={handleSchedule}
@@ -84,7 +86,6 @@ function NewChat() {
 
 function ExistingChat({ conversationId }: { conversationId: string }) {
   const navigate = useNavigate()
-  const { workspaces } = useHerbieData()
   const data = useChatData(conversationId)
 
   if (data.isLoading) {
@@ -107,10 +108,10 @@ function ExistingChat({ conversationId }: { conversationId: string }) {
 
   const conversation = data.conversation
   const agent = conversation.agentId as AgentId
-  const workspaceId = conversation.workspaceId ?? undefined
-  const workspaceName = workspaceId
-    ? (workspaces.find((w) => w.id === workspaceId)?.name ?? workspaceId)
-    : null
+  // Workspaces aren't persisted on conversations yet — pickers show "no
+  // workspace" until the column is reintroduced with a real path field.
+  const workspaceId: string | undefined = undefined
+  const workspaceName: string | null = null
 
   function handleSubmit(text: string) {
     void data.sendMessage(text)
@@ -155,11 +156,13 @@ function ExistingChat({ conversationId }: { conversationId: string }) {
         agent={agent}
         workspaceId={workspaceId}
         // Agent + workspace are baked into the ACP session; mid-conversation
-        // changes would require a fresh session. Treat as read-only for now.
+        // changes would require a fresh session. Lock the pickers so the UI
+        // doesn't suggest otherwise.
         onAgentChange={() => {}}
         onWorkspaceChange={() => {}}
         onSubmit={handleSubmit}
         onSchedule={handleSchedule}
+        pickersReadOnly
       />
     </div>
   )
