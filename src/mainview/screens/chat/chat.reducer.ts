@@ -1,21 +1,24 @@
 import {
+  appendReasoningDelta,
+  appendTextDelta,
+  appendToolInputDelta,
+  closeBlock,
+  openReasoningBlock,
+  openTextBlock,
+  openToolBlock,
+  transitionToolState,
+} from './chat.reducer.live'
+import {
   bindToolCallId,
   errorToString,
   finalizeActiveMessage,
   patchActiveMessage,
-  patchPart,
   patchToolByCallId,
   pushPart,
   type ReducerCtx,
   stringifyToolPayload,
 } from './chat.reducer.parts'
-import type {
-  PersistedEventDTO,
-  ReasoningPart,
-  TextPart,
-  ToolPart,
-  ToolPartState,
-} from './chat.types'
+import type { PersistedEventDTO } from './chat.types'
 
 export type { ReducerCtx } from './chat.reducer.parts'
 export { rehydrateActive } from './chat.reducer.parts'
@@ -42,6 +45,9 @@ export function applyEvent(ctx: ReducerCtx, ev: PersistedEventDTO): void {
       break
     case 'assistant.text':
       handleAssistantText(ctx, ev)
+      break
+    case 'reasoning.complete':
+      handleReasoningComplete(ctx, ev)
       break
     case 'stream.text-start':
       openTextBlock(ctx, ev)
@@ -70,13 +76,13 @@ export function applyEvent(ctx: ReducerCtx, ev: PersistedEventDTO): void {
     case 'stream.tool-input-end':
       transitionToolState(ctx, ev, 'input-available')
       break
-    case 'stream.tool-call':
+    case 'tool.call':
       handleToolCall(ctx, ev)
       break
-    case 'stream.tool-result':
+    case 'tool.result':
       handleToolResult(ctx, ev)
       break
-    case 'stream.tool-error':
+    case 'tool.error':
       handleToolError(ctx, ev)
       break
     case 'stream.error':
@@ -152,12 +158,6 @@ function handleStreamError(ctx: ReducerCtx, ev: PersistedEventDTO): void {
   }))
 }
 
-function openTextBlock(ctx: ReducerCtx, ev: PersistedEventDTO): void {
-  const p = ev.payload as { id: string }
-  if (!p.id) return
-  pushPart(ctx, { kind: 'text', id: p.id, text: '', isOpen: true })
-}
-
 // Replay path for coalesced text segments. Live tail still uses stream.text-*.
 function handleAssistantText(ctx: ReducerCtx, ev: PersistedEventDTO): void {
   const p = ev.payload as { textId: string; text: string }
@@ -170,92 +170,43 @@ function handleAssistantText(ctx: ReducerCtx, ev: PersistedEventDTO): void {
   })
 }
 
-function appendTextDelta(ctx: ReducerCtx, ev: PersistedEventDTO): void {
-  const p = ev.payload as { id?: string; text?: string }
-  const text = p.text ?? ''
-  if (!text) return
-  patchPart<TextPart>(ctx, p.id, 'text', (part) => ({
-    ...part,
-    text: part.text + text,
-  }))
-}
-
-function openReasoningBlock(ctx: ReducerCtx, ev: PersistedEventDTO): void {
-  const p = ev.payload as { id: string }
-  if (!p.id) return
+// Replay for coalesced reasoning. isPlan derivation matches live path.
+function handleReasoningComplete(ctx: ReducerCtx, ev: PersistedEventDTO): void {
+  const p = ev.payload as { reasoningId: string; text: string }
+  if (!p.reasoningId) return
+  const raw = p.text ?? ''
+  const isPlan = raw.startsWith(PLAN_PREFIX)
   pushPart(ctx, {
     kind: 'reasoning',
-    id: p.id,
-    text: '',
-    isOpen: true,
-    isPlan: false,
-  })
-}
-
-function appendReasoningDelta(ctx: ReducerCtx, ev: PersistedEventDTO): void {
-  const p = ev.payload as { id?: string; text?: string }
-  const delta = p.text ?? ''
-  if (!delta) return
-  patchPart<ReasoningPart>(ctx, p.id, 'reasoning', (part) => {
-    const next = part.text + delta
-    if (!part.isPlan && next.startsWith(PLAN_PREFIX)) {
-      return { ...part, text: next.slice(PLAN_PREFIX.length), isPlan: true }
-    }
-    return { ...part, text: next }
-  })
-}
-
-function closeBlock(
-  ctx: ReducerCtx,
-  ev: PersistedEventDTO,
-  kind: 'text' | 'reasoning',
-): void {
-  const p = ev.payload as { id?: string }
-  patchPart<TextPart | ReasoningPart>(ctx, p.id, kind, (part) => ({
-    ...part,
+    id: p.reasoningId,
+    text: isPlan ? raw.slice(PLAN_PREFIX.length) : raw,
     isOpen: false,
-  }))
-  if (p.id) ctx.activeBlocks.delete(p.id)
-}
-
-function openToolBlock(ctx: ReducerCtx, ev: PersistedEventDTO): void {
-  const p = ev.payload as { id: string; toolName?: string }
-  if (!p.id) return
-  pushPart(ctx, {
-    kind: 'tool',
-    id: p.id,
-    toolCallId: p.id,
-    toolName: p.toolName ?? 'tool',
-    input: '',
-    output: null,
-    isError: false,
-    state: 'input-streaming',
+    isPlan,
   })
-}
-
-function appendToolInputDelta(ctx: ReducerCtx, ev: PersistedEventDTO): void {
-  const p = ev.payload as { id?: string; delta?: string }
-  const delta = p.delta ?? ''
-  if (!delta) return
-  patchPart<ToolPart>(ctx, p.id, 'tool', (part) => ({
-    ...part,
-    input: part.input + delta,
-  }))
-}
-
-function transitionToolState(
-  ctx: ReducerCtx,
-  ev: PersistedEventDTO,
-  state: ToolPartState,
-): void {
-  const p = ev.payload as { id?: string }
-  patchPart<ToolPart>(ctx, p.id, 'tool', (part) => ({ ...part, state }))
 }
 
 function handleToolCall(ctx: ReducerCtx, ev: PersistedEventDTO): void {
-  const p = ev.payload as { toolCallId?: string; toolName?: string }
+  const p = ev.payload as {
+    toolCallId?: string
+    toolName?: string
+    input?: unknown
+  }
   if (!p.toolCallId) return
-  bindToolCallId(ctx, p.toolCallId, p.toolName)
+  // Live path: a placeholder ToolPart was opened by stream.tool-input-start.
+  // Bind it. Replay path: no placeholder exists, so push a fresh closed
+  // ToolPart with the assembled input.
+  const bound = bindToolCallId(ctx, p.toolCallId, p.toolName)
+  if (bound) return
+  pushPart(ctx, {
+    kind: 'tool',
+    id: p.toolCallId,
+    toolCallId: p.toolCallId,
+    toolName: p.toolName ?? 'tool',
+    input: p.input === undefined ? '' : stringifyToolPayload(p.input),
+    output: null,
+    isError: false,
+    state: 'input-available',
+  })
 }
 
 function handleToolResult(ctx: ReducerCtx, ev: PersistedEventDTO): void {

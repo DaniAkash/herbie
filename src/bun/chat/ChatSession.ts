@@ -14,9 +14,14 @@ import {
   EPHEMERAL_STREAM_SUBTYPES,
   type PersistedEvent,
   type ProtocolEvent,
+  STREAM_SUBTYPE_RENAMES,
   type TurnFinishReason,
 } from './events.types'
-import { extractStreamSubtype, TextSegmentBuffer } from './streamPart'
+import {
+  coalesceStreamPart,
+  extractStreamSubtype,
+  SegmentBuffer,
+} from './streamPart'
 
 export class TurnInProgressError extends Error {
   readonly code = 'TURN_IN_PROGRESS' as const
@@ -25,12 +30,10 @@ export class TurnInProgressError extends Error {
 interface ActiveTurn {
   requestId: string
   controller: AbortController
-  // Holds every event emitted during the turn (durable + ephemeral).
-  // Drained on turn end. SSE subscribers that connect mid-turn read this
-  // after their DB replay so they catch up to live without missing the
-  // bus events they weren't around for.
+  // Holds every event emitted during the turn for mid-turn SSE reconnect.
   buffer: PersistedEvent[]
-  textSegments: TextSegmentBuffer
+  textSegments: SegmentBuffer
+  reasoningSegments: SegmentBuffer
 }
 
 export class ChatSession {
@@ -72,12 +75,9 @@ export class ChatSession {
     return this.activeTurn !== null
   }
 
-  // Bridge the gap between DB replay and live bus for an SSE subscriber
-  // that connects mid-turn. Returns events from the active turn's buffer
-  // with seq > afterSeq. Empty when no turn is active.
+  // Bridges DB replay → live bus for an SSE subscriber connecting mid-turn.
   getActiveTurnSnapshot(afterSeq: number): PersistedEvent[] {
-    if (!this.activeTurn) return []
-    return this.activeTurn.buffer.filter((e) => e.seq > afterSeq)
+    return this.activeTurn?.buffer.filter((e) => e.seq > afterSeq) ?? []
   }
 
   async appendUserMessage(text: string): Promise<{ requestId: string }> {
@@ -90,7 +90,8 @@ export class ChatSession {
       requestId,
       controller,
       buffer: [],
-      textSegments: new TextSegmentBuffer(),
+      textSegments: new SegmentBuffer(),
+      reasoningSegments: new SegmentBuffer(),
     }
     await this.setStatus('streaming')
     await this.writeProtocolEvent({
@@ -169,8 +170,7 @@ export class ChatSession {
       await this.setStatus('idle')
       await this.persistAcpxIds(provider)
     } catch (err) {
-      // The abort path lands here when cancel() ran; cancel already wrote
-      // turn.cancel + flipped status, so don't double-emit.
+      // cancel() already wrote turn.cancel + flipped status, don't double-emit.
       if (this.activeTurn?.requestId !== requestId) return
       const message = err instanceof Error ? err.message : String(err)
       const code = err instanceof Error ? err.name : undefined
@@ -192,32 +192,23 @@ export class ChatSession {
 
   private async writeStreamEvent(part: unknown): Promise<void> {
     const subtype = extractStreamSubtype(part)
-    const type = `stream.${subtype}`
+    const turn = this.activeTurn
+    if (turn) {
+      const coalesced = coalesceStreamPart(
+        subtype,
+        part,
+        { text: turn.textSegments, reasoning: turn.reasoningSegments },
+        turn.requestId,
+      )
+      if (coalesced) await this.writeProtocolEvent(coalesced)
+    }
 
-    // Coalesce text segments: accumulate deltas, flush a single
-    // `assistant.text` durable event at text-end.
-    if (subtype === 'text-delta') this.activeTurn?.textSegments.add(part)
-    if (subtype === 'text-end') await this.flushTextSegment(part)
-
+    const type = STREAM_SUBTYPE_RENAMES.get(subtype) ?? `stream.${subtype}`
     if (EPHEMERAL_STREAM_SUBTYPES.has(subtype)) {
       this.emitTransient(type, part)
       return
     }
     await this.writeEvent(type, part)
-  }
-
-  private async flushTextSegment(part: unknown): Promise<void> {
-    if (!this.activeTurn) return
-    const flushed = this.activeTurn.textSegments.flush(part)
-    if (!flushed) return
-    await this.writeProtocolEvent({
-      type: 'assistant.text',
-      payload: {
-        requestId: this.activeTurn.requestId,
-        textId: flushed.id,
-        text: flushed.text,
-      },
-    })
   }
 
   private emitTransient(type: string, payload: unknown): void {
@@ -253,9 +244,8 @@ export class ChatSession {
     })
   }
 
-  // Append to the active-turn buffer (if any) and emit on the bus.
   // Buffer captures every event emitted during the turn so a mid-turn
-  // SSE subscriber gets a faithful replay of the live bus stream.
+  // SSE subscriber sees the in-flight UI on reconnect.
   private deliver(event: PersistedEvent): void {
     if (this.activeTurn) this.activeTurn.buffer.push(event)
     this.bus.emit(this.conversation.id, event)
@@ -287,8 +277,7 @@ export class ChatSession {
         .run()
       this.conversation = { ...this.conversation, ...next }
     } catch {
-      // Resume metadata is a nice-to-have; failure here is non-fatal — the
-      // next turn just starts a fresh ACP session under the same key.
+      // Non-fatal: next turn will start a fresh ACP session under the same key.
     }
   }
 }
