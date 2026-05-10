@@ -43,15 +43,16 @@ export function patchPart<T extends MessagePart>(
 // "acpx-4"). The terminal tool-call event carries the agent's real
 // toolCallId (e.g. "toolu_01..."). Bind the latest tool part whose
 // toolCallId still equals its id placeholder so downstream tool-result /
-// tool-error lookups resolve.
+// tool-error lookups resolve. Returns true when a placeholder was bound
+// — false on replay (no in-flight placeholder existed).
 export function bindToolCallId(
   ctx: ReducerCtx,
   toolCallId: string,
   toolName: string | undefined,
-): void {
-  if (ctx.activeAssistantIdx < 0) return
+): boolean {
+  if (ctx.activeAssistantIdx < 0) return false
   const msg = ctx.messages[ctx.activeAssistantIdx]
-  if (!msg) return
+  if (!msg) return false
   for (let i = msg.parts.length - 1; i >= 0; i--) {
     const part = msg.parts[i]
     if (!part || part.kind !== 'tool') continue
@@ -63,8 +64,9 @@ export function bindToolCallId(
       toolName: toolName ?? part.toolName,
     }
     ctx.messages[ctx.activeAssistantIdx] = { ...msg, parts: nextParts }
-    return
+    return true
   }
+  return false
 }
 
 export function patchToolByCallId(

@@ -31,6 +31,14 @@ export type ProtocolEvent =
       payload: { requestId: string; code?: string; message: string }
     }
   | {
+      type: 'assistant.text'
+      payload: { requestId: string; textId: string; text: string }
+    }
+  | {
+      type: 'reasoning.complete'
+      payload: { requestId: string; reasoningId: string; text: string }
+    }
+  | {
       type: 'meta.title'
       payload: { title: string }
     }
@@ -42,3 +50,34 @@ export interface PersistedEvent {
   payload: unknown
   createdAt: Date
 }
+
+// Stream subtypes that flow on the bus (live UI consumes them via the
+// rich reducer) but never hit chat_events. Framing events have no UI
+// surface; text/reasoning fragments are coalesced into a single
+// terminal event (assistant.text / reasoning.complete) at end-of-block.
+// Tool-input fragments are coalesced into the tool.call durable event.
+export const EPHEMERAL_STREAM_SUBTYPES: ReadonlySet<string> = new Set([
+  'start',
+  'start-step',
+  'finish-step',
+  'finish',
+  'abort',
+  'text-start',
+  'text-delta',
+  'text-end',
+  'reasoning-start',
+  'reasoning-delta',
+  'reasoning-end',
+  'tool-input-start',
+  'tool-input-delta',
+  'tool-input-end',
+])
+
+// Stream subtypes that get renamed on the way out — same payload, but
+// the namespace shifts from "stream.*" to "tool.*" so live and replay
+// handlers in the renderer share a single case.
+export const STREAM_SUBTYPE_RENAMES: ReadonlyMap<string, string> = new Map([
+  ['tool-call', 'tool.call'],
+  ['tool-result', 'tool.result'],
+  ['tool-error', 'tool.error'],
+])

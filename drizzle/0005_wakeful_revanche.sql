@@ -1,0 +1,1 @@
+DROP INDEX `chat_events_conv_seq_idx`;
