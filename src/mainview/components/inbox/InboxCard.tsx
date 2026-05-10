@@ -16,24 +16,30 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
+import { useCreateConversation } from '@/modules/api/chat.hooks'
 import { useHerbieData } from '@/modules/data/HerbieDataProvider'
 import type { InboxItem } from '@/modules/data/herbie-data.types'
 import { clockTime, relativeTime } from '@/modules/utils/relativeTime'
 
 export function InboxCard({ item }: { item: InboxItem }) {
   const navigate = useNavigate()
-  const {
-    setInboxItemStatus,
-    toggleInboxStar,
-    deleteInboxItem,
-    continueInboxItemInChat,
-  } = useHerbieData()
+  const { setInboxItemStatus, toggleInboxStar, deleteInboxItem } =
+    useHerbieData()
+  const createConversation = useCreateConversation()
 
   const isUnread = item.status === 'unread'
   const preview = item.body.split('\n').slice(0, 3).join('\n')
 
-  function handleContinue() {
-    const conv = continueInboxItemInChat(item.id)
+  async function handleContinue() {
+    // Seeding the inbox body as a pre-loaded assistant message would require a
+    // new server endpoint; for now just open a fresh conversation pre-tagged
+    // with the inbox item's agent + workspace. Follow-up once inbox migrates.
+    const conv = await createConversation.mutateAsync({
+      agentId: item.agent,
+      title: item.title,
+      workspaceId: item.workspaceId ?? null,
+    })
+    setInboxItemStatus(item.id, 'read')
     navigate({ to: '/chat/$id', params: { id: conv.id } })
   }
 

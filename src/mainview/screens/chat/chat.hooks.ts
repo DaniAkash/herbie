@@ -1,12 +1,12 @@
-import type { InferRequestType, InferResponseType } from 'hono/client'
+import type { InferResponseType } from 'hono/client'
 import { useEffect, useRef } from 'react'
 import { createMutation, createQuery } from 'react-query-kit'
+import { useConversations } from '@/modules/api/chat.hooks'
 import { api } from '@/modules/api/client'
 import { parseResponse } from '@/modules/api/parseResponse'
 import { queryClient } from '@/modules/api/queryClient'
 import { openChatStream } from '@/modules/chat/chat-stream'
 
-const $create = api.chat.$post
 const $get = api.chat[':id'].$get
 const $send = api.chat[':id'].messages.$post
 const $cancel = api.chat[':id'].cancel.$post
@@ -16,8 +16,6 @@ export type ConversationDetail = Exclude<
   { error: string }
 >
 
-type CreateInput = InferRequestType<typeof $create>['json']
-type CreateResponse = InferResponseType<typeof $create>
 type SendInput = { id: string; text: string }
 type CancelInput = { id: string; reason?: string }
 
@@ -31,13 +29,6 @@ export const useConversation = createQuery<
       param: { id },
       query: afterSeq !== undefined ? { afterSeq: String(afterSeq) } : {},
     }).then(parseResponse<ConversationDetail>),
-})
-
-export const useCreateConversation = createMutation<
-  CreateResponse,
-  CreateInput
->({
-  mutationFn: (json) => $create({ json }).then(parseResponse<CreateResponse>),
 })
 
 // Send/cancel don't invalidate the conversation query — events flow back
@@ -86,6 +77,11 @@ export function useChatLiveStream(conversationId: string | null): void {
         lastSeqRef.current = ev.seq
         writeCursor(conversationId, ev.seq)
         appendEventToCache(conversationId, ev)
+        // turn boundaries flip status / bump updatedAt server-side; refresh
+        // the sidebar list so it re-orders when activity moves around.
+        if (ev.type.startsWith('turn.')) {
+          queryClient.invalidateQueries({ queryKey: useConversations.getKey() })
+        }
       },
     })
 

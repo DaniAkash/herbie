@@ -6,11 +6,12 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useDefaultAgent } from '@/modules/api/appSettings.hooks'
+import { useCreateConversation } from '@/modules/api/chat.hooks'
 import { useHerbieData } from '@/modules/data/HerbieDataProvider'
 import type { AgentId } from '@/modules/data/herbie-data.types'
 import { clockTime } from '@/modules/utils/relativeTime'
 import { useChatData } from './chat.data'
-import { useCreateConversation, useSendMessage } from './chat.hooks'
+import { useSendMessage } from './chat.hooks'
 import type { ChatMessage } from './chat.types'
 
 export interface ChatProps {
