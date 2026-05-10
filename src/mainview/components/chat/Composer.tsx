@@ -1,4 +1,9 @@
-import { ArrowUpIcon, ClockIcon } from 'lucide-react'
+import {
+  ArrowUpIcon,
+  ClockIcon,
+  StopCircleIcon,
+  TriangleAlertIcon,
+} from 'lucide-react'
 import { type FormEvent, type KeyboardEvent, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
@@ -7,52 +12,65 @@ import {
   InputGroupButton,
   InputGroupTextarea,
 } from '@/components/ui/input-group'
-import type { AgentId } from '@/modules/data/herbie-data.types'
 import { AgentPicker } from './AgentPicker'
+import { type ComposerTuple, tuplesEqual } from './composer.types'
+import { ModelPicker } from './ModelPicker'
+import { ReasoningPicker } from './ReasoningPicker'
 import { WorkspacePicker } from './WorkspacePicker'
 
-export type ComposerProps = {
-  agent: AgentId
-  workspaceId: string | undefined
-  onAgentChange: (agent: AgentId) => void
-  onWorkspaceChange: (id: string | undefined) => void
+export interface ComposerProps {
+  tuple: ComposerTuple
+  /** Tuple at the time the composer mounted; used to detect mid-conversation
+   *  switches and surface the warning banner. New chats pass undefined. */
+  initialTuple?: ComposerTuple
+  /** Whether the conversation already has prior turns. The switch warning
+   *  only matters once the first turn is committed. */
+  hasPriorTurns?: boolean
+  isStreaming?: boolean
+  onTupleChange: (next: ComposerTuple) => void
   onSubmit: (text: string) => void
+  onCancel?: () => void
   onSchedule?: (text: string) => void
   placeholder?: string
   autoFocus?: boolean
-  /** Disables the agent + workspace pickers (e.g., once a conversation has a
-   *  baked-in ACP session that can't switch agent/cwd mid-flight). */
-  pickersReadOnly?: boolean
 }
 
 export function Composer({
-  agent,
-  workspaceId,
-  onAgentChange,
-  onWorkspaceChange,
+  tuple,
+  initialTuple,
+  hasPriorTurns,
+  isStreaming = false,
+  onTupleChange,
   onSubmit,
+  onCancel,
   onSchedule,
   placeholder = 'Type a message…',
   autoFocus,
-  pickersReadOnly,
 }: ComposerProps) {
   const [text, setText] = useState('')
+  const [warningDismissed, setWarningDismissed] = useState(false)
   const trimmed = text.trim()
 
   function send() {
     if (!trimmed) return
     onSubmit(trimmed)
     setText('')
+    setWarningDismissed(false)
   }
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
+    if (isStreaming) {
+      onCancel?.()
+      return
+    }
     send()
   }
 
   function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
+      if (isStreaming) return
       send()
     }
   }
@@ -63,31 +81,56 @@ export function Composer({
     setText('')
   }
 
+  function patchTuple(patch: Partial<ComposerTuple>) {
+    setWarningDismissed(false)
+    onTupleChange({ ...tuple, ...patch })
+  }
+
+  const tupleChanged = !tuplesEqual(tuple, initialTuple)
+  const showSwitchWarning =
+    hasPriorTurns && tupleChanged && !warningDismissed && !isStreaming
+
   return (
     <form
       onSubmit={handleSubmit}
       className="bg-gradient-to-t from-background via-background to-background/0 px-6 pt-6 pb-5"
     >
       <div className="mx-auto max-w-3xl">
+        {showSwitchWarning && (
+          <SwitchWarning onDismiss={() => setWarningDismissed(true)} />
+        )}
         <InputGroup>
           <InputGroupTextarea
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={placeholder}
+            placeholder={isStreaming ? 'Agent is responding…' : placeholder}
             autoFocus={autoFocus}
+            disabled={isStreaming}
             rows={2}
           />
-          <InputGroupAddon align="block-end" className="gap-2">
+          <InputGroupAddon align="block-end" className="flex-wrap gap-2">
             <AgentPicker
-              value={agent}
-              onChange={onAgentChange}
-              readOnly={pickersReadOnly}
+              value={tuple.agentId}
+              onChange={(agentId) =>
+                // Switching agent invalidates model + reasoning since
+                // their valid value sets are agent-specific.
+                patchTuple({ agentId, modelId: null, reasoningEffort: null })
+              }
+            />
+            <ModelPicker
+              agentId={tuple.agentId}
+              value={tuple.modelId}
+              onChange={(modelId) => patchTuple({ modelId })}
             />
             <WorkspacePicker
-              value={workspaceId}
-              onChange={onWorkspaceChange}
-              readOnly={pickersReadOnly}
+              value={tuple.workspacePath}
+              onChange={(workspacePath) => patchTuple({ workspacePath })}
+            />
+            <ReasoningPicker
+              agentId={tuple.agentId}
+              value={tuple.reasoningEffort}
+              onChange={(reasoningEffort) => patchTuple({ reasoningEffort })}
             />
             <div className="flex-1" />
             {onSchedule && (
@@ -96,15 +139,20 @@ export function Composer({
                 variant="ghost"
                 size="sm"
                 onClick={handleSchedule}
-                disabled={!trimmed}
+                disabled={!trimmed || isStreaming}
                 title="Schedule this prompt instead of sending"
               >
                 <ClockIcon data-icon="inline-start" />
                 Schedule
               </InputGroupButton>
             )}
-            <Button type="submit" size="icon-sm" disabled={!trimmed}>
-              <ArrowUpIcon />
+            <Button
+              type="submit"
+              size="icon-sm"
+              disabled={!isStreaming && !trimmed}
+              aria-label={isStreaming ? 'Stop' : 'Send'}
+            >
+              {isStreaming ? <StopCircleIcon /> : <ArrowUpIcon />}
             </Button>
           </InputGroupAddon>
         </InputGroup>
@@ -120,5 +168,25 @@ export function Composer({
         </p>
       </div>
     </form>
+  )
+}
+
+function SwitchWarning({ onDismiss }: { onDismiss: () => void }) {
+  return (
+    <div className="mb-2 flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-amber-700 text-xs dark:text-amber-400">
+      <TriangleAlertIcon className="mt-0.5 size-4 shrink-0" />
+      <p className="flex-1 leading-relaxed">
+        Switching agent / model / workspace replays the full conversation to the
+        new context. The new agent's first response loses prompt cache and some
+        context nuance.
+      </p>
+      <button
+        type="button"
+        onClick={onDismiss}
+        className="text-amber-700/70 hover:text-amber-700 dark:text-amber-400/70 dark:hover:text-amber-400"
+      >
+        ✕
+      </button>
+    </div>
   )
 }

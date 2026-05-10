@@ -9,72 +9,67 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { useHerbieData } from '@/modules/data/HerbieDataProvider'
+import { useAgents } from '@/modules/api/agents.hooks'
 import type { AgentId } from '@/modules/data/herbie-data.types'
 
-export type AgentPickerProps = {
-  value: AgentId
-  onChange: (agent: AgentId) => void
-  variant?: 'pill' | 'header'
-  readOnly?: boolean
+const AGENT_LABELS: Record<AgentId, string> = {
+  claude: 'Claude',
+  codex: 'Codex',
+  gemini: 'Gemini',
+  hermes: 'Hermes',
 }
 
-export function AgentPicker({
-  value,
-  onChange,
-  variant = 'pill',
-  readOnly,
-}: AgentPickerProps) {
-  const { agents } = useHerbieData()
-  const current = agents.find((a) => a.id === value) ?? agents[0]
+const AGENT_IDS: AgentId[] = ['claude', 'codex', 'gemini', 'hermes']
+
+export interface AgentPickerProps {
+  value: AgentId
+  onChange: (agent: AgentId) => void
+}
+
+export function AgentPicker({ value, onChange }: AgentPickerProps) {
+  const { data: detections } = useAgents()
+  const detectionMap = new Map(
+    (detections ?? []).map((d) => [d.agentId, d] as const),
+  )
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger
-        disabled={readOnly}
-        render={
-          <Button
-            variant={variant === 'pill' ? 'ghost' : 'outline'}
-            size="sm"
-          />
-        }
-      >
+      <DropdownMenuTrigger render={<Button variant="ghost" size="sm" />}>
         <SparklesIcon data-icon="inline-start" />
-        <span>{current.label}</span>
+        <span>{AGENT_LABELS[value]}</span>
         <ChevronDownIcon data-icon="inline-end" className="opacity-60" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-72">
         <DropdownMenuLabel className="text-[10px] text-muted-foreground uppercase tracking-wider">
-          Agents
+          Agent
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {agents.map((agent) => (
-          <DropdownMenuItem
-            key={agent.id}
-            onSelect={() => onChange(agent.id)}
-            className="flex items-start gap-2 py-2.5"
-          >
-            <div className="flex-1">
-              <div className="flex items-center gap-1.5">
-                <span className="font-medium text-sm">{agent.label}</span>
-                {agent.status === 'signin-required' && (
-                  <Badge variant="secondary" className="text-[9px]">
-                    sign in
-                  </Badge>
-                )}
-                {agent.status === 'not-installed' && (
-                  <Badge variant="outline" className="text-[9px]">
-                    install
-                  </Badge>
-                )}
-              </div>
-              <div className="text-muted-foreground text-xs">{agent.blurb}</div>
-            </div>
-            {value === agent.id && (
-              <CheckIcon className="mt-0.5 size-4 text-primary" />
-            )}
-          </DropdownMenuItem>
-        ))}
+        {AGENT_IDS.map((id) => {
+          const detection = detectionMap.get(id)
+          const installState = detection?.installState ?? 'not-installed'
+          return (
+            <DropdownMenuItem
+              key={id}
+              onSelect={() => onChange(id)}
+              className="flex items-center gap-2 py-2"
+            >
+              <span className="flex-1 font-medium text-sm">
+                {AGENT_LABELS[id]}
+              </span>
+              {installState === 'npx-available' && (
+                <Badge variant="outline" className="text-[9px]">
+                  npx
+                </Badge>
+              )}
+              {installState === 'not-installed' && (
+                <Badge variant="outline" className="text-[9px]">
+                  install
+                </Badge>
+              )}
+              {value === id && <CheckIcon className="size-4 text-primary" />}
+            </DropdownMenuItem>
+          )
+        })}
       </DropdownMenuContent>
     </DropdownMenu>
   )

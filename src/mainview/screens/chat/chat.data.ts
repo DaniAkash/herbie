@@ -2,6 +2,7 @@ import { useCallback, useMemo, useRef } from 'react'
 import { emptyChatViewState, reduceChatEvents } from './chat.helpers'
 import {
   type ConversationDetail,
+  type SendMessageInput,
   useCancelTurn,
   useChatLiveStream,
   useConversation,
@@ -19,7 +20,7 @@ export interface UseChatDataResult {
   messages: ChatMessage[]
   isStreaming: boolean
   lastSeq: number
-  sendMessage: (text: string) => Promise<{ requestId: string }>
+  sendMessage: (input: SendMessageInput) => Promise<{ requestId: string }>
   cancelTurn: (reason?: string) => Promise<unknown>
   isSending: boolean
 }
@@ -50,8 +51,8 @@ export function useChatData(conversationId: string): UseChatDataResult {
   }, [conversationId, query.data?.events])
 
   const sendMessage = useCallback(
-    (text: string) => sendMutation.mutateAsync({ id: conversationId, text }),
-    [conversationId, sendMutation],
+    (input: SendMessageInput) => sendMutation.mutateAsync(input),
+    [sendMutation],
   )
 
   const cancelTurn = useCallback(
