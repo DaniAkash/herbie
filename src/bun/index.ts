@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm'
 import { BrowserWindow, Tray, Updater, Utils } from 'electrobun/bun'
+import { z } from 'zod'
 import { initializeDatabase } from '../db'
 import { settings as settingsTable } from '../db/schema/settings.sql'
 import { setDb } from './db-singleton'
@@ -14,32 +15,32 @@ const API_PORT = 4575
 const { db } = await initializeDatabase()
 setDb(db)
 
-interface GeneralSettings {
-  launchAtLogin: boolean
-  minimizeToMenubarOnClose: boolean
-}
+const generalDefaults = { launchAtLogin: false, minimizeToMenubarOnClose: true }
+const generalSchema = z.object({
+  launchAtLogin: z.boolean(),
+  minimizeToMenubarOnClose: z.boolean(),
+})
+type GeneralSettings = z.infer<typeof generalSchema>
 
-async function readGeneralSettings(): Promise<GeneralSettings | null> {
+async function readGeneralSettings(): Promise<GeneralSettings> {
   const row = await db
     .select()
     .from(settingsTable)
     .where(eq(settingsTable.key, 'general'))
     .get()
-  if (!row) return null
+  if (!row) return generalDefaults
   try {
-    return JSON.parse(row.value) as GeneralSettings
+    const merged = { ...generalDefaults, ...JSON.parse(row.value) }
+    return generalSchema.parse(merged)
   } catch {
-    return null
+    return generalDefaults
   }
 }
 
+// Always reconcile the LaunchAgent — if the row is missing/corrupt, default
+// to disabled so a stale plist from a previous install doesn't linger.
 const bootGeneral = await readGeneralSettings()
-if (bootGeneral) {
-  // Reconcile the LaunchAgent state with what's in the DB at boot — the
-  // user may have removed the plist manually, or this might be the first
-  // boot after the toggle was set on a previous machine.
-  await setLoginItem(bootGeneral.launchAtLogin)
-}
+await setLoginItem(bootGeneral.launchAtLogin)
 
 Bun.serve({ port: API_PORT, hostname: '127.0.0.1', fetch: app.fetch })
 

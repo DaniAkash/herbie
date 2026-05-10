@@ -41,8 +41,9 @@ export function useDefaultAgent(): {
     },
     [mutate],
   )
+  // No cast — if the API enum drifts from AgentId, TS catches it here.
   return {
-    defaultAgent: (data?.agents.defaultAgent ?? 'claude') as AgentId,
+    defaultAgent: data?.agents.defaultAgent ?? 'claude',
     setDefaultAgent,
   }
 }

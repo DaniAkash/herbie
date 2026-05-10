@@ -1,6 +1,10 @@
 import { zValidator } from '@hono/zod-validator'
+import type { ResultSet } from '@libsql/client'
+import type { ExtractTablesWithRelations } from 'drizzle-orm'
+import type { SQLiteTransaction } from 'drizzle-orm/sqlite-core'
 import { Hono } from 'hono'
 import { z } from 'zod'
+import type * as schema from '../../db/schema/schema'
 import { settings as settingsTable } from '../../db/schema/settings.sql'
 import { getDb } from '../db-singleton'
 import { setLoginItem } from '../loginItems'
@@ -31,6 +35,17 @@ const DOMAINS = ['general', 'agents'] as const
 type Settings = z.infer<typeof settingsSchema>
 type Domain = keyof Settings
 
+// Accepts either the top-level db or a transaction handle — both expose
+// the same SQLite query surface we use here (select / insert / update).
+type DbLike =
+  | ReturnType<typeof getDb>
+  | SQLiteTransaction<
+      'async',
+      ResultSet,
+      typeof schema,
+      ExtractTablesWithRelations<typeof schema>
+    >
+
 const SETTINGS_DEFAULTS: Settings = {
   general: { launchAtLogin: false, minimizeToMenubarOnClose: true },
   agents: { defaultAgent: 'claude' },
@@ -47,8 +62,7 @@ const patchSchema = z
   })
   .strict()
 
-async function readAll(): Promise<Settings> {
-  const db = getDb()
+async function readAll(db: DbLike): Promise<Settings> {
   const rows = await db.select().from(settingsTable).all()
   const settings = structuredClone(SETTINGS_DEFAULTS)
   for (const { key, value } of rows) {
@@ -65,10 +79,10 @@ async function readAll(): Promise<Settings> {
 }
 
 async function writeDomain<K extends Domain>(
+  db: DbLike,
   domain: K,
   value: Settings[K],
 ): Promise<void> {
-  const db = getDb()
   const json = JSON.stringify(value)
   const now = new Date()
   await db
@@ -83,23 +97,35 @@ async function writeDomain<K extends Domain>(
 
 export const settingsRoute = new Hono()
   .get('/settings', async (c) => {
-    return c.json(await readAll())
+    return c.json(await readAll(getDb()))
   })
   .patch('/settings', zValidator('json', patchSchema), async (c) => {
     const patch = c.req.valid('json')
-    const current = await readAll()
 
-    if (patch.general) {
-      const merged = { ...current.general, ...patch.general }
-      await writeDomain('general', merged)
-      if (patch.general.launchAtLogin !== undefined) {
-        await setLoginItem(patch.general.launchAtLogin)
+    // Read+merge+write inside a single transaction so concurrent PATCHes to
+    // the same domain can't interleave and lose updates (last-write-wins).
+    const next = await getDb().transaction(async (tx) => {
+      const current = await readAll(tx)
+      if (patch.general) {
+        await writeDomain(tx, 'general', {
+          ...current.general,
+          ...patch.general,
+        })
       }
-    }
-    if (patch.agents) {
-      const merged = { ...current.agents, ...patch.agents }
-      await writeDomain('agents', merged)
+      if (patch.agents) {
+        await writeDomain(tx, 'agents', {
+          ...current.agents,
+          ...patch.agents,
+        })
+      }
+      return readAll(tx)
+    })
+
+    // Side effects belong outside the transaction — the OS-level LaunchAgent
+    // change is not rollback-safe and would otherwise hold the tx open.
+    if (patch.general?.launchAtLogin !== undefined) {
+      await setLoginItem(patch.general.launchAtLogin)
     }
 
-    return c.json(await readAll())
+    return c.json(next)
   })
