@@ -40,6 +40,9 @@ export function applyEvent(ctx: ReducerCtx, ev: PersistedEventDTO): void {
     case 'turn.error':
       handleTurnError(ctx, ev)
       break
+    case 'assistant.text':
+      handleAssistantText(ctx, ev)
+      break
     case 'stream.text-start':
       openTextBlock(ctx, ev)
       break
@@ -153,6 +156,18 @@ function openTextBlock(ctx: ReducerCtx, ev: PersistedEventDTO): void {
   const p = ev.payload as { id: string }
   if (!p.id) return
   pushPart(ctx, { kind: 'text', id: p.id, text: '', isOpen: true })
+}
+
+// Replay path for coalesced text segments. Live tail still uses stream.text-*.
+function handleAssistantText(ctx: ReducerCtx, ev: PersistedEventDTO): void {
+  const p = ev.payload as { textId: string; text: string }
+  if (!p.textId) return
+  pushPart(ctx, {
+    kind: 'text',
+    id: p.textId,
+    text: p.text ?? '',
+    isOpen: false,
+  })
 }
 
 function appendTextDelta(ctx: ReducerCtx, ev: PersistedEventDTO): void {

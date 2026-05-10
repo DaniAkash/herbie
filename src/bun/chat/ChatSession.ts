@@ -16,6 +16,7 @@ import {
   type ProtocolEvent,
   type TurnFinishReason,
 } from './events.types'
+import { extractStreamSubtype, TextSegmentBuffer } from './streamPart'
 
 export class TurnInProgressError extends Error {
   readonly code = 'TURN_IN_PROGRESS' as const
@@ -29,6 +30,7 @@ interface ActiveTurn {
   // after their DB replay so they catch up to live without missing the
   // bus events they weren't around for.
   buffer: PersistedEvent[]
+  textSegments: TextSegmentBuffer
 }
 
 export class ChatSession {
@@ -84,7 +86,12 @@ export class ChatSession {
 
     const requestId = nanoid(8)
     const controller = new AbortController()
-    this.activeTurn = { requestId, controller, buffer: [] }
+    this.activeTurn = {
+      requestId,
+      controller,
+      buffer: [],
+      textSegments: new TextSegmentBuffer(),
+    }
     await this.setStatus('streaming')
     await this.writeProtocolEvent({
       type: 'turn.start',
@@ -186,11 +193,31 @@ export class ChatSession {
   private async writeStreamEvent(part: unknown): Promise<void> {
     const subtype = extractStreamSubtype(part)
     const type = `stream.${subtype}`
+
+    // Coalesce text segments: accumulate deltas, flush a single
+    // `assistant.text` durable event at text-end.
+    if (subtype === 'text-delta') this.activeTurn?.textSegments.add(part)
+    if (subtype === 'text-end') await this.flushTextSegment(part)
+
     if (EPHEMERAL_STREAM_SUBTYPES.has(subtype)) {
       this.emitTransient(type, part)
       return
     }
     await this.writeEvent(type, part)
+  }
+
+  private async flushTextSegment(part: unknown): Promise<void> {
+    if (!this.activeTurn) return
+    const flushed = this.activeTurn.textSegments.flush(part)
+    if (!flushed) return
+    await this.writeProtocolEvent({
+      type: 'assistant.text',
+      payload: {
+        requestId: this.activeTurn.requestId,
+        textId: flushed.id,
+        text: flushed.text,
+      },
+    })
   }
 
   private emitTransient(type: string, payload: unknown): void {
@@ -264,16 +291,4 @@ export class ChatSession {
       // next turn just starts a fresh ACP session under the same key.
     }
   }
-}
-
-function extractStreamSubtype(part: unknown): string {
-  if (
-    typeof part === 'object' &&
-    part !== null &&
-    'type' in part &&
-    typeof (part as { type: unknown }).type === 'string'
-  ) {
-    return (part as { type: string }).type
-  }
-  return 'unknown'
 }

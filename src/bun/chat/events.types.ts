@@ -31,6 +31,10 @@ export type ProtocolEvent =
       payload: { requestId: string; code?: string; message: string }
     }
   | {
+      type: 'assistant.text'
+      payload: { requestId: string; textId: string; text: string }
+    }
+  | {
       type: 'meta.title'
       payload: { title: string }
     }
@@ -43,13 +47,17 @@ export interface PersistedEvent {
   createdAt: Date
 }
 
-// Stream subtypes the rich reducer explicitly no-ops as "framing events
-// with no UI surface" (see chat.reducer.ts). They consume seqs on the bus
-// for live ordering but never hit chat_events.
+// Stream subtypes that flow on the bus (live UI consumes them via the
+// rich reducer) but never hit chat_events. Framing events have no UI
+// surface; text-{start,delta,end} are coalesced into a single
+// `assistant.text` durable event written at text-end.
 export const EPHEMERAL_STREAM_SUBTYPES: ReadonlySet<string> = new Set([
   'start',
   'start-step',
   'finish-step',
   'finish',
   'abort',
+  'text-start',
+  'text-delta',
+  'text-end',
 ])
