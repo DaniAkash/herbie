@@ -14,12 +14,14 @@ export type WorkspacePickerProps = {
   value: string | undefined
   onChange: (id: string | undefined) => void
   variant?: 'pill' | 'header'
+  readOnly?: boolean
 }
 
 export function WorkspacePicker({
   value,
   onChange,
   variant = 'pill',
+  readOnly,
 }: WorkspacePickerProps) {
   const { workspaces } = useHerbieData()
   const current = workspaces.find((w) => w.id === value)
@@ -29,6 +31,7 @@ export function WorkspacePicker({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
+        disabled={readOnly}
         render={
           <Button
             variant={variant === 'pill' ? 'ghost' : 'outline'}

@@ -20,19 +20,23 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar'
+import {
+  type ConversationSummary,
+  useConversations,
+} from '@/modules/api/chat.hooks'
 import { useHerbieData } from '@/modules/data/HerbieDataProvider'
 import { dayBucket } from '@/modules/utils/relativeTime'
 
 export function AppSidebar() {
-  const { conversations, inboxItems } = useHerbieData()
+  const { inboxItems } = useHerbieData()
+  const { data: conversations } = useConversations()
   const pathname = useRouterState({ select: (s) => s.location.pathname })
 
   const unreadCount = inboxItems.filter((i) => i.status === 'unread').length
 
   const grouped = useMemo(() => {
-    const sorted = [...conversations].sort((a, b) => b.updatedAt - a.updatedAt)
-    const buckets: Array<{ label: string; items: typeof sorted }> = []
-    for (const conv of sorted) {
+    const buckets: Array<{ label: string; items: ConversationSummary[] }> = []
+    for (const conv of conversations ?? []) {
       const label = dayBucket(conv.updatedAt)
       const last = buckets[buckets.length - 1]
       if (last && last.label === label) last.items.push(conv)
@@ -58,8 +62,8 @@ export function AppSidebar() {
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  render={<Link to="/c/new" />}
-                  isActive={pathname === '/c/new'}
+                  render={<Link to="/chat/new" />}
+                  isActive={pathname === '/chat/new'}
                   className="font-medium"
                 >
                   <PlusIcon />
@@ -102,8 +106,10 @@ export function AppSidebar() {
                   {bucket.items.map((conv) => (
                     <SidebarMenuItem key={conv.id}>
                       <SidebarMenuButton
-                        render={<Link to="/c/$id" params={{ id: conv.id }} />}
-                        isActive={pathname === `/c/${conv.id}`}
+                        render={
+                          <Link to="/chat/$id" params={{ id: conv.id }} />
+                        }
+                        isActive={pathname === `/chat/${conv.id}`}
                         size="sm"
                       >
                         <MessageSquareIcon />

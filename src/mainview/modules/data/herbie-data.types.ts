@@ -14,30 +14,6 @@ export type Workspace = {
   pinned?: boolean
 }
 
-export type MessagePart =
-  | { type: 'text'; text: string }
-  | { type: 'reasoning'; text: string }
-
-export type Message = {
-  id: string
-  conversationId: string
-  role: 'user' | 'assistant' | 'system'
-  parts: MessagePart[]
-  agent?: AgentId
-  fromTaskId?: string
-  createdAt: number
-}
-
-export type Conversation = {
-  id: string
-  title: string
-  defaultAgent: AgentId
-  workspaceId?: string
-  origin: 'desktop' | 'mobile'
-  createdAt: number
-  updatedAt: number
-}
-
 export type ScheduleConfig =
   | { kind: 'daily'; hour: number; minute: number }
   | { kind: 'interval'; hours: number }
@@ -73,5 +49,4 @@ export type InboxItem = {
   status: InboxItemStatus
   starred: boolean
   createdAt: number
-  spawnedConversationId?: string
 }

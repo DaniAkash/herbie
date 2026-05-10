@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { agentsRoute } from './routes/agents'
+import { chatRoute } from './routes/chat'
 import { settingsRoute } from './routes/settings'
 import { systemRoute } from './routes/system'
 
@@ -17,6 +18,7 @@ const routes = app
   .route('/', settingsRoute)
   .route('/', agentsRoute)
   .route('/', systemRoute)
+  .route('/', chatRoute)
 
 export type AppType = typeof routes
 export default routes
