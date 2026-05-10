@@ -6,19 +6,19 @@ import { getDb } from '../db-singleton'
 import { setLoginItem } from '../loginItems'
 
 // Adding a new setting:
-//   - existing domain: add the field below + a default. No migration.
-//   - new domain:      add a top-level key here + a default. No migration.
+//   - existing domain: add the field below + a default in SETTINGS_DEFAULTS. No migration.
+//   - new domain:      add a top-level key here + entry in DOMAINS + SETTINGS_DEFAULTS. No migration.
 // Storage is one row per top-level domain in the `settings` KV table.
 
 const AGENT_IDS = ['claude', 'codex', 'gemini', 'hermes'] as const
 
 const generalSchema = z.object({
-  launchAtLogin: z.boolean().default(false),
-  minimizeToMenubarOnClose: z.boolean().default(true),
+  launchAtLogin: z.boolean(),
+  minimizeToMenubarOnClose: z.boolean(),
 })
 
 const agentsSchema = z.object({
-  defaultAgent: z.enum(AGENT_IDS).default('claude'),
+  defaultAgent: z.enum(AGENT_IDS),
 })
 
 const settingsSchema = z.object({
@@ -28,6 +28,18 @@ const settingsSchema = z.object({
 
 const DOMAINS = ['general', 'agents'] as const
 
+type Settings = z.infer<typeof settingsSchema>
+type Domain = keyof Settings
+
+const SETTINGS_DEFAULTS: Settings = {
+  general: { launchAtLogin: false, minimizeToMenubarOnClose: true },
+  agents: { defaultAgent: 'claude' },
+}
+
+// Schemas for PATCH bodies: validation only, no defaults — defaults belong to
+// SETTINGS_DEFAULTS. (Earlier versions used `generalSchema.partial()` with
+// inner `.default()` calls, but `.partial()` doesn't strip defaults, so a
+// PATCH of one field would inflate to the full domain with all defaults.)
 const patchSchema = z
   .object({
     general: generalSchema.partial().optional(),
@@ -35,24 +47,21 @@ const patchSchema = z
   })
   .strict()
 
-type Settings = z.infer<typeof settingsSchema>
-type Domain = keyof Settings
-
 async function readAll(): Promise<Settings> {
   const db = getDb()
   const rows = await db.select().from(settingsTable).all()
-  // Seed each domain so missing rows fall through to zod's per-field defaults.
-  const stored: Record<string, unknown> = Object.fromEntries(
-    DOMAINS.map((d) => [d, {}]),
-  )
+  const settings = structuredClone(SETTINGS_DEFAULTS)
   for (const { key, value } of rows) {
+    if (!(DOMAINS as readonly string[]).includes(key)) continue
     try {
-      stored[key] = JSON.parse(value)
+      const parsed = JSON.parse(value)
+      const domain = key as Domain
+      settings[domain] = { ...settings[domain], ...parsed }
     } catch {
-      // Corrupt row: ignore and let zod fall back to defaults.
+      // Corrupt row: leave the domain at its defaults.
     }
   }
-  return settingsSchema.parse(stored)
+  return settingsSchema.parse(settings)
 }
 
 async function writeDomain<K extends Domain>(
