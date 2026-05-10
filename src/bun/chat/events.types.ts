@@ -12,7 +12,18 @@ export type TurnFinishReason =
 export type ProtocolEvent =
   | {
       type: 'turn.start'
-      payload: { requestId: string; userMessage: string }
+      payload: {
+        requestId: string
+        userMessage: string
+        agentId: string
+        modelId?: string | null
+        workspacePath?: string | null
+        reasoningEffort?: string | null
+      }
+    }
+  | {
+      type: 'meta.workspace-missing'
+      payload: { previousPath: string; fallbackPath: string }
     }
   | {
       type: 'turn.finish'

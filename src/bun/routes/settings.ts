@@ -163,6 +163,23 @@ export async function patchAgentCapabilities(
   })
 }
 
+// Removes a path from composer.workspaces.recent. Called from the workspace
+// existence guard when the user-pinned path was deleted out from under us.
+export async function removeRecentWorkspace(
+  db: ReturnType<typeof getDb>,
+  path: string,
+): Promise<void> {
+  await db.transaction(async (tx) => {
+    const current = await readAll(tx)
+    const next = current.composer.workspaces.recent.filter((p) => p !== path)
+    if (next.length === current.composer.workspaces.recent.length) return
+    await writeDomain(tx, 'composer', {
+      ...current.composer,
+      workspaces: { ...current.composer.workspaces, recent: next },
+    })
+  })
+}
+
 export const settingsRoute = new Hono()
   .get('/settings', async (c) => {
     return c.json(await readAll(getDb()))
