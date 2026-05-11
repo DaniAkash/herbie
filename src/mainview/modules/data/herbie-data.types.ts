@@ -19,18 +19,3 @@ export type ScheduleConfig =
   | { kind: 'interval'; hours: number }
   | { kind: 'weekly'; weekday: number; hour: number; minute: number }
   | { kind: 'cron'; cron: string }
-
-export type InboxItemStatus = 'unread' | 'read' | 'done'
-
-export type InboxItem = {
-  id: string
-  taskId: string
-  taskName: string
-  title: string
-  body: string
-  agent: AgentId
-  workspaceId?: string
-  status: InboxItemStatus
-  starred: boolean
-  createdAt: number
-}

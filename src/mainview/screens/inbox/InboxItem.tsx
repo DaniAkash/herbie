@@ -7,25 +7,51 @@ import {
   Trash2Icon,
 } from 'lucide-react'
 import { useEffect } from 'react'
+import {
+  TestError,
+  TestErrorMessage,
+  TestErrorStack,
+} from '@/components/ai-elements/test-results'
 import { PageFooter, PageHeader } from '@/components/layout/PageHeader'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { LinkButton } from '@/components/ui/link-button'
+import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
-import { useCreateConversation } from '@/modules/api/chat.hooks'
-import { useHerbieData } from '@/modules/data/HerbieDataProvider'
+import {
+  useDeleteInboxItem,
+  useInboxItems,
+  useOpenInChat,
+  useUpdateInboxItem,
+} from '@/modules/api/inbox.hooks'
 import { clockTime, relativeTime } from '@/modules/utils/relativeTime'
 
 export function InboxItem({ id }: { id: string }) {
   const navigate = useNavigate()
-  const { inboxItems, setInboxItemStatus, toggleInboxStar, deleteInboxItem } =
-    useHerbieData()
-  const createConversation = useCreateConversation()
-  const item = inboxItems.find((i) => i.id === id)
+  const { data, isLoading } = useInboxItems()
+  const updateMutation = useUpdateInboxItem()
+  const deleteMutation = useDeleteInboxItem()
+  const openMutation = useOpenInChat()
+  const item = data?.find((i) => i.id === id) ?? null
 
+  // Only trigger on first sight of an unread item — re-renders
+  // mustn't refire the mutation, so the dep is item.id only.
+  const itemId = item?.id
+  const itemStatus = item?.status
   useEffect(() => {
-    if (item && item.status === 'unread') setInboxItemStatus(item.id, 'read')
-  }, [item, setInboxItemStatus])
+    if (itemId && itemStatus === 'unread') {
+      updateMutation.mutate({ id: itemId, status: 'read' })
+    }
+  }, [itemId, itemStatus, updateMutation])
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-1 flex-col gap-3 px-6 py-8">
+        <Skeleton className="h-8 w-1/2" />
+        <Skeleton className="h-40 w-full" />
+      </div>
+    )
+  }
 
   if (!item) {
     return (
@@ -40,22 +66,20 @@ export function InboxItem({ id }: { id: string }) {
 
   async function handleContinue() {
     if (!item) return
-    // Seeding the inbox body as a pre-loaded assistant message would require a
-    // new server endpoint; for now just open a fresh conversation pre-tagged
-    // with the inbox item's agent + workspace. Follow-up once inbox migrates.
-    const conv = await createConversation.mutateAsync({
-      agentId: item.agent,
-      title: item.title,
-    })
-    setInboxItemStatus(item.id, 'read')
-    navigate({ to: '/chat/$id', params: { id: conv.id } })
+    const res = await openMutation.mutateAsync({ id: item.id })
+    navigate({ to: '/chat/$id', params: { id: res.conversationId } })
   }
 
   function handleDelete() {
     if (!item) return
-    deleteInboxItem(item.id)
-    navigate({ to: '/inbox' })
+    deleteMutation.mutate(
+      { id: item.id },
+      { onSuccess: () => navigate({ to: '/inbox' }) },
+    )
   }
+
+  const hasError = !!item.errorMessage
+  const title = item.taskName
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -73,36 +97,55 @@ export function InboxItem({ id }: { id: string }) {
                 {item.taskName}
               </Badge>
               <Badge variant="secondary" className="font-mono text-[10px]">
-                {item.agent}
+                {item.agentId}
               </Badge>
               <span className="text-muted-foreground text-xs tabular-nums">
                 {relativeTime(item.createdAt)} · {clockTime(item.createdAt)}
               </span>
             </div>
-            <h1 className="font-semibold text-3xl tracking-tight">
-              {item.title}
-            </h1>
+            <h1 className="font-semibold text-3xl tracking-tight">{title}</h1>
           </div>
-          <article className="whitespace-pre-line rounded-lg border bg-card/60 p-6 text-[15px] leading-relaxed">
-            {item.body}
-          </article>
+          {hasError ? (
+            <TestError>
+              <TestErrorMessage>{item.errorMessage}</TestErrorMessage>
+              {(item.errorCode || item.errorDetails) && (
+                <TestErrorStack>
+                  {item.errorCode && (
+                    <span className="opacity-70">{item.errorCode}: </span>
+                  )}
+                  {item.errorDetails ?? ''}
+                </TestErrorStack>
+              )}
+            </TestError>
+          ) : (
+            <article className="whitespace-pre-line rounded-lg border bg-card/60 p-6 text-[15px] leading-relaxed">
+              {item.body}
+            </article>
+          )}
         </div>
       </div>
       <PageFooter maxWidth="max-w-3xl">
-        <Button onClick={handleContinue}>
+        <Button onClick={handleContinue} disabled={openMutation.isPending}>
           <MessageSquareIcon data-icon="inline-start" />
-          Continue in chat
+          Open in chat
         </Button>
         {item.status !== 'done' && (
           <Button
             variant="outline"
-            onClick={() => setInboxItemStatus(item.id, 'done')}
+            onClick={() =>
+              updateMutation.mutate({ id: item.id, status: 'done' })
+            }
           >
             <CheckIcon data-icon="inline-start" />
             Mark done
           </Button>
         )}
-        <Button variant="outline" onClick={() => toggleInboxStar(item.id)}>
+        <Button
+          variant="outline"
+          onClick={() =>
+            updateMutation.mutate({ id: item.id, starred: !item.starred })
+          }
+        >
           <StarIcon
             data-icon="inline-start"
             className={cn(item.starred && 'fill-amber-400 stroke-amber-400')}
