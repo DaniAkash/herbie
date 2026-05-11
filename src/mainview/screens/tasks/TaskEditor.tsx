@@ -156,18 +156,13 @@ export function TaskEditor({
                 <div className="grid grid-cols-2 gap-6">
                   <Field>
                     <FieldLabel>Agent</FieldLabel>
-                    <AgentPicker
-                      value={agent}
-                      onChange={setAgent}
-                      variant="header"
-                    />
+                    <AgentPicker value={agent} onChange={setAgent} />
                   </Field>
                   <Field>
                     <FieldLabel>Workspace</FieldLabel>
                     <WorkspacePicker
-                      value={workspaceId}
-                      onChange={setWorkspaceId}
-                      variant="header"
+                      value={workspaceId ?? null}
+                      onChange={(p) => setWorkspaceId(p ?? undefined)}
                     />
                   </Field>
                 </div>

@@ -1,45 +1,23 @@
 import { useNavigate } from '@tanstack/react-router'
 import { SparklesIcon } from 'lucide-react'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import {
   Conversation,
   ConversationContent,
   ConversationScrollButton,
 } from '@/components/ai-elements/conversation'
-import {
-  Message,
-  MessageContent,
-  MessageResponse,
-} from '@/components/ai-elements/message'
-import {
-  Reasoning,
-  ReasoningContent,
-  ReasoningTrigger,
-} from '@/components/ai-elements/reasoning'
-import {
-  Tool,
-  ToolContent,
-  ToolHeader,
-  ToolInput,
-  ToolOutput,
-} from '@/components/ai-elements/tool'
 import { Composer } from '@/components/chat/Composer'
+import type { ComposerTuple } from '@/components/chat/composer.types'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useCreateConversation } from '@/modules/api/chat.hooks'
 import { useDefaultAgent } from '@/modules/api/settings.hooks'
 import type { AgentId } from '@/modules/data/herbie-data.types'
-import { clockTime } from '@/modules/utils/relativeTime'
-import { useChatData } from './chat.data'
+import { ChatMessageRow } from './Chat.parts'
+import { type UseChatDataResult, useChatData } from './chat.data'
+import type { ConversationDetail } from './chat.hooks'
 import { useSendMessage } from './chat.hooks'
-import type {
-  ChatMessage,
-  MessagePart,
-  ReasoningPart,
-  TextPart,
-  ToolPart,
-} from './chat.types'
 
 export interface ChatProps {
   conversationId: string | 'new'
@@ -53,29 +31,47 @@ export function Chat({ conversationId }: ChatProps) {
 function NewChat() {
   const navigate = useNavigate()
   const { defaultAgent } = useDefaultAgent()
-  // Agent stays derived from the saved default until the user explicitly
-  // picks one — that way the settings query resolving after first paint
-  // doesn't leave us frozen on the fallback.
-  const [pickedAgent, setPickedAgent] = useState<AgentId | null>(null)
-  const agent = pickedAgent ?? defaultAgent
-  const [workspaceId, setWorkspaceId] = useState<string | undefined>()
+  // Tuple stays derived from the saved default until the user explicitly
+  // picks something — that way the settings query resolving after first
+  // paint doesn't leave us frozen on the fallback.
+  const [pickedTuple, setPickedTuple] = useState<ComposerTuple | null>(null)
+  const tuple: ComposerTuple = pickedTuple ?? {
+    agentId: defaultAgent,
+    modelId: null,
+    workspacePath: null,
+    reasoningEffort: null,
+  }
 
   const createMutation = useCreateConversation()
   const sendMutation = useSendMessage()
 
   async function handleSubmit(text: string) {
     const conv = await createMutation.mutateAsync({
-      agentId: agent,
+      agentId: tuple.agentId,
       title: text.slice(0, 60),
+      modelId: tuple.modelId,
+      workspacePath: tuple.workspacePath,
+      reasoningEffort: tuple.reasoningEffort,
     })
-    await sendMutation.mutateAsync({ id: conv.id, text })
+    await sendMutation.mutateAsync({
+      id: conv.id,
+      text,
+      agentId: tuple.agentId,
+      modelId: tuple.modelId,
+      workspacePath: tuple.workspacePath,
+      reasoningEffort: tuple.reasoningEffort,
+    })
     navigate({ to: '/chat/$id', params: { id: conv.id } })
   }
 
   function handleSchedule(text: string) {
     navigate({
       to: '/tasks/new',
-      search: { prompt: text, agent, workspaceId },
+      search: {
+        prompt: text,
+        agent: tuple.agentId,
+        workspaceId: tuple.workspacePath ?? undefined,
+      },
     })
   }
 
@@ -99,10 +95,8 @@ function NewChat() {
         </div>
       </div>
       <Composer
-        agent={agent}
-        workspaceId={workspaceId}
-        onAgentChange={setPickedAgent}
-        onWorkspaceChange={setWorkspaceId}
+        tuple={tuple}
+        onTupleChange={setPickedTuple}
         onSubmit={handleSubmit}
         onSchedule={handleSchedule}
         autoFocus
@@ -113,7 +107,6 @@ function NewChat() {
 }
 
 function ExistingChat({ conversationId }: { conversationId: string }) {
-  const navigate = useNavigate()
   const data = useChatData(conversationId)
 
   if (data.isLoading) {
@@ -134,18 +127,59 @@ function ExistingChat({ conversationId }: { conversationId: string }) {
     )
   }
 
-  const conversation = data.conversation
-  const agent = conversation.agentId as AgentId
-  const workspaceId: string | undefined = undefined
+  return (
+    <ExistingChatBody
+      conversationId={conversationId}
+      conversation={data.conversation}
+      data={data}
+    />
+  )
+}
+
+function ExistingChatBody({
+  conversationId,
+  conversation,
+  data,
+}: {
+  conversationId: string
+  conversation: NonNullable<ConversationDetail['conversation']>
+  data: UseChatDataResult
+}) {
+  const navigate = useNavigate()
+  // Captured at first paint; stays stable across the body's lifetime so the
+  // switch warning fires only on user-driven changes (and stops once we've
+  // actually committed a switch via send).
+  const initialTupleRef = useRef<ComposerTuple>({
+    agentId: conversation.agentId as AgentId,
+    modelId: conversation.modelId,
+    workspacePath: conversation.workspacePath,
+    reasoningEffort: conversation.reasoningEffort,
+  })
+  const [tuple, setTuple] = useState<ComposerTuple>(initialTupleRef.current)
 
   function handleSubmit(text: string) {
-    void data.sendMessage(text)
+    void data.sendMessage({
+      id: conversationId,
+      text,
+      agentId: tuple.agentId,
+      modelId: tuple.modelId,
+      workspacePath: tuple.workspacePath,
+      reasoningEffort: tuple.reasoningEffort,
+    })
+  }
+
+  function handleCancel() {
+    void data.cancelTurn()
   }
 
   function handleSchedule(text: string) {
     navigate({
       to: '/tasks/new',
-      search: { prompt: text, agent, workspaceId },
+      search: {
+        prompt: text,
+        agent: tuple.agentId,
+        workspaceId: tuple.workspacePath ?? undefined,
+      },
     })
   }
 
@@ -157,203 +191,28 @@ function ExistingChat({ conversationId }: { conversationId: string }) {
         </h1>
         <div className="flex shrink-0 items-center gap-1.5 text-xs">
           <Badge variant="outline" className="font-mono text-[10px]">
-            {agent}
+            {tuple.agentId}
           </Badge>
         </div>
       </PageHeader>
       <Conversation>
         <ConversationContent className="mx-auto w-full max-w-3xl 2xl:max-w-4xl">
           {data.messages.map((m) => (
-            <ChatMessageRow key={m.id} message={m} agent={agent} />
+            <ChatMessageRow key={m.id} message={m} agent={tuple.agentId} />
           ))}
         </ConversationContent>
         <ConversationScrollButton />
       </Conversation>
       <Composer
-        agent={agent}
-        workspaceId={workspaceId}
-        // Agent + workspace are baked into the ACP session; mid-conversation
-        // changes would require a fresh session. Lock the pickers so the UI
-        // doesn't suggest otherwise.
-        onAgentChange={() => {}}
-        onWorkspaceChange={() => {}}
+        tuple={tuple}
+        initialTuple={initialTupleRef.current}
+        hasPriorTurns={data.messages.length > 0}
+        isStreaming={data.isStreaming}
+        onTupleChange={setTuple}
         onSubmit={handleSubmit}
+        onCancel={handleCancel}
         onSchedule={handleSchedule}
-        pickersReadOnly
       />
     </div>
   )
-}
-
-function ChatMessageRow({
-  message,
-  agent,
-}: {
-  message: ChatMessage
-  agent: AgentId
-}) {
-  if (message.role === 'user') {
-    const text = message.parts
-      .filter((p): p is TextPart => p.kind === 'text')
-      .map((p) => p.text)
-      .join('\n')
-    return (
-      <Message from="user">
-        <MessageContent>
-          <span className="whitespace-pre-wrap text-sm leading-relaxed">
-            {text}
-          </span>
-        </MessageContent>
-        <span className="px-2 text-[10px] text-muted-foreground/60 tabular-nums">
-          {clockTime(message.createdAt)}
-        </span>
-      </Message>
-    )
-  }
-
-  const showThinking =
-    message.isStreaming &&
-    message.parts.length === 0 &&
-    !message.isCancelled &&
-    !message.isError
-
-  return (
-    <Message from="assistant">
-      <div className="flex w-full flex-col gap-3">
-        <div className="flex items-center gap-2 text-xs">
-          <span className="font-mono text-muted-foreground uppercase tracking-wider">
-            {message.agent ?? agent}
-          </span>
-          {message.isCancelled && (
-            <Badge variant="outline" className="text-[10px]">
-              cancelled
-            </Badge>
-          )}
-          {message.isError && (
-            <Badge variant="destructive" className="text-[10px]">
-              error
-            </Badge>
-          )}
-          <span className="text-muted-foreground/60 tabular-nums">
-            {clockTime(message.createdAt)}
-          </span>
-        </div>
-        {message.parts.map((part) => (
-          <PartView key={part.id} part={part} streaming={message.isStreaming} />
-        ))}
-        {showThinking && (
-          <div className="text-muted-foreground text-sm italic">thinking…</div>
-        )}
-        {message.errorMessage && (
-          <div className="rounded border border-destructive/40 bg-destructive/5 px-3 py-2 text-destructive text-xs">
-            {message.errorMessage}
-          </div>
-        )}
-      </div>
-    </Message>
-  )
-}
-
-function PartView({
-  part,
-  streaming,
-}: {
-  part: MessagePart
-  streaming: boolean
-}) {
-  if (part.kind === 'text') return <TextPartView part={part} />
-  if (part.kind === 'reasoning')
-    return <ReasoningPartView part={part} streaming={streaming} />
-  return <ToolPartView part={part} />
-}
-
-function TextPartView({ part }: { part: TextPart }) {
-  return (
-    <MessageContent>
-      <MessageResponse>{part.text}</MessageResponse>
-    </MessageContent>
-  )
-}
-
-function ReasoningPartView({
-  part,
-  streaming,
-}: {
-  part: ReasoningPart
-  streaming: boolean
-}) {
-  // Plan blocks render as reasoning with a "Plan" badge for now. The
-  // dedicated Plan AI Element has an upstream type mismatch between
-  // base-ui's Collapsible and Button — revisit when that lands.
-  return (
-    <Reasoning defaultOpen={part.isOpen} isStreaming={part.isOpen && streaming}>
-      <div className="flex items-center gap-2">
-        <ReasoningTrigger />
-        {part.isPlan && (
-          <Badge variant="secondary" className="text-[10px]">
-            plan
-          </Badge>
-        )}
-      </div>
-      <ReasoningContent>{part.text}</ReasoningContent>
-    </Reasoning>
-  )
-}
-
-function ToolPartView({ part }: { part: ToolPart }) {
-  const open = part.state === 'input-streaming' || part.isError
-  const inputValue = tryParseJson(part.input)
-  const outputValue =
-    part.output === null ? undefined : tryParseJson(part.output)
-
-  return (
-    <Tool defaultOpen={open}>
-      <ToolHeader
-        type="dynamic-tool"
-        toolName={part.toolName}
-        state={part.state}
-      />
-      <ToolContent>
-        {/* ToolInput JSON-stringifies its input, which mangles raw strings
-            with escaped quotes. Render plain text inline; only feed JSON
-            shapes to ToolInput. */}
-        {typeof inputValue === 'string' ? (
-          <PlainParameters text={inputValue} />
-        ) : (
-          <ToolInput input={inputValue} />
-        )}
-        <ToolOutput
-          output={outputValue ?? null}
-          errorText={part.isError ? (part.errorMessage ?? 'error') : undefined}
-        />
-      </ToolContent>
-    </Tool>
-  )
-}
-
-function PlainParameters({ text }: { text: string }) {
-  if (!text) return null
-  return (
-    <div className="space-y-2 overflow-hidden">
-      <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-        Parameters
-      </h4>
-      <pre className="whitespace-pre-wrap rounded-md bg-muted/50 px-3 py-2 font-mono text-xs">
-        {text}
-      </pre>
-    </div>
-  )
-}
-
-function tryParseJson(text: string): unknown {
-  if (!text) return text
-  const trimmed = text.trim()
-  if (!(trimmed.startsWith('{') || trimmed.startsWith('['))) {
-    return text
-  }
-  try {
-    return JSON.parse(trimmed)
-  } catch {
-    return text
-  }
 }

@@ -46,6 +46,11 @@ export interface ChatMessage {
   isCancelled: boolean
   isError: boolean
   errorMessage?: string
+  // Structured detail from JSON-RPC-style errors (e.g. acpx's
+  // data.details). Renderer shows it as a stack-style block under the
+  // primary message.
+  errorDetails?: string
+  errorCode?: string
 }
 
 export interface ChatViewState {

@@ -15,12 +15,32 @@ const openExternalSchema = z
   })
   .strict()
 
-export const systemRoute = new Hono().post(
-  '/open-external',
-  zValidator('json', openExternalSchema),
-  (c) => {
+const pickDirectorySchema = z
+  .object({
+    startingFolder: z.string().optional(),
+  })
+  .strict()
+
+export const systemRoute = new Hono()
+  .post('/open-external', zValidator('json', openExternalSchema), (c) => {
     const { url } = c.req.valid('json')
     const ok = Utils.openExternal(url)
     return c.json({ ok })
-  },
-)
+  })
+  .post(
+    '/system/pick-directory',
+    zValidator('json', pickDirectorySchema),
+    async (c) => {
+      const body = c.req.valid('json')
+      // openFileDialog returns CSV of selected paths; an empty string means
+      // the user dismissed the panel. We only ever ask for a single dir.
+      const paths = await Utils.openFileDialog({
+        startingFolder: body.startingFolder ?? '~/',
+        canChooseFiles: false,
+        canChooseDirectory: true,
+        allowsMultipleSelection: false,
+      })
+      const first = paths[0]?.trim()
+      return c.json({ path: first ? first : null })
+    },
+  )

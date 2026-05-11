@@ -47,3 +47,44 @@ export function useDefaultAgent(): {
     setDefaultAgent,
   }
 }
+
+const RECENT_WORKSPACES_CAP = 10
+
+// Workspaces aren't a DB entity — just paths in the settings KV. The
+// composer reads the default + MRU and writes back through PATCH.
+export function useWorkspaces(): {
+  defaultPath: string | null
+  recent: string[]
+  isLoading: boolean
+  addRecent: (path: string) => void
+  setDefault: (path: string) => void
+} {
+  const { data, isLoading } = useSettings()
+  const { mutate } = useUpdateSettings()
+  const defaultPath = data?.composer.workspaces.default ?? null
+  const recent = data?.composer.workspaces.recent ?? []
+
+  const addRecent = useCallback(
+    (path: string) => {
+      // De-dupe + bump to head; cap to keep the dropdown scannable. The
+      // server enforces no max — the cap is purely UX. Sparse patch:
+      // only ship `recent` so a settings-still-loading race can't blank
+      // out `default` with an empty string.
+      const next = [path, ...recent.filter((p) => p !== path)].slice(
+        0,
+        RECENT_WORKSPACES_CAP,
+      )
+      mutate({ composer: { workspaces: { recent: next } } })
+    },
+    [mutate, recent],
+  )
+
+  const setDefault = useCallback(
+    (path: string) => {
+      mutate({ composer: { workspaces: { default: path } } })
+    },
+    [mutate],
+  )
+
+  return { defaultPath, recent, isLoading, addRecent, setDefault }
+}

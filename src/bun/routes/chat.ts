@@ -7,7 +7,7 @@ import { nanoid } from 'nanoid'
 import { z } from 'zod'
 import { chatEvents } from '../../db/schema/chat-events.sql'
 import { conversations } from '../../db/schema/conversations.sql'
-import { TurnInProgressError } from '../chat/ChatSession'
+import { type ChatTuple, TurnInProgressError } from '../chat/ChatSession'
 import { getEventBus } from '../chat/eventBus'
 import type { PersistedEvent } from '../chat/events.types'
 import { getSessionManager } from '../chat/sessionManager'
@@ -25,14 +25,30 @@ function serializeConversation(row: ConversationRow) {
   }
 }
 
+// Tuple fields are optional on every endpoint — clients may omit them
+// (e.g. /chat without modelId) and we fall back to the agent default or
+// the conversation row's persisted value.
+const tupleFields = {
+  modelId: z.string().min(1).nullish(),
+  workspacePath: z.string().min(1).nullish(),
+  reasoningEffort: z.string().min(1).nullish(),
+} as const
+
 const createSchema = z
   .object({
     agentId: z.enum(AGENT_IDS),
     title: z.string().min(1).max(200).optional(),
+    ...tupleFields,
   })
   .strict()
 
-const sendSchema = z.object({ text: z.string().min(1) }).strict()
+const sendSchema = z
+  .object({
+    text: z.string().min(1),
+    agentId: z.enum(AGENT_IDS).optional(),
+    ...tupleFields,
+  })
+  .strict()
 const cancelSchema = z.object({ reason: z.string().optional() }).strict()
 const conversationQuery = z
   .object({ afterSeq: z.string().optional() })
@@ -66,6 +82,9 @@ export const chatRoute = new Hono()
       id: nanoid(),
       title: body.title ?? 'New conversation',
       agentId: body.agentId,
+      modelId: body.modelId ?? null,
+      workspacePath: body.workspacePath ?? null,
+      reasoningEffort: body.reasoningEffort ?? null,
       acpxSessionId: null,
       acpxRecordId: null,
       agentSessionId: null,
@@ -113,10 +132,37 @@ export const chatRoute = new Hono()
   })
   .post('/chat/:id/messages', zValidator('json', sendSchema), async (c) => {
     const id = c.req.param('id')
-    const { text } = c.req.valid('json')
+    const body = c.req.valid('json')
     try {
+      // Resolve the tuple from the request, falling back to the
+      // conversation row's last-used tuple. Any omitted field stays at the
+      // persisted value — partial updates are explicit.
+      const conv = await getDb()
+        .select()
+        .from(conversations)
+        .where(eq(conversations.id, id))
+        .get()
+      if (!conv) return c.json({ error: 'conversation not found' }, 404)
+
+      // `undefined` = field omitted in the request → keep the persisted
+      // value. `null` = user explicitly cleared back to "agent default"
+      // via the picker; preserve it. `??` would collapse both into the
+      // persisted value and leave the user unable to clear a selection.
+      const tuple: ChatTuple = {
+        agentId: body.agentId ?? conv.agentId,
+        modelId: body.modelId === undefined ? conv.modelId : body.modelId,
+        workspacePath:
+          body.workspacePath === undefined
+            ? conv.workspacePath
+            : body.workspacePath,
+        reasoningEffort:
+          body.reasoningEffort === undefined
+            ? conv.reasoningEffort
+            : body.reasoningEffort,
+      }
+
       const session = await getSessionManager().getOrCreate(id)
-      const result = await session.appendUserMessage(text)
+      const result = await session.appendUserMessage(body.text, tuple)
       return c.json(result, 202)
     } catch (err) {
       if (err instanceof TurnInProgressError) {
