@@ -1,4 +1,4 @@
-import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import type { McpServerSpec } from '../chat/acpxProvider'
 
 // Build the McpServerSpec acpx hands to the agent. The agent will
@@ -27,14 +27,16 @@ export function taskResultServerSpec(
   }
 }
 
-// Both `bun run dev:hmr` and the packaged Electrobun build run from
-// inside `Herbie-dev.app/Contents/MacOS` (or `.../Contents/Resources/`
-// depending on the platform). `process.execPath` is the bundled bun;
-// the MCP child script is copied to `Contents/Resources/mcp-task-result`
-// at build time (see electrobun.config.ts).
+// `import.meta.url` resolves at runtime to the bundled location:
+//   Herbie.app/Contents/Resources/app/bun/index.js
+// electrobun.config.ts's copy directive
+//   'src/bun/tasks/mcp-task-result': 'mcp-task-result'
+// lands the script at Resources/app/mcp-task-result/index.ts, which
+// is one directory level up from index.js (URL `..` resolves against
+// the parent of the resource itself).
+//
+// Same shape as src/db/index.ts's migrationsFolder() — keep them in
+// sync if the Electrobun layout changes.
 function resolveScriptPath(): string {
-  const execDir = path.dirname(process.execPath)
-  // On macOS: execPath = .../Contents/MacOS/bun
-  //           resources = .../Contents/Resources
-  return path.join(execDir, '..', 'Resources', 'mcp-task-result', 'index.ts')
+  return fileURLToPath(new URL('../mcp-task-result/index.ts', import.meta.url))
 }
