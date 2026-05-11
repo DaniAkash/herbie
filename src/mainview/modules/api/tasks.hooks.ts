@@ -1,6 +1,7 @@
 import type { InferRequestType, InferResponseType } from 'hono/client'
 import { createMutation, createQuery } from 'react-query-kit'
 import { api } from './client'
+import { toastApiError } from './errorToast'
 import { parseResponse } from './parseResponse'
 import { queryClient } from './queryClient'
 
@@ -36,6 +37,7 @@ export const useCreateTask = createMutation<TaskDetail, CreateTaskInput>({
   onSuccess: () => {
     queryClient.invalidateQueries({ queryKey: useTasks.getKey() })
   },
+  onError: toastApiError('Failed to create task'),
 })
 
 export const useUpdateTask = createMutation<TaskDetail, UpdateTaskInput>({
@@ -47,6 +49,7 @@ export const useUpdateTask = createMutation<TaskDetail, UpdateTaskInput>({
       queryKey: useTask.getKey({ id: vars.id }),
     })
   },
+  onError: toastApiError('Failed to update task'),
 })
 
 export const useDeleteTask = createMutation<{ ok: boolean }, { id: string }>({
@@ -56,4 +59,5 @@ export const useDeleteTask = createMutation<{ ok: boolean }, { id: string }>({
     queryClient.invalidateQueries({ queryKey: useTasks.getKey() })
     queryClient.removeQueries({ queryKey: useTask.getKey({ id: vars.id }) })
   },
+  onError: toastApiError('Failed to delete task'),
 })

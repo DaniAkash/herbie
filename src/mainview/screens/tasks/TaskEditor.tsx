@@ -136,28 +136,45 @@ function EditorBody({
   const isExisting = mode === 'edit' && taskId != null
   const isBusy = createMutation.isPending || updateMutation.isPending
 
+  // Mutation rejections are surfaced via toast (onError in each
+  // mutation hook). The call-site try/catch keeps the throw from
+  // bubbling to React's unhandledrejection — the user already sees
+  // the failure and we don't want to leave the form in a half-done
+  // state on the next code path.
   const onSubmit = form.handleSubmit(async (values) => {
-    if (taskId) {
-      await updateMutation.mutateAsync({ id: taskId, ...values })
-    } else {
-      await createMutation.mutateAsync(values)
+    try {
+      if (taskId) {
+        await updateMutation.mutateAsync({ id: taskId, ...values })
+      } else {
+        await createMutation.mutateAsync(values)
+      }
+    } catch {
+      return
     }
     navigate({ to: '/tasks' })
   })
 
   async function handleDeleteConfirmed() {
     if (!taskId) return
-    await deleteMutation.mutateAsync({ id: taskId })
+    try {
+      await deleteMutation.mutateAsync({ id: taskId })
+    } catch {
+      return
+    }
     navigate({ to: '/tasks' })
   }
 
   async function togglePause() {
     if (!taskId) return
     const status = currentStatus ?? initialStatus
-    await updateMutation.mutateAsync({
-      id: taskId,
-      status: status === 'active' ? 'paused' : 'active',
-    })
+    try {
+      await updateMutation.mutateAsync({
+        id: taskId,
+        status: status === 'active' ? 'paused' : 'active',
+      })
+    } catch {
+      // toast surfaced by useUpdateTask.onError
+    }
   }
 
   return (

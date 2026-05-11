@@ -262,6 +262,9 @@ export function EditorSidebar({
   // Create mode: Test takes a save-then-test-then-navigate path.
   // `onBeforeTest` runs the form validator so any missing/invalid
   // field surfaces inline messages before we attempt to persist.
+  // On a server failure the create mutation surfaces a toast via
+  // its onError; we swallow the throw here so the sidebar doesn't
+  // log an unhandled rejection on top of it.
   return (
     <TaskRunSidebar
       taskId={null}
@@ -269,7 +272,11 @@ export function EditorSidebar({
       onBeforeTest={async () => {
         const ok = await form.trigger()
         if (!ok) return null
-        return onCreateAndNavigate()
+        try {
+          return await onCreateAndNavigate()
+        } catch {
+          return null
+        }
       }}
     />
   )

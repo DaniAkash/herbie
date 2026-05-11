@@ -1,6 +1,7 @@
 import type { InferRequestType, InferResponseType } from 'hono/client'
 import { createMutation, createQuery } from 'react-query-kit'
 import { api } from './client'
+import { toastApiError } from './errorToast'
 import { parseResponse } from './parseResponse'
 import { queryClient } from './queryClient'
 
@@ -24,6 +25,7 @@ export const useUpdateInboxItem = createMutation<InboxItemDto, PatchInput>({
   onSuccess: () => {
     queryClient.invalidateQueries({ queryKey: useInboxItems.getKey() })
   },
+  onError: toastApiError('Failed to update inbox item'),
 })
 
 export const useDeleteInboxItem = createMutation<
@@ -35,6 +37,7 @@ export const useDeleteInboxItem = createMutation<
   onSuccess: () => {
     queryClient.invalidateQueries({ queryKey: useInboxItems.getKey() })
   },
+  onError: toastApiError('Failed to delete inbox item'),
 })
 
 // "Open in chat" seeds a new conversation with the task's prompt as
@@ -51,4 +54,5 @@ export const useOpenInChat = createMutation<
     // The seeded read flip happens server-side; refresh the list.
     queryClient.invalidateQueries({ queryKey: useInboxItems.getKey() })
   },
+  onError: toastApiError('Failed to open inbox item in chat'),
 })

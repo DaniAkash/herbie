@@ -98,6 +98,8 @@ export function TaskRunSidebar({
         reasoningEffort: draft.tuple.reasoningEffort,
       })
       setSelectedRunId(res.runId)
+    } catch {
+      // toast surfaced by useTestTaskRun.onError
     } finally {
       setIsStartingTest(false)
     }
@@ -105,7 +107,11 @@ export function TaskRunSidebar({
 
   async function handleStop() {
     if (!inFlight || taskId == null) return
-    await cancelMutation.mutateAsync({ taskId, runId: inFlight.id })
+    try {
+      await cancelMutation.mutateAsync({ taskId, runId: inFlight.id })
+    } catch {
+      // toast surfaced by useCancelTaskRun.onError
+    }
   }
 
   // Minimal "is there anything to test" gate. Full validation lives

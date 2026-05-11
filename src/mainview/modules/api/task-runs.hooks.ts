@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react'
 import { createMutation, createQuery } from 'react-query-kit'
 import { openTaskRunStream } from '@/modules/tasks/task-run-stream'
 import { api } from './client'
+import { toastApiError } from './errorToast'
 import { parseResponse } from './parseResponse'
 import { queryClient } from './queryClient'
 import { useTask, useTasks } from './tasks.hooks'
@@ -47,6 +48,7 @@ export const useTestTaskRun = createMutation<{ runId: string }, TestRunInput>({
       queryKey: useTaskRuns.getKey({ id: vars.id }),
     })
   },
+  onError: toastApiError('Failed to start test run'),
 })
 
 export const useCancelTaskRun = createMutation<
@@ -57,6 +59,7 @@ export const useCancelTaskRun = createMutation<
     $cancel({ param: { id: taskId, runId } }).then(
       parseResponse<{ ok: boolean }>,
     ),
+  onError: toastApiError('Failed to cancel run'),
 })
 
 // SSE subscriber for a single run. Mirrors useChatLiveStream's shape;
