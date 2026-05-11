@@ -142,6 +142,14 @@ export class TaskRunSession {
 
   async cancel(reason?: string): Promise<void> {
     if (!this.activeTurn) return
+    // Clear activeTurn synchronously *before* we yield to the
+    // event loop. controller.abort() makes runStream's `for await`
+    // throw on the next tick; its catch checks `if (!this.activeTurn)
+    // return` to skip emitting a competing turn.error + finalize.
+    // If we left activeTurn populated until finalize() at the end of
+    // this method, the catch would race past that guard and we'd
+    // double-finalize (turn.cancel + turn.error, status flipped twice).
+    this.activeTurn = null
     this.controller?.abort()
     try {
       await this.provider?.cancel(reason)

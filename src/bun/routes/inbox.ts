@@ -111,50 +111,68 @@ export const inboxRoute = new Hono()
         })
         .run()
 
-      // Seed three events so the reducer renders a complete first
-      // exchange: user prompt → assistant body → terminal turn.finish.
+      // Seed events so the reducer renders a complete first exchange:
+      // user prompt → assistant body (or error) → terminal event.
       // Without the terminal event the reducer's isStreaming would
       // stick on true and the composer would render disabled.
-      await tx
-        .insert(chatEvents)
-        .values([
-          {
-            conversationId,
-            seq: 0,
-            type: 'turn.start',
-            payload: JSON.stringify({
-              requestId,
-              userMessage: item.promptSnapshot,
-              agentId: item.agentId,
-              modelId: item.modelId,
-              workspacePath: item.workspacePath,
-              reasoningEffort: item.reasoningEffort,
-            }),
-            createdAt: now,
-          },
-          {
-            conversationId,
-            seq: 1,
-            type: 'assistant.text',
-            payload: JSON.stringify({
-              requestId,
-              textId: nanoid(),
-              text: item.body,
-            }),
-            createdAt: now,
-          },
-          {
-            conversationId,
-            seq: 2,
-            type: 'turn.finish',
-            payload: JSON.stringify({
-              requestId,
-              finishReason: 'stop',
-            }),
-            createdAt: now,
-          },
-        ])
-        .run()
+      //
+      // Two shapes — successful runs seed assistant.text + turn.finish;
+      // failed runs seed turn.error so the chat shows the same rich
+      // error block the inbox card shows, instead of a blank reply.
+      const isError = item.errorMessage != null
+      const events = [
+        {
+          conversationId,
+          seq: 0,
+          type: 'turn.start',
+          payload: JSON.stringify({
+            requestId,
+            userMessage: item.promptSnapshot,
+            agentId: item.agentId,
+            modelId: item.modelId,
+            workspacePath: item.workspacePath,
+            reasoningEffort: item.reasoningEffort,
+          }),
+          createdAt: now,
+        },
+        isError
+          ? {
+              conversationId,
+              seq: 1,
+              type: 'turn.error',
+              payload: JSON.stringify({
+                requestId,
+                message: item.errorMessage,
+                code: item.errorCode ?? undefined,
+                details: item.errorDetails ?? undefined,
+              }),
+              createdAt: now,
+            }
+          : {
+              conversationId,
+              seq: 1,
+              type: 'assistant.text',
+              payload: JSON.stringify({
+                requestId,
+                textId: nanoid(),
+                text: item.body,
+              }),
+              createdAt: now,
+            },
+      ]
+      if (!isError) {
+        events.push({
+          conversationId,
+          seq: 2,
+          type: 'turn.finish',
+          payload: JSON.stringify({
+            requestId,
+            finishReason: 'stop',
+          }),
+          createdAt: now,
+        })
+      }
+      await tx.insert(chatEvents).values(events).run()
 
       // Mark read since the user explicitly engaged with this card.
       if (item.status === 'unread') {

@@ -1,5 +1,5 @@
 import { zValidator } from '@hono/zod-validator'
-import { desc, eq } from 'drizzle-orm'
+import { and, desc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
 import { nanoid } from 'nanoid'
@@ -234,11 +234,12 @@ export const tasksRoute = new Hono()
     return c.json(rows.map(serializeRun))
   })
   .get('/tasks/:id/runs/:runId', async (c) => {
+    const taskId = c.req.param('id')
     const runId = c.req.param('runId')
     const run = await getDb()
       .select()
       .from(taskRuns)
-      .where(eq(taskRuns.id, runId))
+      .where(and(eq(taskRuns.id, runId), eq(taskRuns.taskId, taskId)))
       .get()
     if (!run) return c.json({ error: 'run not found' }, 404)
     const events = await loadAllRunEvents(runId)
@@ -253,17 +254,37 @@ export const tasksRoute = new Hono()
     })
   })
   .post('/tasks/:id/runs/:runId/cancel', async (c) => {
+    const taskId = c.req.param('id')
     const runId = c.req.param('runId')
+    if (!(await runBelongsToTask(runId, taskId))) {
+      return c.json({ error: 'run not found' }, 404)
+    }
     await getRunManager().cancel(runId, 'user cancelled')
     return c.json({ ok: true })
   })
-  .get('/tasks/:id/runs/:runId/stream', (c) => {
+  .get('/tasks/:id/runs/:runId/stream', async (c) => {
+    const taskId = c.req.param('id')
     const runId = c.req.param('runId')
+    if (!(await runBelongsToTask(runId, taskId))) {
+      return c.json({ error: 'run not found' }, 404)
+    }
     const after = parseAfter(
       c.req.header('Last-Event-ID') ?? c.req.query('after'),
     )
     return streamSSE(c, (stream) => runEventStream(stream, runId, after))
   })
+
+async function runBelongsToTask(
+  runId: string,
+  taskId: string,
+): Promise<boolean> {
+  const row = await getDb()
+    .select({ id: taskRuns.id })
+    .from(taskRuns)
+    .where(and(eq(taskRuns.id, runId), eq(taskRuns.taskId, taskId)))
+    .get()
+  return row != null
+}
 
 type RunRow = typeof taskRuns.$inferSelect
 

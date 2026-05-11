@@ -88,6 +88,7 @@ function EditExisting({ taskId }: EditorProps & { taskId: string }) {
     <EditorBody
       mode="edit"
       taskId={taskId}
+      currentStatus={data.status}
       initial={{
         name: data.name,
         prompt: data.prompt,
@@ -116,10 +117,15 @@ function EditorBody({
   mode,
   taskId,
   initial,
+  currentStatus,
 }: {
   mode: 'create' | 'edit'
   taskId?: string
   initial: EditorState
+  // Latest status from the query — `initial.status` is captured at
+  // mount and doesn't reflect pause/resume mutations. Drives both the
+  // button label and the value sent on toggle.
+  currentStatus?: 'active' | 'paused'
 }) {
   const navigate = useNavigate()
   const createMutation = useCreateTask()
@@ -164,9 +170,10 @@ function EditorBody({
 
   async function togglePause() {
     if (!taskId) return
+    const status = currentStatus ?? initial.status
     await updateMutation.mutateAsync({
       id: taskId,
-      status: initial.status === 'active' ? 'paused' : 'active',
+      status: status === 'active' ? 'paused' : 'active',
     })
   }
 
@@ -279,7 +286,7 @@ function EditorBody({
                 onClick={togglePause}
                 disabled={isBusy}
               >
-                {initial.status === 'active' ? (
+                {(currentStatus ?? initial.status) === 'active' ? (
                   <>
                     <PauseIcon data-icon="inline-start" /> Pause
                   </>

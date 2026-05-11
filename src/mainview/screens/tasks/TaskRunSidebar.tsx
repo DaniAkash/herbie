@@ -17,6 +17,7 @@ import {
   useTaskRuns,
   useTestTaskRun,
 } from '@/modules/api/task-runs.hooks'
+import type { AgentId } from '@/modules/data/herbie-data.types'
 import { clockTime, relativeTime } from '@/modules/utils/relativeTime'
 import { ChatMessageRow } from '../chat/Chat.parts'
 import { useRunData } from './run.data'
@@ -235,7 +236,7 @@ function RunDetail({ taskId, runId }: { taskId: string; runId: string }) {
           <ChatMessageRow
             key={m.id}
             message={m}
-            agent={run.run.agentId as 'claude'}
+            agent={run.run.agentId as AgentId}
             partKinds={TEXT_ONLY_PART_KINDS}
           />
         ))}
