@@ -144,11 +144,21 @@ export const chatRoute = new Hono()
         .get()
       if (!conv) return c.json({ error: 'conversation not found' }, 404)
 
+      // `undefined` = field omitted in the request → keep the persisted
+      // value. `null` = user explicitly cleared back to "agent default"
+      // via the picker; preserve it. `??` would collapse both into the
+      // persisted value and leave the user unable to clear a selection.
       const tuple: ChatTuple = {
         agentId: body.agentId ?? conv.agentId,
-        modelId: body.modelId ?? conv.modelId,
-        workspacePath: body.workspacePath ?? conv.workspacePath,
-        reasoningEffort: body.reasoningEffort ?? conv.reasoningEffort,
+        modelId: body.modelId === undefined ? conv.modelId : body.modelId,
+        workspacePath:
+          body.workspacePath === undefined
+            ? conv.workspacePath
+            : body.workspacePath,
+        reasoningEffort:
+          body.reasoningEffort === undefined
+            ? conv.reasoningEffort
+            : body.reasoningEffort,
       }
 
       const session = await getSessionManager().getOrCreate(id)

@@ -156,7 +156,15 @@ export class ChatSession {
     // new tuple's session via a fresh sessionKey + `mode: 'fresh'`.
     const messages: ModelMessage[] = tupleChanged
       ? [
-          ...(await rebuildMessagesFromLog(this.db, this.conversation.id)),
+          // The turn.start for this requestId is already in the event log
+          // (we wrote it above for UI/status bookkeeping). Exclude it from
+          // the replay so we don't ship the user message twice — the
+          // explicit append below is the canonical copy for this turn.
+          ...(await rebuildMessagesFromLog(
+            this.db,
+            this.conversation.id,
+            requestId,
+          )),
           { role: 'user', content: text },
         ]
       : [{ role: 'user', content: text }]
