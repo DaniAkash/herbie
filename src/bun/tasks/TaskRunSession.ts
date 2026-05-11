@@ -145,13 +145,10 @@ export class TaskRunSession {
 
   async cancel(reason?: string): Promise<void> {
     if (!this.activeTurn) return
-    // Clear activeTurn synchronously *before* we yield to the
-    // event loop. controller.abort() makes runStream's `for await`
-    // throw on the next tick; its catch checks `if (!this.activeTurn)
-    // return` to skip emitting a competing turn.error + finalize.
-    // If we left activeTurn populated until finalize() at the end of
-    // this method, the catch would race past that guard and we'd
-    // double-finalize (turn.cancel + turn.error, status flipped twice).
+    // Clear activeTurn synchronously so runStream's catch (the
+    // abort throws on the next tick) returns early via its
+    // `if (!this.activeTurn) return` guard — no competing
+    // turn.error + finalize race.
     this.activeTurn = null
     // Unblock the post-stream capture race so cancel returns fast;
     // the `finalized` guard catches the same race regardless.
@@ -199,10 +196,16 @@ export class TaskRunSession {
     let usage: LanguageModelUsage | undefined
     let finishReason: RunFinishReason = 'unknown'
     try {
+      // acpx-ai-provider flattens streamText's `system` field to
+      // "System: ..." plain text the agent ignores. Workaround:
+      // wrap in <system>…</system> inside the user message;
+      // instruction-tuned models honour the XML even on the user
+      // role. DB stores promptSnapshot verbatim — renderers read
+      // from there, never see the tag.
+      const wrappedPrompt = `<system>\n${SCHEDULED_RUN_SYSTEM_PROMPT}\n</system>\n\n${this.init.promptSnapshot}`
       const result = streamText({
         model: this.provider.languageModel(),
-        system: SCHEDULED_RUN_SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: this.init.promptSnapshot }],
+        messages: [{ role: 'user', content: wrappedPrompt }],
         abortSignal: this.controller.signal,
       })
       for await (const part of result.fullStream) {
