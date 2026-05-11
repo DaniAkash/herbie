@@ -1,3 +1,7 @@
 export * from './chat-events.sql'
 export * from './conversations.sql'
+export * from './inbox-items.sql'
 export * from './settings.sql'
+export * from './task-run-events.sql'
+export * from './task-runs.sql'
+export * from './tasks.sql'

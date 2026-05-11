@@ -1,36 +1,37 @@
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useNavigate } from '@tanstack/react-router'
-import { ArrowLeftIcon, PauseIcon, PlayIcon, Trash2Icon } from 'lucide-react'
-import { type FormEvent, useState } from 'react'
-import { AgentPicker } from '@/components/chat/AgentPicker'
-import { WorkspacePicker } from '@/components/chat/WorkspacePicker'
-import { PageFooter, PageHeader } from '@/components/layout/PageHeader'
-import { Button } from '@/components/ui/button'
-import {
-  Field,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel,
-  FieldSet,
-} from '@/components/ui/field'
-import { Input } from '@/components/ui/input'
+import { ArrowLeftIcon } from 'lucide-react'
+import { useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { LinkButton } from '@/components/ui/link-button'
-import { Switch } from '@/components/ui/switch'
-import { Textarea } from '@/components/ui/textarea'
 import { useDefaultAgent } from '@/modules/api/settings.hooks'
-import { useHerbieData } from '@/modules/data/HerbieDataProvider'
-import type {
-  AgentId,
-  ScheduleConfig,
-  TaskOutput,
-} from '@/modules/data/herbie-data.types'
-import { ScheduleField } from './ScheduleField'
+import {
+  useCreateTask,
+  useDeleteTask,
+  useTask,
+  useUpdateTask,
+} from '@/modules/api/tasks.hooks'
+import type { AgentId, ScheduleConfig } from '@/modules/data/herbie-data.types'
+import { DeleteTaskDialog } from './DeleteTaskDialog'
+import {
+  EditorFooter,
+  EditorSidebar,
+  EditorSkeleton,
+  TaskFormFields,
+} from './task-editor.components'
+import { type TaskFormValues, taskFormSchema } from './task-editor.schemas'
 
 export type EditorProps = {
   mode: 'create' | 'edit'
   taskId?: string
   initialPrompt?: string
   initialAgent?: AgentId
-  initialWorkspaceId?: string
+  // Pre-selects the WorkspacePicker for create mode. The chat
+  // composer's "Schedule" button uses this to carry the active
+  // workspace into the new task. Edit mode reads from the persisted
+  // row and ignores this prop.
+  initialWorkspacePath?: string
 }
 
 const DEFAULT_SCHEDULE: ScheduleConfig = {
@@ -39,73 +40,149 @@ const DEFAULT_SCHEDULE: ScheduleConfig = {
   minute: 0,
 }
 
-export function TaskEditor({
-  mode,
-  taskId,
+export function TaskEditor(props: EditorProps) {
+  if (props.mode === 'edit' && props.taskId) {
+    return <EditExisting {...props} taskId={props.taskId} />
+  }
+  return <CreateNew {...props} />
+}
+
+function CreateNew({
   initialPrompt,
   initialAgent,
-  initialWorkspaceId,
+  initialWorkspacePath,
 }: EditorProps) {
-  const navigate = useNavigate()
-  const { tasks, createTask, updateTask, deleteTask } = useHerbieData()
   const { defaultAgent } = useDefaultAgent()
-
-  const existing = taskId ? tasks.find((t) => t.id === taskId) : undefined
-
-  const [name, setName] = useState(existing?.name ?? '')
-  const [prompt, setPrompt] = useState(existing?.prompt ?? initialPrompt ?? '')
-  const [agent, setAgent] = useState<AgentId>(
-    existing?.agent ?? initialAgent ?? defaultAgent,
+  return (
+    <EditorBody
+      mode="create"
+      defaultValues={{
+        name: '',
+        prompt: initialPrompt ?? '',
+        agentId: initialAgent ?? defaultAgent,
+        modelId: null,
+        workspacePath: initialWorkspacePath ?? null,
+        reasoningEffort: null,
+        schedule: DEFAULT_SCHEDULE,
+      }}
+      initialName=""
+      initialStatus="active"
+    />
   )
-  const [workspaceId, setWorkspaceId] = useState<string | undefined>(
-    existing?.workspaceId ?? initialWorkspaceId,
-  )
-  const [schedule, setSchedule] = useState<ScheduleConfig>(
-    existing?.schedule ?? DEFAULT_SCHEDULE,
-  )
-  const [outputs, setOutputs] = useState<Set<TaskOutput>>(
-    new Set(existing?.outputs ?? ['inbox']),
-  )
+}
 
-  const canSave = name.trim().length > 0 && prompt.trim().length > 0
-
-  function toggleOutput(o: TaskOutput) {
-    setOutputs((prev) => {
-      const next = new Set(prev)
-      if (next.has(o)) next.delete(o)
-      else next.add(o)
-      return next
-    })
+function EditExisting({ taskId }: EditorProps & { taskId: string }) {
+  const { data, isLoading } = useTask({ variables: { id: taskId } })
+  if (isLoading) return <EditorSkeleton />
+  if (!data) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <p className="text-muted-foreground text-sm">Task not found.</p>
+      </div>
+    )
   }
+  return (
+    <EditorBody
+      mode="edit"
+      taskId={taskId}
+      currentStatus={data.status}
+      initialName={data.name}
+      initialStatus={data.status}
+      defaultValues={{
+        name: data.name,
+        prompt: data.prompt,
+        agentId: data.agentId as AgentId,
+        modelId: data.modelId,
+        workspacePath: data.workspacePath,
+        reasoningEffort: data.reasoningEffort,
+        schedule: data.schedule,
+      }}
+    />
+  )
+}
 
-  function handleSubmit(e: FormEvent) {
-    e.preventDefault()
-    if (!canSave) return
-    const payload = {
-      name: name.trim(),
-      prompt: prompt.trim(),
-      agent,
-      workspaceId,
-      schedule,
-      outputs: [...outputs],
+function EditorBody({
+  mode,
+  taskId,
+  defaultValues,
+  initialName,
+  initialStatus,
+  currentStatus,
+}: {
+  mode: 'create' | 'edit'
+  taskId?: string
+  defaultValues: TaskFormValues
+  // Snapshot for the page header — kept stable so renaming a task
+  // doesn't retitle mid-edit. The form holds the live name.
+  initialName: string
+  // Captured at mount; used as the fallback when `currentStatus`
+  // hasn't been threaded through (i.e. create mode).
+  initialStatus: 'active' | 'paused'
+  // Latest status from the task query. Drives the Pause/Resume label
+  // and toggle value so they reflect the latest mutation instead of
+  // the value captured at mount.
+  currentStatus?: 'active' | 'paused'
+}) {
+  const navigate = useNavigate()
+  const createMutation = useCreateTask()
+  const updateMutation = useUpdateTask()
+  const deleteMutation = useDeleteTask()
+
+  const form = useForm<TaskFormValues>({
+    resolver: zodResolver(taskFormSchema),
+    defaultValues,
+    // `onChange` (not `onTouched`) on purpose. The schedule field
+    // is a discriminated union whose inputs live inside ScheduleField
+    // and never call `field.onBlur` on the parent `schedule` Controller,
+    // so `onTouched` would suppress the cron-refine error until the
+    // user hit Submit. `onChange` validates on every keystroke; the
+    // form is small enough that the cost is irrelevant.
+    mode: 'onChange',
+  })
+
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const isExisting = mode === 'edit' && taskId != null
+  const isBusy = createMutation.isPending || updateMutation.isPending
+
+  // Mutation rejections are surfaced via toast (onError in each
+  // mutation hook). The call-site try/catch keeps the throw from
+  // bubbling to React's unhandledrejection — the user already sees
+  // the failure and we don't want to leave the form in a half-done
+  // state on the next code path.
+  const onSubmit = form.handleSubmit(async (values) => {
+    try {
+      if (taskId) {
+        await updateMutation.mutateAsync({ id: taskId, ...values })
+      } else {
+        await createMutation.mutateAsync(values)
+      }
+    } catch {
+      return
     }
-    if (existing) updateTask({ id: existing.id, ...payload })
-    else createTask(payload)
+    navigate({ to: '/tasks' })
+  })
+
+  async function handleDeleteConfirmed() {
+    if (!taskId) return
+    try {
+      await deleteMutation.mutateAsync({ id: taskId })
+    } catch {
+      return
+    }
     navigate({ to: '/tasks' })
   }
 
-  function handleDelete() {
-    if (!existing) return
-    deleteTask(existing.id)
-    navigate({ to: '/tasks' })
-  }
-
-  function togglePause() {
-    if (!existing) return
-    updateTask({
-      id: existing.id,
-      status: existing.status === 'active' ? 'paused' : 'active',
-    })
+  async function togglePause() {
+    if (!taskId) return
+    const status = currentStatus ?? initialStatus
+    try {
+      await updateMutation.mutateAsync({
+        id: taskId,
+        status: status === 'active' ? 'paused' : 'active',
+      })
+    } catch {
+      // toast surfaced by useUpdateTask.onError
+    }
   }
 
   return (
@@ -116,137 +193,53 @@ export function TaskEditor({
           Tasks
         </LinkButton>
         <h1 className="font-semibold text-base tracking-tight">
-          {mode === 'create' ? 'New scheduled task' : existing?.name}
+          {mode === 'create' ? 'New scheduled task' : initialName}
         </h1>
       </PageHeader>
-      <form
-        onSubmit={handleSubmit}
-        className="flex flex-1 flex-col overflow-hidden"
-      >
-        <div className="flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-2xl px-6 py-8">
-            <FieldGroup>
-              <Field>
-                <FieldLabel htmlFor="task-name">Name</FieldLabel>
-                <Input
-                  id="task-name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="morning-github"
-                />
-                <FieldDescription>
-                  Short kebab-case name for this task.
-                </FieldDescription>
-              </Field>
-
-              <Field>
-                <FieldLabel htmlFor="task-prompt">Prompt</FieldLabel>
-                <Textarea
-                  id="task-prompt"
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  placeholder="Summarise overnight GitHub activity across my repos…"
-                  rows={4}
-                />
-              </Field>
-
-              <ScheduleField value={schedule} onChange={setSchedule} />
-
-              <FieldSet>
-                <div className="grid grid-cols-2 gap-6">
-                  <Field>
-                    <FieldLabel>Agent</FieldLabel>
-                    <AgentPicker value={agent} onChange={setAgent} />
-                  </Field>
-                  <Field>
-                    <FieldLabel>Workspace</FieldLabel>
-                    <WorkspacePicker
-                      value={workspaceId ?? null}
-                      onChange={(p) => setWorkspaceId(p ?? undefined)}
-                    />
-                  </Field>
-                </div>
-              </FieldSet>
-
-              <Field>
-                <FieldLabel>Send result to</FieldLabel>
-                <div className="flex flex-col gap-1 divide-y divide-border rounded-lg border bg-card">
-                  <OutputToggle
-                    label="Inbox"
-                    description="Land as a card in your Herbie inbox"
-                    checked={outputs.has('inbox')}
-                    onChange={() => toggleOutput('inbox')}
-                  />
-                  <OutputToggle
-                    label="Telegram"
-                    description="Send to your bound Telegram chat"
-                    checked={outputs.has('telegram')}
-                    onChange={() => toggleOutput('telegram')}
-                  />
-                </div>
-              </Field>
-            </FieldGroup>
+      <div className="flex flex-1 overflow-hidden">
+        <form
+          onSubmit={onSubmit}
+          className="flex flex-1 flex-col overflow-hidden"
+          noValidate
+        >
+          <div className="flex-1 overflow-y-auto">
+            <div className="mx-auto max-w-2xl px-6 py-8">
+              <TaskFormFields form={form} />
+            </div>
           </div>
-        </div>
-        <PageFooter maxWidth="max-w-2xl">
-          <Button type="submit" disabled={!canSave}>
-            {mode === 'create' ? 'Create task' : 'Save'}
-          </Button>
-          {existing && (
-            <Button type="button" variant="outline" onClick={togglePause}>
-              {existing.status === 'active' ? (
-                <>
-                  <PauseIcon data-icon="inline-start" /> Pause
-                </>
-              ) : (
-                <>
-                  <PlayIcon data-icon="inline-start" /> Resume
-                </>
-              )}
-            </Button>
-          )}
-          {existing && (
-            <>
-              <div className="flex-1" />
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={handleDelete}
-                className="text-muted-foreground hover:text-destructive"
-              >
-                <Trash2Icon data-icon="inline-start" />
-                Delete
-              </Button>
-            </>
-          )}
-        </PageFooter>
-      </form>
-    </div>
-  )
-}
-
-function OutputToggle({
-  label,
-  description,
-  checked,
-  onChange,
-}: {
-  label: string
-  description: string
-  checked: boolean
-  onChange: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onChange}
-      className="flex cursor-pointer items-center justify-between gap-4 px-5 py-4 text-left"
-    >
-      <div>
-        <div className="font-medium text-sm">{label}</div>
-        <div className="text-muted-foreground text-xs">{description}</div>
+          <EditorFooter
+            mode={mode}
+            isExisting={isExisting}
+            isBusy={isBusy}
+            status={currentStatus ?? initialStatus}
+            onTogglePause={togglePause}
+            onRequestDelete={() => setConfirmDelete(true)}
+          />
+        </form>
+        <EditorSidebar
+          form={form}
+          taskId={taskId ?? null}
+          onCreateAndNavigate={async () => {
+            const values = form.getValues()
+            const created = await createMutation.mutateAsync(values)
+            navigate({
+              to: '/tasks/$id',
+              params: { id: created.id },
+              replace: true,
+            })
+            return created.id
+          }}
+        />
       </div>
-      <Switch checked={checked} onCheckedChange={onChange} />
-    </button>
+      {isExisting && (
+        <DeleteTaskDialog
+          open={confirmDelete}
+          taskName={initialName}
+          onCancel={() => setConfirmDelete(false)}
+          onConfirm={handleDeleteConfirmed}
+          isPending={deleteMutation.isPending}
+        />
+      )}
+    </div>
   )
 }

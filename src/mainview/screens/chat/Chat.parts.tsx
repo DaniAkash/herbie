@@ -31,12 +31,24 @@ import type {
   ToolPart,
 } from './chat.types'
 
+// `partKinds` filters which part kinds render. Chat passes all three
+// (the default); task runs pass ['text'] only so tool calls and
+// reasoning blocks don't clutter the run-result view. The user-message
+// row is unaffected — user messages are text-only by construction.
+const DEFAULT_PART_KINDS: ReadonlyArray<MessagePart['kind']> = [
+  'text',
+  'reasoning',
+  'tool',
+]
+
 export function ChatMessageRow({
   message,
   agent,
+  partKinds = DEFAULT_PART_KINDS,
 }: {
   message: ChatMessage
   agent: AgentId
+  partKinds?: ReadonlyArray<MessagePart['kind']>
 }) {
   if (message.role === 'user') {
     const text = message.parts
@@ -57,9 +69,11 @@ export function ChatMessageRow({
     )
   }
 
+  const allowed = new Set(partKinds)
+  const visibleParts = message.parts.filter((p) => allowed.has(p.kind))
   const showThinking =
     message.isStreaming &&
-    message.parts.length === 0 &&
+    visibleParts.length === 0 &&
     !message.isCancelled &&
     !message.isError
 
@@ -84,7 +98,7 @@ export function ChatMessageRow({
             {clockTime(message.createdAt)}
           </span>
         </div>
-        {message.parts.map((part) => (
+        {visibleParts.map((part) => (
           <PartView key={part.id} part={part} streaming={message.isStreaming} />
         ))}
         {showThinking && (

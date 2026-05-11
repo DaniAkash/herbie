@@ -24,11 +24,11 @@ import {
   type ConversationSummary,
   useConversations,
 } from '@/modules/api/chat.hooks'
-import { useHerbieData } from '@/modules/data/HerbieDataProvider'
+import { useInboxItems } from '@/modules/api/inbox.hooks'
 import { dayBucket } from '@/modules/utils/relativeTime'
 
 export function AppSidebar() {
-  const { inboxItems } = useHerbieData()
+  const { data: inboxItems = [] } = useInboxItems()
   const { data: conversations } = useConversations()
   const pathname = useRouterState({ select: (s) => s.location.pathname })
 

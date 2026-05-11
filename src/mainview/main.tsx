@@ -1,6 +1,7 @@
 import { QueryClientProvider } from '@tanstack/react-query'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { Toaster } from './components/ui/sonner'
 import './index.css'
 import { queryClient } from './modules/api/queryClient'
 import { ThemeApplier } from './modules/system/ThemeApplier'
@@ -21,6 +22,7 @@ createRoot(root).render(
     <QueryClientProvider client={queryClient}>
       <ThemeApplier />
       <Router />
+      <Toaster richColors closeButton position="bottom-right" />
     </QueryClientProvider>
   </StrictMode>,
 )

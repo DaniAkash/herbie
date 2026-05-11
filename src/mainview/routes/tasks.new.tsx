@@ -5,7 +5,10 @@ import { TaskEditor } from '@/screens/tasks/TaskEditor'
 type TaskNewSearch = {
   prompt?: string
   agent?: AgentId
-  workspaceId?: string
+  // Filesystem path of the preselected workspace, as exposed by
+  // WorkspacePicker. The chat composer's Schedule button forwards
+  // `tuple.workspacePath` here.
+  workspacePath?: string
 }
 
 function NewTaskRoute() {
@@ -15,7 +18,7 @@ function NewTaskRoute() {
       mode="create"
       initialPrompt={search.prompt}
       initialAgent={search.agent}
-      initialWorkspaceId={search.workspaceId}
+      initialWorkspacePath={search.workspacePath}
     />
   )
 }
@@ -31,8 +34,10 @@ export const Route = createFileRoute('/tasks/new')({
         (validAgents as readonly string[]).includes(agent)
           ? (agent as AgentId)
           : undefined,
-      workspaceId:
-        typeof search.workspaceId === 'string' ? search.workspaceId : undefined,
+      workspacePath:
+        typeof search.workspacePath === 'string'
+          ? search.workspacePath
+          : undefined,
     }
   },
   component: NewTaskRoute,
