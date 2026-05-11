@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { initializeDatabase } from '../db'
 import { conversations } from '../db/schema/conversations.sql'
 import { settings as settingsTable } from '../db/schema/settings.sql'
+import { setupApplicationMenu } from './applicationMenu'
 import { getSessionManager } from './chat/sessionManager'
 import { setDb } from './db-singleton'
 import { setLoginItem } from './loginItems'
@@ -16,6 +17,8 @@ const API_PORT = 4575
 
 const { db } = await initializeDatabase()
 setDb(db)
+
+setupApplicationMenu()
 
 const generalDefaults = { launchAtLogin: false, minimizeToMenubarOnClose: true }
 const generalSchema = z.object({
