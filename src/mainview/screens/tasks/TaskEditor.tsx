@@ -27,7 +27,11 @@ export type EditorProps = {
   taskId?: string
   initialPrompt?: string
   initialAgent?: AgentId
-  initialWorkspaceId?: string
+  // Pre-selects the WorkspacePicker for create mode. The chat
+  // composer's "Schedule" button uses this to carry the active
+  // workspace into the new task. Edit mode reads from the persisted
+  // row and ignores this prop.
+  initialWorkspacePath?: string
 }
 
 const DEFAULT_SCHEDULE: ScheduleConfig = {
@@ -43,7 +47,11 @@ export function TaskEditor(props: EditorProps) {
   return <CreateNew {...props} />
 }
 
-function CreateNew({ initialPrompt, initialAgent }: EditorProps) {
+function CreateNew({
+  initialPrompt,
+  initialAgent,
+  initialWorkspacePath,
+}: EditorProps) {
   const { defaultAgent } = useDefaultAgent()
   return (
     <EditorBody
@@ -53,7 +61,7 @@ function CreateNew({ initialPrompt, initialAgent }: EditorProps) {
         prompt: initialPrompt ?? '',
         agentId: initialAgent ?? defaultAgent,
         modelId: null,
-        workspacePath: null,
+        workspacePath: initialWorkspacePath ?? null,
         reasoningEffort: null,
         schedule: DEFAULT_SCHEDULE,
       }}

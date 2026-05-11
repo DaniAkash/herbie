@@ -6,7 +6,7 @@ import {
   StarIcon,
   Trash2Icon,
 } from 'lucide-react'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import {
   TestError,
   TestErrorMessage,
@@ -34,14 +34,21 @@ export function InboxItem({ id }: { id: string }) {
   const openMutation = useOpenInChat()
   const item = data?.find((i) => i.id === id) ?? null
 
-  // Only trigger on first sight of an unread item — re-renders
-  // mustn't refire the mutation, so the dep is item.id only.
+  // Auto-flip unread → read once per opened item. A `useRef` keeps
+  // a set of ids we've already PATCHed this mount so that a slow
+  // list refetch (the local cache may keep `status: 'unread'`
+  // across renders until the invalidate lands) can't make us fire
+  // the same PATCH twice. The mutation is idempotent server-side,
+  // but duplicate writes are still wasted traffic.
   const itemId = item?.id
   const itemStatus = item?.status
+  const markedReadRef = useRef<Set<string>>(new Set())
   useEffect(() => {
-    if (itemId && itemStatus === 'unread') {
-      updateMutation.mutate({ id: itemId, status: 'read' })
-    }
+    if (!itemId) return
+    if (itemStatus !== 'unread') return
+    if (markedReadRef.current.has(itemId)) return
+    markedReadRef.current.add(itemId)
+    updateMutation.mutate({ id: itemId, status: 'read' })
   }, [itemId, itemStatus, updateMutation])
 
   if (isLoading) {

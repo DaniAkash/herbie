@@ -5,10 +5,14 @@ import { tasks } from './tasks.sql'
 export const INBOX_STATUSES = ['unread', 'read', 'done'] as const
 export type InboxStatus = (typeof INBOX_STATUSES)[number]
 
-// Inbox is the user-facing surface for scheduled runs (test runs never
-// land here). Lifecycle independent of task_runs so read/done/star
-// flips don't touch the run record. Snapshots taskName + prompt so a
-// later edit/delete on the source doesn't strand the card.
+// Inbox is the user-facing surface for scheduled runs (test runs
+// never land here). Lifecycle independent of task_runs so
+// read/done/star flips don't touch the run record. Snapshots
+// taskName + prompt so a later edit (rename, prompt rewrite) on the
+// source task doesn't retroactively change the card the user already
+// saw. Deletes still cascade — both FKs below are `onDelete:
+// 'cascade'`, so removing the task removes its cards too; the
+// snapshot is for UPDATEs, not DELETEs.
 export const inboxItems = sqliteTable('inbox_items', {
   id: text('id').primaryKey(),
   taskId: text('task_id')

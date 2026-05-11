@@ -79,7 +79,11 @@ class TaskSchedulerImpl implements TaskScheduler {
     let job: Cron
     try {
       job = new Cron(expr, { paused: false }, () => {
-        void this.fireNow(row.id)
+        // fireNow's rejection is unowned in this callback; without
+        // `.catch` a DB hiccup or agent-spawn failure becomes an
+        // unhandled rejection that destabilises the bun process.
+        // Log + swallow keeps the scheduler loop healthy.
+        this.fireNow(row.id).catch(logFireFailure(row))
       })
     } catch (err) {
       // biome-ignore lint/suspicious/noConsole: surface bad cron rows at boot — no logger wired in bun yet
@@ -115,7 +119,8 @@ class TaskSchedulerImpl implements TaskScheduler {
     const intervalMs = schedule.hours * 60 * 60 * 1000
     const lastRunMs = row.lastRunAt?.getTime() ?? 0
     if (Date.now() - lastRunMs < intervalMs) return
-    void this.fireNow(row.id)
+    // Same unhandled-rejection guard as the cron callback path.
+    this.fireNow(row.id).catch(logFireFailure(row))
   }
 
   private async fireNow(taskId: string): Promise<void> {
@@ -197,4 +202,14 @@ let instance: TaskScheduler | null = null
 export function getTaskScheduler(db: DB): TaskScheduler {
   if (!instance) instance = new TaskSchedulerImpl(db)
   return instance
+}
+
+function logFireFailure(row: typeof tasks.$inferSelect) {
+  return (err: unknown) => {
+    // biome-ignore lint/suspicious/noConsole: surface fire-time failures — no logger wired in bun yet
+    console.warn(
+      `[tasks] fire failed for task ${row.id} (${row.name}):`,
+      err instanceof Error ? err.message : err,
+    )
+  }
 }

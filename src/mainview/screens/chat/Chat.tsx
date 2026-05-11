@@ -70,7 +70,7 @@ function NewChat() {
       search: {
         prompt: text,
         agent: tuple.agentId,
-        workspaceId: tuple.workspacePath ?? undefined,
+        workspacePath: tuple.workspacePath ?? undefined,
       },
     })
   }
@@ -178,7 +178,7 @@ function ExistingChatBody({
       search: {
         prompt: text,
         agent: tuple.agentId,
-        workspaceId: tuple.workspacePath ?? undefined,
+        workspacePath: tuple.workspacePath ?? undefined,
       },
     })
   }
