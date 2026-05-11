@@ -6,6 +6,7 @@ import {
   XCircleIcon,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { MessageResponse } from '@/components/ai-elements/message'
 import type { ComposerTuple } from '@/components/chat/composer.types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -266,6 +267,13 @@ function RunDetail({ taskId, runId }: { taskId: string; runId: string }) {
   if (!run) return null
 
   const promptSnapshot = run.run?.promptSnapshot ?? ''
+  // The agent called herbie__task_result and we captured the
+  // canonical brief — render the markdown directly via Streamdown,
+  // skipping the chat-reducer / ChatMessageRow text-only filter
+  // path. The events still exist in task_run_events for a future
+  // debug view; they just don't drive the surface render.
+  const toolMarkdown =
+    run.run.outputSource === 'tool' ? (run.run.resultMarkdown ?? '') : null
 
   return (
     <div className="flex flex-col gap-3 border-t pt-3">
@@ -277,20 +285,32 @@ function RunDetail({ taskId, runId }: { taskId: string; runId: string }) {
           {promptSnapshot}
         </pre>
       </details>
-      <div className="flex flex-col gap-3">
-        {messages.map((m) => (
-          <ChatMessageRow
-            key={m.id}
-            message={m}
-            agent={run.run.agentId as AgentId}
-            partKinds={TEXT_ONLY_PART_KINDS}
-          />
-        ))}
-      </div>
+      {toolMarkdown !== null ? (
+        <article className="rounded-md border bg-card/60 p-4 text-sm leading-relaxed">
+          <MessageResponse>{toolMarkdown}</MessageResponse>
+        </article>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {messages.map((m) => (
+            <ChatMessageRow
+              key={m.id}
+              message={m}
+              agent={run.run.agentId as AgentId}
+              partKinds={TEXT_ONLY_PART_KINDS}
+            />
+          ))}
+        </div>
+      )}
       {run.run?.finishedAt && (
-        <div className="border-t pt-2 text-[11px] text-muted-foreground tabular-nums">
-          Finished {clockTime(run.run.finishedAt)} ·{' '}
-          {((run.run.finishedAt - run.run.startedAt) / 1000).toFixed(1)}s
+        <div className="flex items-center justify-between border-t pt-2 text-[11px] text-muted-foreground tabular-nums">
+          <span>
+            Finished {clockTime(run.run.finishedAt)} ·{' '}
+            {((run.run.finishedAt - run.run.startedAt) / 1000).toFixed(1)}s
+          </span>
+          <span className="font-mono uppercase tracking-wider opacity-70">
+            via{' '}
+            {run.run.outputSource === 'tool' ? 'task_result' : 'assistant text'}
+          </span>
         </div>
       )}
     </div>
