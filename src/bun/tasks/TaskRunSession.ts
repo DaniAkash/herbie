@@ -50,6 +50,12 @@ export class TaskRunSession {
   private activeTurn: ActiveRunEventCtx | null = null
   // Aggregated assistant text from the run — persisted onto task_runs.
   private resultParts: string[] = []
+  // Resolves after finalize() writes the row — the scheduler awaits
+  // this before reading task_runs to deliver the inbox card. The
+  // turn.finish bus emit happens before the row update, so a
+  // bus-based wait sees an empty resultText.
+  public readonly done: Promise<void>
+  private resolveDone: () => void = () => {}
 
   private constructor(
     private readonly db: DB,
@@ -65,6 +71,9 @@ export class TaskRunSession {
       0,
       () => this.activeTurn,
     )
+    this.done = new Promise<void>((resolve) => {
+      this.resolveDone = resolve
+    })
   }
 
   static async create(db: DB, init: TaskRunInit): Promise<TaskRunSession> {
@@ -267,5 +276,6 @@ export class TaskRunSession {
       .where(eq(taskRuns.id, this.runId))
       .run()
     this.activeTurn = null
+    this.resolveDone()
   }
 }

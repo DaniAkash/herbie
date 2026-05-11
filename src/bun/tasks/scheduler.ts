@@ -5,25 +5,18 @@ import type { DB } from '../../db'
 import { inboxItems } from '../../db/schema/inbox-items.sql'
 import { taskRuns } from '../../db/schema/task-runs.sql'
 import { tasks } from '../../db/schema/tasks.sql'
-import { getRunEventBus } from './run-event-bus'
 import { getRunManager } from './runManager'
 import { cronExpressionFor, parseSchedule } from './schedule'
 
 // Singleton task scheduler. Backed by croner — one Cron job per
 // active task. Re-init on task add/update/delete. On fire: spawns a
-// TaskRunSession with trigger='scheduled', waits for a terminal
-// event, then writes the inbox card and bumps last/nextRunAt on the
-// task row.
+// TaskRunSession with trigger='scheduled', awaits the run's done
+// promise (resolves after the row's resultText is persisted), then
+// writes the inbox card and bumps last/nextRunAt on the task row.
 //
 // Single-process: two Herbie instances on the same machine would
 // double-fire. Documented as a known limitation; a launch-time lock
 // file lands later if needed.
-
-const TERMINAL_TURN_TYPES = new Set([
-  'turn.finish',
-  'turn.cancel',
-  'turn.error',
-])
 
 export interface TaskScheduler {
   start(): Promise<void>
@@ -129,21 +122,14 @@ class TaskSchedulerImpl implements TaskScheduler {
       trigger: 'scheduled',
     })
 
-    // Wait for the run to terminate (success, cancel, or error), then
-    // land an inbox card + bump lastRunAt/nextRunAt.
-    await this.waitForTerminal(session.id)
+    // Wait for the run's finalize() to write the row, then deliver the
+    // inbox card and bump lastRunAt/nextRunAt. A bus subscription on
+    // turn.finish races: the bus emit happens BEFORE finalize writes
+    // resultText, so we'd read an empty body. The session-owned `done`
+    // promise resolves only after the row update lands.
+    await session.done
     await this.deliverInbox(session.id, row)
     await this.bumpRunTimes(row.id)
-  }
-
-  private waitForTerminal(runId: string): Promise<void> {
-    return new Promise((resolve) => {
-      const unsub = getRunEventBus().subscribe(runId, (ev) => {
-        if (!TERMINAL_TURN_TYPES.has(ev.type)) return
-        unsub()
-        resolve()
-      })
-    })
   }
 
   private async deliverInbox(
