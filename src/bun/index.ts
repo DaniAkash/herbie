@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { initializeDatabase } from '../db'
 import { conversations } from '../db/schema/conversations.sql'
 import { settings as settingsTable } from '../db/schema/settings.sql'
+import { setupApplicationMenu } from './applicationMenu'
 import { recoverInterruptedTurns } from './chat/recovery'
 import { getSessionManager } from './chat/sessionManager'
 import { setDb } from './db-singleton'
@@ -21,6 +22,11 @@ const API_PORT = 4575
 
 const { db } = await initializeDatabase()
 setDb(db)
+
+// macOS-only for now — the menu definition assumes the NSResponder-chain
+// model. Win/Linux menus will need their own shape when those targets
+// actually ship; revisit this guard then.
+if (process.platform === 'darwin') setupApplicationMenu()
 
 const generalDefaults = { launchAtLogin: false, minimizeToMenubarOnClose: true }
 const generalSchema = z.object({
