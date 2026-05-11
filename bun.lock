@@ -21,7 +21,7 @@
         "@tanstack/react-router": "^1.168.4",
         "@xyflow/react": "^12.10.2",
         "acpx": "^0.6.1",
-        "acpx-ai-provider": "^0.0.2",
+        "acpx-ai-provider": "^0.0.3",
         "ai": "^6.0.168",
         "ansi-to-react": "^6.2.6",
         "class-variance-authority": "^0.7.1",
@@ -665,7 +665,7 @@
 
     "acpx": ["acpx@0.6.1", "", { "dependencies": { "@agentclientprotocol/sdk": "^0.20.0", "commander": "^14.0.3", "skillflag": "^0.1.4", "tsx": "^4.21.0", "zod": "^4.3.6" }, "bin": { "acpx": "dist/cli.js" } }, "sha512-qxZPbm3SKq0UqQ0sOJ0M4iTLkF9AR7+I+JE/L/UeMUU1vW5N4nUVkZHytoHTBAu7nrej6THNzCPgrIZfv9T3AA=="],
 
-    "acpx-ai-provider": ["acpx-ai-provider@0.0.2", "", { "peerDependencies": { "acpx": ">=0.6.1", "ai": ">=6.0.0" } }, "sha512-oMxeAhDzPr3i9cCPr+oWKHLP3DjU4JJTvz6QB/2/9R2INF28svXOB3EGHLwrhOyztmizbm4PJ+mWp248xXGs4g=="],
+    "acpx-ai-provider": ["acpx-ai-provider@0.0.3", "", { "peerDependencies": { "acpx": ">=0.6.1", "ai": ">=6.0.0" } }, "sha512-tE21HARZAKZuhOJ1pjMYmc08b2G3dGLZjK3LeJa74o3S7f+eWXxNuaDgyJQZyFzS/EsNrq+4lDOaOMF5LtuqWw=="],
 
     "agent-base": ["agent-base@7.1.4", "", {}, "sha512-MnA+YT8fwfJPgBx3m60MNqakm30XOkyIoH1y6huTQvC0PwZG7ki8NacLBcrPbNoo8vEZy7Jpuk7+jMO+CUovTQ=="],
 

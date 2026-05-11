@@ -12,7 +12,9 @@ export const ACPX_STATE_DIR = path.join(homedir(), '.herbie', 'acpx-state')
 // hermes — acpx 0.6.x doesn't ship hermes in built-ins yet.
 const REGISTRY_OVERRIDES: Record<string, string> = { hermes: 'hermes acp' }
 
-// What we store in settings (matches ACP wire format: arrays of {name,value}).
+// What we store in settings — arrays of {name, value} match ACP's wire
+// format. The provider's public API uses Record<string, string> for env /
+// headers and translates internally; we convert at the boundary below.
 export interface McpServerStdio {
   type: 'stdio'
   name: string
@@ -56,10 +58,32 @@ export function buildAcpxProvider(
     // permission UX is wired. Revisit before any non-personal use.
     permissionMode: 'approve-all',
     nonInteractivePermissions: 'deny',
-    // The provider's public types claim env/headers are records, but the
-    // underlying acpx runtime parses them as [{name,value}] arrays — see
-    // https://github.com/DaniAkash/acpx/issues/21. Our McpServerSpec matches
-    // the runtime shape; the cast skips the provider's stale type check.
-    mcpServers: opts.mcpServers as unknown as AcpxMcpServerConfig[] | undefined,
+    mcpServers: opts.mcpServers?.map(toProviderShape),
   })
+}
+
+function toProviderShape(server: McpServerSpec): AcpxMcpServerConfig {
+  if (server.type === 'stdio') {
+    return {
+      type: 'stdio',
+      name: server.name,
+      command: server.command,
+      args: server.args,
+      env: pairsToRecord(server.env),
+    }
+  }
+  return {
+    type: server.type,
+    name: server.name,
+    url: server.url,
+    headers: pairsToRecord(server.headers),
+  }
+}
+
+function pairsToRecord(
+  pairs: Array<{ name: string; value: string }>,
+): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const { name, value } of pairs) out[name] = value
+  return out
 }
