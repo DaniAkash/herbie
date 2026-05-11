@@ -1,10 +1,18 @@
 import { zValidator } from '@hono/zod-validator'
 import { desc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
+import { streamSSE } from 'hono/streaming'
 import { nanoid } from 'nanoid'
 import { z } from 'zod'
+import { taskRuns } from '../../db/schema/task-runs.sql'
 import { TASK_STATUSES, tasks } from '../../db/schema/tasks.sql'
 import { getDb } from '../db-singleton'
+import {
+  loadAllRunEvents,
+  parseAfter,
+  runEventStream,
+} from '../tasks/run-stream'
+import { getRunManager } from '../tasks/runManager'
 
 const AGENT_IDS = ['claude', 'codex', 'gemini', 'hermes'] as const
 
@@ -62,6 +70,16 @@ const updateSchema = z
     schedule: scheduleSchema.optional(),
     outputs: outputSchema.optional(),
     status: z.enum(TASK_STATUSES).optional(),
+    ...tupleFields,
+  })
+  .strict()
+
+const testSchema = z
+  .object({
+    // All four are optional overrides; if any are omitted, the run
+    // falls back to the persisted task row.
+    prompt: z.string().min(1).optional(),
+    agentId: z.enum(AGENT_IDS).optional(),
     ...tupleFields,
   })
   .strict()
@@ -167,3 +185,88 @@ export const tasksRoute = new Hono()
     }
     return c.json({ ok: true })
   })
+  // The Test button fires this — accepts the editor's unsaved draft so
+  // users can iterate without committing the task. The draft fields
+  // override whatever's on the row; if the task hasn't been saved yet
+  // the route still works as long as the taskId path param resolves.
+  .post('/tasks/:id/test', zValidator('json', testSchema), async (c) => {
+    const id = c.req.param('id')
+    const body = c.req.valid('json')
+    const task = await getDb()
+      .select()
+      .from(tasks)
+      .where(eq(tasks.id, id))
+      .get()
+    if (!task) return c.json({ error: 'task not found' }, 404)
+
+    const tuple = {
+      agentId: body.agentId ?? task.agentId,
+      modelId: body.modelId === undefined ? task.modelId : body.modelId,
+      workspacePath:
+        body.workspacePath === undefined
+          ? task.workspacePath
+          : body.workspacePath,
+      reasoningEffort:
+        body.reasoningEffort === undefined
+          ? task.reasoningEffort
+          : body.reasoningEffort,
+    }
+    const session = await getRunManager().start({
+      taskId: id,
+      promptSnapshot: body.prompt ?? task.prompt,
+      tuple,
+      trigger: 'test',
+    })
+    return c.json({ runId: session.id }, 202)
+  })
+  .get('/tasks/:id/runs', async (c) => {
+    const id = c.req.param('id')
+    const rows = await getDb()
+      .select()
+      .from(taskRuns)
+      .where(eq(taskRuns.taskId, id))
+      .orderBy(desc(taskRuns.startedAt))
+      .all()
+    return c.json(rows.map(serializeRun))
+  })
+  .get('/tasks/:id/runs/:runId', async (c) => {
+    const runId = c.req.param('runId')
+    const run = await getDb()
+      .select()
+      .from(taskRuns)
+      .where(eq(taskRuns.id, runId))
+      .get()
+    if (!run) return c.json({ error: 'run not found' }, 404)
+    const events = await loadAllRunEvents(runId)
+    return c.json({
+      run: serializeRun(run),
+      events: events.map((e) => ({
+        seq: e.seq,
+        type: e.type,
+        payload: JSON.parse(e.payload),
+        createdAt: e.createdAt.getTime(),
+      })),
+    })
+  })
+  .post('/tasks/:id/runs/:runId/cancel', async (c) => {
+    const runId = c.req.param('runId')
+    await getRunManager().cancel(runId, 'user cancelled')
+    return c.json({ ok: true })
+  })
+  .get('/tasks/:id/runs/:runId/stream', (c) => {
+    const runId = c.req.param('runId')
+    const after = parseAfter(
+      c.req.header('Last-Event-ID') ?? c.req.query('after'),
+    )
+    return streamSSE(c, (stream) => runEventStream(stream, runId, after))
+  })
+
+type RunRow = typeof taskRuns.$inferSelect
+
+function serializeRun(row: RunRow) {
+  return {
+    ...row,
+    startedAt: row.startedAt.getTime(),
+    finishedAt: row.finishedAt?.getTime() ?? null,
+  }
+}

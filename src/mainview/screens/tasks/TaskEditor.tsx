@@ -30,6 +30,7 @@ import type { AgentId, ScheduleConfig } from '@/modules/data/herbie-data.types'
 import { DeleteTaskDialog } from './DeleteTaskDialog'
 import { OutputsField } from './OutputsField'
 import { ScheduleField } from './ScheduleField'
+import { TaskRunSidebar } from './TaskRunSidebar'
 
 export type EditorProps = {
   mode: 'create' | 'edit'
@@ -180,131 +181,136 @@ function EditorBody({
           {mode === 'create' ? 'New scheduled task' : initial.name}
         </h1>
       </PageHeader>
-      <form
-        onSubmit={handleSubmit}
-        className="flex flex-1 flex-col overflow-hidden"
-      >
-        <div className="flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-2xl px-6 py-8">
-            <FieldGroup>
-              <Field>
-                <FieldLabel htmlFor="task-name">Name</FieldLabel>
-                <Input
-                  id="task-name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="morning-github"
-                />
-                <FieldDescription>
-                  Short kebab-case name for this task.
-                </FieldDescription>
-              </Field>
+      <div className="flex flex-1 overflow-hidden">
+        <form
+          onSubmit={handleSubmit}
+          className="flex flex-1 flex-col overflow-hidden"
+        >
+          <div className="flex-1 overflow-y-auto">
+            <div className="mx-auto max-w-2xl px-6 py-8">
+              <FieldGroup>
+                <Field>
+                  <FieldLabel htmlFor="task-name">Name</FieldLabel>
+                  <Input
+                    id="task-name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="morning-github"
+                  />
+                  <FieldDescription>
+                    Short kebab-case name for this task.
+                  </FieldDescription>
+                </Field>
 
-              <Field>
-                <FieldLabel htmlFor="task-prompt">Prompt</FieldLabel>
-                <Textarea
-                  id="task-prompt"
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  placeholder="Summarise overnight GitHub activity across my repos…"
-                  rows={4}
-                />
-              </Field>
+                <Field>
+                  <FieldLabel htmlFor="task-prompt">Prompt</FieldLabel>
+                  <Textarea
+                    id="task-prompt"
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                    placeholder="Summarise overnight GitHub activity across my repos…"
+                    rows={4}
+                  />
+                </Field>
 
-              <ScheduleField value={schedule} onChange={setSchedule} />
+                <ScheduleField value={schedule} onChange={setSchedule} />
 
-              <FieldSet>
-                <div className="grid grid-cols-2 gap-4">
-                  <Field>
-                    <FieldLabel>Agent</FieldLabel>
-                    <AgentPicker
-                      value={tuple.agentId}
-                      onChange={(agentId) =>
-                        // Same invalidation rule as Composer: switching
-                        // agent resets model + reasoning since their
-                        // valid value sets are agent-specific.
-                        setTuple({
-                          ...tuple,
-                          agentId,
-                          modelId: null,
-                          reasoningEffort: null,
-                        })
-                      }
-                    />
-                  </Field>
-                  <Field>
-                    <FieldLabel>Model</FieldLabel>
-                    <ModelPicker
-                      agentId={tuple.agentId}
-                      value={tuple.modelId}
-                      onChange={(modelId) => setTuple({ ...tuple, modelId })}
-                    />
-                  </Field>
-                  <Field>
-                    <FieldLabel>Workspace</FieldLabel>
-                    <WorkspacePicker
-                      value={tuple.workspacePath}
-                      onChange={(workspacePath) =>
-                        setTuple({ ...tuple, workspacePath })
-                      }
-                    />
-                  </Field>
-                  <Field>
-                    <FieldLabel>Reasoning</FieldLabel>
-                    <ReasoningPicker
-                      agentId={tuple.agentId}
-                      value={tuple.reasoningEffort}
-                      onChange={(reasoningEffort) =>
-                        setTuple({ ...tuple, reasoningEffort })
-                      }
-                    />
-                  </Field>
-                </div>
-              </FieldSet>
+                <FieldSet>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Field>
+                      <FieldLabel>Agent</FieldLabel>
+                      <AgentPicker
+                        value={tuple.agentId}
+                        onChange={(agentId) =>
+                          // Same invalidation rule as Composer: switching
+                          // agent resets model + reasoning since their
+                          // valid value sets are agent-specific.
+                          setTuple({
+                            ...tuple,
+                            agentId,
+                            modelId: null,
+                            reasoningEffort: null,
+                          })
+                        }
+                      />
+                    </Field>
+                    <Field>
+                      <FieldLabel>Model</FieldLabel>
+                      <ModelPicker
+                        agentId={tuple.agentId}
+                        value={tuple.modelId}
+                        onChange={(modelId) => setTuple({ ...tuple, modelId })}
+                      />
+                    </Field>
+                    <Field>
+                      <FieldLabel>Workspace</FieldLabel>
+                      <WorkspacePicker
+                        value={tuple.workspacePath}
+                        onChange={(workspacePath) =>
+                          setTuple({ ...tuple, workspacePath })
+                        }
+                      />
+                    </Field>
+                    <Field>
+                      <FieldLabel>Reasoning</FieldLabel>
+                      <ReasoningPicker
+                        agentId={tuple.agentId}
+                        value={tuple.reasoningEffort}
+                        onChange={(reasoningEffort) =>
+                          setTuple({ ...tuple, reasoningEffort })
+                        }
+                      />
+                    </Field>
+                  </div>
+                </FieldSet>
 
-              <OutputsField />
-            </FieldGroup>
+                <OutputsField />
+              </FieldGroup>
+            </div>
           </div>
-        </div>
-        <PageFooter maxWidth="max-w-2xl">
-          <Button type="submit" disabled={!canSave || isBusy}>
-            {mode === 'create' ? 'Create task' : 'Save'}
-          </Button>
-          {isExisting && (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={togglePause}
-              disabled={isBusy}
-            >
-              {initial.status === 'active' ? (
-                <>
-                  <PauseIcon data-icon="inline-start" /> Pause
-                </>
-              ) : (
-                <>
-                  <PlayIcon data-icon="inline-start" /> Resume
-                </>
-              )}
+          <PageFooter maxWidth="max-w-2xl">
+            <Button type="submit" disabled={!canSave || isBusy}>
+              {mode === 'create' ? 'Create task' : 'Save'}
             </Button>
-          )}
-          {isExisting && (
-            <>
-              <div className="flex-1" />
+            {isExisting && (
               <Button
                 type="button"
-                variant="ghost"
-                onClick={() => setConfirmDelete(true)}
+                variant="outline"
+                onClick={togglePause}
                 disabled={isBusy}
-                className="text-muted-foreground hover:text-destructive"
               >
-                <Trash2Icon data-icon="inline-start" />
-                Delete
+                {initial.status === 'active' ? (
+                  <>
+                    <PauseIcon data-icon="inline-start" /> Pause
+                  </>
+                ) : (
+                  <>
+                    <PlayIcon data-icon="inline-start" /> Resume
+                  </>
+                )}
               </Button>
-            </>
-          )}
-        </PageFooter>
-      </form>
+            )}
+            {isExisting && (
+              <>
+                <div className="flex-1" />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setConfirmDelete(true)}
+                  disabled={isBusy}
+                  className="text-muted-foreground hover:text-destructive"
+                >
+                  <Trash2Icon data-icon="inline-start" />
+                  Delete
+                </Button>
+              </>
+            )}
+          </PageFooter>
+        </form>
+        {isExisting && taskId && (
+          <TaskRunSidebar taskId={taskId} draft={{ prompt, tuple }} />
+        )}
+      </div>
       {isExisting && (
         <DeleteTaskDialog
           open={confirmDelete}
