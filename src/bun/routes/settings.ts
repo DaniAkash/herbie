@@ -17,6 +17,7 @@ import { setLoginItem } from '../loginItems'
 // Storage is one row per top-level domain in the `settings` KV table.
 
 const AGENT_IDS = ['claude', 'codex', 'gemini', 'hermes'] as const
+const THEME_MODES = ['light', 'dark', 'system'] as const
 
 const generalSchema = z.object({
   launchAtLogin: z.boolean(),
@@ -25,6 +26,10 @@ const generalSchema = z.object({
 
 const agentsSchema = z.object({
   defaultAgent: z.enum(AGENT_IDS),
+})
+
+const appearanceSchema = z.object({
+  theme: z.enum(THEME_MODES),
 })
 
 const reasoningCapabilitySchema = z.object({
@@ -51,10 +56,11 @@ const composerSchema = z.object({
 const settingsSchema = z.object({
   general: generalSchema,
   agents: agentsSchema,
+  appearance: appearanceSchema,
   composer: composerSchema,
 })
 
-const DOMAINS = ['general', 'agents', 'composer'] as const
+const DOMAINS = ['general', 'agents', 'appearance', 'composer'] as const
 
 type Settings = z.infer<typeof settingsSchema>
 type Domain = keyof Settings
@@ -79,6 +85,7 @@ const DEFAULT_WORKSPACE_PATH = path.join(homedir(), 'herbie-workspace')
 const SETTINGS_DEFAULTS: Settings = {
   general: { launchAtLogin: false, minimizeToMenubarOnClose: true },
   agents: { defaultAgent: 'claude' },
+  appearance: { theme: 'system' },
   composer: {
     workspaces: { default: DEFAULT_WORKSPACE_PATH, recent: [] },
     agentCapabilities: {},
@@ -107,6 +114,7 @@ const patchSchema = z
   .object({
     general: generalSchema.partial().optional(),
     agents: agentsSchema.partial().optional(),
+    appearance: appearanceSchema.partial().optional(),
     composer: composerPatchSchema.optional(),
   })
   .strict()
@@ -233,6 +241,12 @@ export const settingsRoute = new Hono()
         await writeDomain(tx, 'agents', {
           ...current.agents,
           ...patch.agents,
+        })
+      }
+      if (patch.appearance) {
+        await writeDomain(tx, 'appearance', {
+          ...current.appearance,
+          ...patch.appearance,
         })
       }
       if (patch.composer) {

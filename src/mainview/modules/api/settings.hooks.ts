@@ -48,6 +48,26 @@ export function useDefaultAgent(): {
   }
 }
 
+export type ThemeMode = 'light' | 'dark' | 'system'
+
+export function useTheme(): {
+  theme: ThemeMode
+  setTheme: (theme: ThemeMode) => void
+} {
+  const { data } = useSettings()
+  const { mutate } = useUpdateSettings()
+  const setTheme = useCallback(
+    (theme: ThemeMode) => {
+      mutate({ appearance: { theme } })
+    },
+    [mutate],
+  )
+  return {
+    theme: data?.appearance.theme ?? 'system',
+    setTheme,
+  }
+}
+
 const RECENT_WORKSPACES_CAP = 10
 
 // Workspaces aren't a DB entity — just paths in the settings KV. The
