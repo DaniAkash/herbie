@@ -31,14 +31,11 @@ export interface TaskRunSidebarProps {
     prompt: string
     tuple: ComposerTuple
   }
-  // Called before Test fires when there's no taskId yet. Must persist
-  // the draft and return the new task id (or null on failure). The
-  // sidebar then runs the test against that id. The parent is
-  // responsible for any navigation that should follow.
+  // Called before Test fires when there's no taskId yet. Must validate
+  // + persist the draft and return the new task id (or null when
+  // validation fails). The sidebar runs the test against that id. The
+  // parent is responsible for any navigation that should follow.
   onBeforeTest?: () => Promise<string | null>
-  // Extra gate on the Test button — used in create mode to also
-  // require `name` to be non-empty before allowing a save+test.
-  testEnabled?: boolean
 }
 
 const TEXT_ONLY_PART_KINDS = ['text'] as const
@@ -53,7 +50,6 @@ export function TaskRunSidebar({
   taskId,
   draft,
   onBeforeTest,
-  testEnabled = true,
 }: TaskRunSidebarProps) {
   // `enabled: false` short-circuits the runs fetch in create mode —
   // there's no persisted id yet so the list is necessarily empty.
@@ -112,7 +108,11 @@ export function TaskRunSidebar({
     await cancelMutation.mutateAsync({ taskId, runId: inFlight.id })
   }
 
-  const canTest = testEnabled && draft.prompt.trim().length > 0
+  // Minimal "is there anything to test" gate. Full validation lives
+  // in `onBeforeTest` (create mode) or is implied by the persisted
+  // row (edit mode); we only block here so the button isn't enabled
+  // when there's literally no prompt at all.
+  const canTest = draft.prompt.trim().length > 0
 
   return (
     <aside className="flex w-[420px] shrink-0 flex-col overflow-hidden border-l bg-card/30">

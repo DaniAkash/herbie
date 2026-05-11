@@ -1,24 +1,10 @@
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useNavigate } from '@tanstack/react-router'
-import { ArrowLeftIcon, PauseIcon, PlayIcon, Trash2Icon } from 'lucide-react'
-import { type FormEvent, useState } from 'react'
-import { AgentPicker } from '@/components/chat/AgentPicker'
-import type { ComposerTuple } from '@/components/chat/composer.types'
-import { ModelPicker } from '@/components/chat/ModelPicker'
-import { ReasoningPicker } from '@/components/chat/ReasoningPicker'
-import { WorkspacePicker } from '@/components/chat/WorkspacePicker'
-import { PageFooter, PageHeader } from '@/components/layout/PageHeader'
-import { Button } from '@/components/ui/button'
-import {
-  Field,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel,
-  FieldSet,
-} from '@/components/ui/field'
-import { Input } from '@/components/ui/input'
+import { ArrowLeftIcon } from 'lucide-react'
+import { useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { LinkButton } from '@/components/ui/link-button'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Textarea } from '@/components/ui/textarea'
 import { useDefaultAgent } from '@/modules/api/settings.hooks'
 import {
   useCreateTask,
@@ -28,9 +14,13 @@ import {
 } from '@/modules/api/tasks.hooks'
 import type { AgentId, ScheduleConfig } from '@/modules/data/herbie-data.types'
 import { DeleteTaskDialog } from './DeleteTaskDialog'
-import { OutputsField } from './OutputsField'
-import { ScheduleField } from './ScheduleField'
-import { TaskRunSidebar } from './TaskRunSidebar'
+import {
+  EditorFooter,
+  EditorSidebar,
+  EditorSkeleton,
+  TaskFormFields,
+} from './task-editor.components'
+import { type TaskFormValues, taskFormSchema } from './task-editor.schemas'
 
 export type EditorProps = {
   mode: 'create' | 'edit'
@@ -58,18 +48,17 @@ function CreateNew({ initialPrompt, initialAgent }: EditorProps) {
   return (
     <EditorBody
       mode="create"
-      initial={{
+      defaultValues={{
         name: '',
         prompt: initialPrompt ?? '',
-        tuple: {
-          agentId: initialAgent ?? defaultAgent,
-          modelId: null,
-          workspacePath: null,
-          reasoningEffort: null,
-        },
+        agentId: initialAgent ?? defaultAgent,
+        modelId: null,
+        workspacePath: null,
+        reasoningEffort: null,
         schedule: DEFAULT_SCHEDULE,
-        status: 'active',
       }}
+      initialName=""
+      initialStatus="active"
     />
   )
 }
@@ -89,42 +78,41 @@ function EditExisting({ taskId }: EditorProps & { taskId: string }) {
       mode="edit"
       taskId={taskId}
       currentStatus={data.status}
-      initial={{
+      initialName={data.name}
+      initialStatus={data.status}
+      defaultValues={{
         name: data.name,
         prompt: data.prompt,
-        tuple: {
-          agentId: data.agentId as AgentId,
-          modelId: data.modelId,
-          workspacePath: data.workspacePath,
-          reasoningEffort: data.reasoningEffort,
-        },
+        agentId: data.agentId as AgentId,
+        modelId: data.modelId,
+        workspacePath: data.workspacePath,
+        reasoningEffort: data.reasoningEffort,
         schedule: data.schedule,
-        status: data.status,
       }}
     />
   )
 }
 
-interface EditorState {
-  name: string
-  prompt: string
-  tuple: ComposerTuple
-  schedule: ScheduleConfig
-  status: 'active' | 'paused'
-}
-
 function EditorBody({
   mode,
   taskId,
-  initial,
+  defaultValues,
+  initialName,
+  initialStatus,
   currentStatus,
 }: {
   mode: 'create' | 'edit'
   taskId?: string
-  initial: EditorState
-  // Latest status from the query — `initial.status` is captured at
-  // mount and doesn't reflect pause/resume mutations. Drives both the
-  // button label and the value sent on toggle.
+  defaultValues: TaskFormValues
+  // Snapshot for the page header — kept stable so renaming a task
+  // doesn't retitle mid-edit. The form holds the live name.
+  initialName: string
+  // Captured at mount; used as the fallback when `currentStatus`
+  // hasn't been threaded through (i.e. create mode).
+  initialStatus: 'active' | 'paused'
+  // Latest status from the task query. Drives the Pause/Resume label
+  // and toggle value so they reflect the latest mutation instead of
+  // the value captured at mount.
   currentStatus?: 'active' | 'paused'
 }) {
   const navigate = useNavigate()
@@ -132,35 +120,28 @@ function EditorBody({
   const updateMutation = useUpdateTask()
   const deleteMutation = useDeleteTask()
 
-  const [name, setName] = useState(initial.name)
-  const [prompt, setPrompt] = useState(initial.prompt)
-  const [tuple, setTuple] = useState<ComposerTuple>(initial.tuple)
-  const [schedule, setSchedule] = useState<ScheduleConfig>(initial.schedule)
-  const [confirmDelete, setConfirmDelete] = useState(false)
+  const form = useForm<TaskFormValues>({
+    resolver: zodResolver(taskFormSchema),
+    defaultValues,
+    // Validate as the user types — once a field has been touched
+    // and erred, keep validating each keystroke so the error clears
+    // as soon as the value becomes valid.
+    mode: 'onTouched',
+    reValidateMode: 'onChange',
+  })
 
-  const canSave = name.trim().length > 0 && prompt.trim().length > 0
-  const isExisting = mode === 'edit' && taskId
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const isExisting = mode === 'edit' && taskId != null
   const isBusy = createMutation.isPending || updateMutation.isPending
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault()
-    if (!canSave) return
-    const payload = {
-      name: name.trim(),
-      prompt: prompt.trim(),
-      agentId: tuple.agentId,
-      modelId: tuple.modelId,
-      workspacePath: tuple.workspacePath,
-      reasoningEffort: tuple.reasoningEffort,
-      schedule,
-    }
-    if (isExisting) {
-      await updateMutation.mutateAsync({ id: taskId, ...payload })
+  const onSubmit = form.handleSubmit(async (values) => {
+    if (taskId) {
+      await updateMutation.mutateAsync({ id: taskId, ...values })
     } else {
-      await createMutation.mutateAsync(payload)
+      await createMutation.mutateAsync(values)
     }
     navigate({ to: '/tasks' })
-  }
+  })
 
   async function handleDeleteConfirmed() {
     if (!taskId) return
@@ -170,7 +151,7 @@ function EditorBody({
 
   async function togglePause() {
     if (!taskId) return
-    const status = currentStatus ?? initial.status
+    const status = currentStatus ?? initialStatus
     await updateMutation.mutateAsync({
       id: taskId,
       status: status === 'active' ? 'paused' : 'active',
@@ -185,189 +166,53 @@ function EditorBody({
           Tasks
         </LinkButton>
         <h1 className="font-semibold text-base tracking-tight">
-          {mode === 'create' ? 'New scheduled task' : initial.name}
+          {mode === 'create' ? 'New scheduled task' : initialName}
         </h1>
       </PageHeader>
       <div className="flex flex-1 overflow-hidden">
         <form
-          onSubmit={handleSubmit}
+          onSubmit={onSubmit}
           className="flex flex-1 flex-col overflow-hidden"
+          noValidate
         >
           <div className="flex-1 overflow-y-auto">
             <div className="mx-auto max-w-2xl px-6 py-8">
-              <FieldGroup>
-                <Field>
-                  <FieldLabel htmlFor="task-name">Name</FieldLabel>
-                  <Input
-                    id="task-name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="morning-github"
-                  />
-                  <FieldDescription>
-                    Short kebab-case name for this task.
-                  </FieldDescription>
-                </Field>
-
-                <Field>
-                  <FieldLabel htmlFor="task-prompt">Prompt</FieldLabel>
-                  <Textarea
-                    id="task-prompt"
-                    value={prompt}
-                    onChange={(e) => setPrompt(e.target.value)}
-                    placeholder="Summarise overnight GitHub activity across my repos…"
-                    rows={4}
-                  />
-                </Field>
-
-                <ScheduleField value={schedule} onChange={setSchedule} />
-
-                <FieldSet>
-                  <div className="grid grid-cols-2 gap-4">
-                    <Field>
-                      <FieldLabel>Agent</FieldLabel>
-                      <AgentPicker
-                        value={tuple.agentId}
-                        onChange={(agentId) =>
-                          // Same invalidation rule as Composer: switching
-                          // agent resets model + reasoning since their
-                          // valid value sets are agent-specific.
-                          setTuple({
-                            ...tuple,
-                            agentId,
-                            modelId: null,
-                            reasoningEffort: null,
-                          })
-                        }
-                      />
-                    </Field>
-                    <Field>
-                      <FieldLabel>Model</FieldLabel>
-                      <ModelPicker
-                        agentId={tuple.agentId}
-                        value={tuple.modelId}
-                        onChange={(modelId) => setTuple({ ...tuple, modelId })}
-                      />
-                    </Field>
-                    <Field>
-                      <FieldLabel>Workspace</FieldLabel>
-                      <WorkspacePicker
-                        value={tuple.workspacePath}
-                        onChange={(workspacePath) =>
-                          setTuple({ ...tuple, workspacePath })
-                        }
-                      />
-                    </Field>
-                    <Field>
-                      <FieldLabel>Reasoning</FieldLabel>
-                      <ReasoningPicker
-                        agentId={tuple.agentId}
-                        value={tuple.reasoningEffort}
-                        onChange={(reasoningEffort) =>
-                          setTuple({ ...tuple, reasoningEffort })
-                        }
-                      />
-                    </Field>
-                  </div>
-                </FieldSet>
-
-                <OutputsField />
-              </FieldGroup>
+              <TaskFormFields form={form} />
             </div>
           </div>
-          <PageFooter maxWidth="max-w-2xl">
-            <Button type="submit" disabled={!canSave || isBusy}>
-              {mode === 'create' ? 'Create task' : 'Save'}
-            </Button>
-            {isExisting && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={togglePause}
-                disabled={isBusy}
-              >
-                {(currentStatus ?? initial.status) === 'active' ? (
-                  <>
-                    <PauseIcon data-icon="inline-start" /> Pause
-                  </>
-                ) : (
-                  <>
-                    <PlayIcon data-icon="inline-start" /> Resume
-                  </>
-                )}
-              </Button>
-            )}
-            {isExisting && (
-              <>
-                <div className="flex-1" />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => setConfirmDelete(true)}
-                  disabled={isBusy}
-                  className="text-muted-foreground hover:text-destructive"
-                >
-                  <Trash2Icon data-icon="inline-start" />
-                  Delete
-                </Button>
-              </>
-            )}
-          </PageFooter>
-        </form>
-        {isExisting && taskId ? (
-          <TaskRunSidebar taskId={taskId} draft={{ prompt, tuple }} />
-        ) : (
-          // Create mode: same sidebar, but Test takes a
-          // save-then-test-then-navigate path so the user can iterate
-          // on a draft without first hitting the Create button and
-          // navigating back in. testEnabled also requires `name` to
-          // be filled in since the create call won't pass validation
-          // without it.
-          <TaskRunSidebar
-            taskId={null}
-            draft={{ prompt, tuple }}
-            testEnabled={canSave}
-            onBeforeTest={async () => {
-              const payload = {
-                name: name.trim(),
-                prompt: prompt.trim(),
-                agentId: tuple.agentId,
-                modelId: tuple.modelId,
-                workspacePath: tuple.workspacePath,
-                reasoningEffort: tuple.reasoningEffort,
-                schedule,
-              }
-              const created = await createMutation.mutateAsync(payload)
-              navigate({
-                to: '/tasks/$id',
-                params: { id: created.id },
-                replace: true,
-              })
-              return created.id
-            }}
+          <EditorFooter
+            mode={mode}
+            isExisting={isExisting}
+            isBusy={isBusy}
+            status={currentStatus ?? initialStatus}
+            onTogglePause={togglePause}
+            onRequestDelete={() => setConfirmDelete(true)}
           />
-        )}
+        </form>
+        <EditorSidebar
+          form={form}
+          taskId={taskId ?? null}
+          onCreateAndNavigate={async () => {
+            const values = form.getValues()
+            const created = await createMutation.mutateAsync(values)
+            navigate({
+              to: '/tasks/$id',
+              params: { id: created.id },
+              replace: true,
+            })
+            return created.id
+          }}
+        />
       </div>
       {isExisting && (
         <DeleteTaskDialog
           open={confirmDelete}
-          taskName={initial.name}
+          taskName={initialName}
           onCancel={() => setConfirmDelete(false)}
           onConfirm={handleDeleteConfirmed}
           isPending={deleteMutation.isPending}
         />
       )}
-    </div>
-  )
-}
-
-function EditorSkeleton() {
-  return (
-    <div className="flex flex-1 flex-col gap-4 px-6 py-8">
-      <Skeleton className="h-8 w-1/3" />
-      <Skeleton className="h-10 w-full" />
-      <Skeleton className="h-32 w-full" />
-      <Skeleton className="h-20 w-full" />
     </div>
   )
 }
