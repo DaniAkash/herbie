@@ -43,7 +43,8 @@ export function setupApplicationMenu(): void {
         // quits as the user configured.
         { role: 'close', accelerator: 'CmdOrCtrl+W' },
         { type: 'divider' },
-        { role: 'toggleFullScreen', accelerator: 'Ctrl+Cmd+F' },
+        // No accelerator — OS supplies the platform default (⌃⌘F on macOS).
+        { role: 'toggleFullScreen' },
       ],
     },
   ])

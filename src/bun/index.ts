@@ -5,11 +5,16 @@ import { initializeDatabase } from '../db'
 import { conversations } from '../db/schema/conversations.sql'
 import { settings as settingsTable } from '../db/schema/settings.sql'
 import { setupApplicationMenu } from './applicationMenu'
+import { recoverInterruptedTurns } from './chat/recovery'
 import { getSessionManager } from './chat/sessionManager'
 import { setDb } from './db-singleton'
 import { setLoginItem } from './loginItems'
 import app from './server'
 import { loadFrame, persistFrame, type WindowFrame } from './windowState'
+import {
+  ensureDefaultWorkspace,
+  migrateStaleCapabilities,
+} from './workspaces/bootstrap'
 
 const DEV_SERVER_PORT = 5173
 const DEV_SERVER_URL = `http://localhost:${DEV_SERVER_PORT}`
@@ -18,7 +23,10 @@ const API_PORT = 4575
 const { db } = await initializeDatabase()
 setDb(db)
 
-setupApplicationMenu()
+// macOS-only for now — the menu definition assumes the NSResponder-chain
+// model. Win/Linux menus will need their own shape when those targets
+// actually ship; revisit this guard then.
+if (process.platform === 'darwin') setupApplicationMenu()
 
 const generalDefaults = { launchAtLogin: false, minimizeToMenubarOnClose: true }
 const generalSchema = z.object({
@@ -46,6 +54,20 @@ async function readGeneralSettings(): Promise<GeneralSettings> {
 // to disabled so a stale plist from a previous install doesn't linger.
 const bootGeneral = await readGeneralSettings()
 await setLoginItem(bootGeneral.launchAtLogin)
+
+// First-boot guard: ensure the default workspace directory and KV row are
+// present. Idempotent on subsequent boots.
+await ensureDefaultWorkspace()
+
+// One-shot cleanup for a stale claude.reasoning entry shipped in an
+// earlier build. Idempotent.
+await migrateStaleCapabilities()
+
+// Close any conversation whose event log shows a turn.start with no
+// matching terminal event (hard crash mid-stream, pre-fix builds, etc).
+// Synthesizes a turn.cancel + flips status to idle so the renderer
+// doesn't render the conversation as streaming forever.
+await recoverInterruptedTurns(db)
 
 // idleTimeout: 0 disables Bun's per-connection 10s reaper. SSE chat streams
 // can sit idle for minutes during a long agent thinking pause; the default
