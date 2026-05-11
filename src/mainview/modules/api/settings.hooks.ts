@@ -9,7 +9,7 @@ import { queryClient } from './queryClient'
 const $get = api.settings.$get
 const $patch = api.settings.$patch
 
-type SettingsResponse = InferResponseType<typeof $get>
+export type SettingsResponse = InferResponseType<typeof $get>
 type UpdateSettingsInput = InferRequestType<typeof $patch>['json']
 type UpdateSettingsResponse = InferResponseType<typeof $patch>
 
@@ -48,7 +48,10 @@ export function useDefaultAgent(): {
   }
 }
 
-export type ThemeMode = 'light' | 'dark' | 'system'
+// Derived from the API response so server-schema drift surfaces here
+// as a TS error rather than silently casting unknown values into a
+// stale union.
+export type ThemeMode = SettingsResponse['appearance']['theme']
 
 export function useTheme(): {
   theme: ThemeMode

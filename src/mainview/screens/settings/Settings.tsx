@@ -20,7 +20,6 @@ import {
   type ThemeMode,
   useDefaultAgent,
   useSettings,
-  useTheme,
   useUpdateSettings,
 } from '@/modules/api/settings.hooks'
 import { useHerbieData } from '@/modules/data/HerbieDataProvider'
@@ -89,7 +88,6 @@ export function Settings() {
 function GeneralTab() {
   const { data, isLoading } = useSettings()
   const { mutate } = useUpdateSettings()
-  const { theme, setTheme } = useTheme()
 
   if (isLoading || !data) {
     return <Skeleton className="h-40 rounded-lg" />
@@ -100,8 +98,10 @@ function GeneralTab() {
       <section className="flex flex-col gap-3">
         <h2 className="font-medium text-sm">Appearance</h2>
         <ToggleGroup
-          value={[theme]}
-          onValueChange={(v: string[]) => v[0] && setTheme(v[0] as ThemeMode)}
+          value={[data.appearance.theme]}
+          onValueChange={(v: string[]) =>
+            v[0] && mutate({ appearance: { theme: v[0] as ThemeMode } })
+          }
           variant="outline"
         >
           <ToggleGroupItem value="light" aria-label="Light">
