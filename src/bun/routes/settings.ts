@@ -1,3 +1,5 @@
+import { homedir } from 'node:os'
+import path from 'node:path'
 import { zValidator } from '@hono/zod-validator'
 import type { ResultSet } from '@libsql/client'
 import type { ExtractTablesWithRelations } from 'drizzle-orm'
@@ -25,15 +27,38 @@ const agentsSchema = z.object({
   defaultAgent: z.enum(AGENT_IDS),
 })
 
+const reasoningCapabilitySchema = z.object({
+  key: z.string().min(1),
+  values: z.array(z.string().min(1)).min(1),
+})
+
+const agentCapabilitySchema = z.object({
+  models: z.array(z.string().min(1)),
+  reasoning: reasoningCapabilitySchema.optional(),
+  // ms timestamp of when this entry was discovered — lets us refresh stale
+  // caches without needing a separate column.
+  discoveredAt: z.number().int().nonnegative(),
+})
+
+const composerSchema = z.object({
+  workspaces: z.object({
+    default: z.string().min(1),
+    recent: z.array(z.string().min(1)),
+  }),
+  agentCapabilities: z.record(z.string(), agentCapabilitySchema),
+})
+
 const settingsSchema = z.object({
   general: generalSchema,
   agents: agentsSchema,
+  composer: composerSchema,
 })
 
-const DOMAINS = ['general', 'agents'] as const
+const DOMAINS = ['general', 'agents', 'composer'] as const
 
 type Settings = z.infer<typeof settingsSchema>
 type Domain = keyof Settings
+export type AgentCapability = z.infer<typeof agentCapabilitySchema>
 
 // Accepts either the top-level db or a transaction handle — both expose
 // the same SQLite query surface we use here (select / insert / update).
@@ -46,19 +71,43 @@ type DbLike =
       ExtractTablesWithRelations<typeof schema>
     >
 
+// Pre-resolved at module load — settings can be read before the workspace
+// bootstrap mkdirs the directory, so the default has to be a usable path
+// without requiring a row in the KV table.
+const DEFAULT_WORKSPACE_PATH = path.join(homedir(), 'herbie-workspace')
+
 const SETTINGS_DEFAULTS: Settings = {
   general: { launchAtLogin: false, minimizeToMenubarOnClose: true },
   agents: { defaultAgent: 'claude' },
+  composer: {
+    workspaces: { default: DEFAULT_WORKSPACE_PATH, recent: [] },
+    agentCapabilities: {},
+  },
 }
 
 // Schemas for PATCH bodies: validation only, no defaults — defaults belong to
 // SETTINGS_DEFAULTS. (Earlier versions used `generalSchema.partial()` with
 // inner `.default()` calls, but `.partial()` doesn't strip defaults, so a
 // PATCH of one field would inflate to the full domain with all defaults.)
+//
+// `composer.workspaces` is itself partial: callers can PATCH just
+// `{recent: [...]}` without having to ship the current `default` (which
+// might still be loading on the client). The handler merges field-wise.
+const composerPatchSchema = z.object({
+  workspaces: z
+    .object({
+      default: z.string().min(1).optional(),
+      recent: z.array(z.string().min(1)).optional(),
+    })
+    .optional(),
+  agentCapabilities: z.record(z.string(), agentCapabilitySchema).optional(),
+})
+
 const patchSchema = z
   .object({
     general: generalSchema.partial().optional(),
     agents: agentsSchema.partial().optional(),
+    composer: composerPatchSchema.optional(),
   })
   .strict()
 
@@ -95,6 +144,74 @@ async function writeDomain<K extends Domain>(
     .run()
 }
 
+// Programmatic accessor for non-route callers (bootstrap, capability cache).
+export async function readSettings(): Promise<Settings> {
+  return readAll(getDb())
+}
+
+export async function readAgentCapability(
+  db: DbLike,
+  agentId: string,
+): Promise<AgentCapability | undefined> {
+  const settings = await readAll(db)
+  return settings.composer.agentCapabilities[agentId]
+}
+
+// Merges new capability entries into composer.agentCapabilities. Used by
+// the discovery probe — runs in its own transaction so a concurrent PATCH
+// on another domain can't lose the write.
+export async function patchAgentCapabilities(
+  db: ReturnType<typeof getDb>,
+  patch: Record<string, AgentCapability>,
+): Promise<void> {
+  await db.transaction(async (tx) => {
+    const current = await readAll(tx)
+    const merged = {
+      ...current.composer,
+      agentCapabilities: {
+        ...current.composer.agentCapabilities,
+        ...patch,
+      },
+    }
+    await writeDomain(tx, 'composer', merged)
+  })
+}
+
+// Drops an agent's cached capability so the next picker open re-runs
+// discovery. Used by the bootstrap migration when shipped defaults
+// changed (e.g. claude's bogus reasoning entry from an earlier build).
+export async function clearAgentCapability(
+  db: ReturnType<typeof getDb>,
+  agentId: string,
+): Promise<void> {
+  await db.transaction(async (tx) => {
+    const current = await readAll(tx)
+    if (!(agentId in current.composer.agentCapabilities)) return
+    const { [agentId]: _dropped, ...rest } = current.composer.agentCapabilities
+    await writeDomain(tx, 'composer', {
+      ...current.composer,
+      agentCapabilities: rest,
+    })
+  })
+}
+
+// Removes a path from composer.workspaces.recent. Called from the workspace
+// existence guard when the user-pinned path was deleted out from under us.
+export async function removeRecentWorkspace(
+  db: ReturnType<typeof getDb>,
+  path: string,
+): Promise<void> {
+  await db.transaction(async (tx) => {
+    const current = await readAll(tx)
+    const next = current.composer.workspaces.recent.filter((p) => p !== path)
+    if (next.length === current.composer.workspaces.recent.length) return
+    await writeDomain(tx, 'composer', {
+      ...current.composer,
+      workspaces: { ...current.composer.workspaces, recent: next },
+    })
+  })
+}
+
 export const settingsRoute = new Hono()
   .get('/settings', async (c) => {
     return c.json(await readAll(getDb()))
@@ -117,6 +234,25 @@ export const settingsRoute = new Hono()
           ...current.agents,
           ...patch.agents,
         })
+      }
+      if (patch.composer) {
+        // Top-level shallow merge for composer, but nested workspaces
+        // merges field-wise so a partial {workspaces: {recent: [...]}}
+        // doesn't blank out `default`.
+        const ws = patch.composer.workspaces
+        const mergedComposer = {
+          ...current.composer,
+          ...(patch.composer.agentCapabilities && {
+            agentCapabilities: patch.composer.agentCapabilities,
+          }),
+          ...(ws && {
+            workspaces: {
+              default: ws.default ?? current.composer.workspaces.default,
+              recent: ws.recent ?? current.composer.workspaces.recent,
+            },
+          }),
+        }
+        await writeDomain(tx, 'composer', mergedComposer)
       }
       return readAll(tx)
     })

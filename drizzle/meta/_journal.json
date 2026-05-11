@@ -43,6 +43,13 @@
       "when": 1778418947012,
       "tag": "0005_wakeful_revanche",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1778433852305,
+      "tag": "0006_supreme_vengeance",
+      "breakpoints": true
     }
   ]
 }

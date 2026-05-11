@@ -1,5 +1,5 @@
 import type { AcpxProvider } from 'acpx-ai-provider'
-import { type LanguageModelUsage, streamText } from 'ai'
+import { type LanguageModelUsage, type ModelMessage, streamText } from 'ai'
 import { desc, eq } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import type { DB } from '../../db'
@@ -8,20 +8,20 @@ import {
   type Conversation,
   conversations,
 } from '../../db/schema/conversations.sql'
-import { buildAcpxProvider } from './acpxProvider'
+import {
+  persistAcpxIds,
+  persistTuple,
+  setConversationStatus,
+} from './conversation-state'
+import { extractErrorDetails } from './error-details'
+import { EventSink } from './event-sink'
 import { getEventBus } from './eventBus'
-import {
-  EPHEMERAL_STREAM_SUBTYPES,
-  type PersistedEvent,
-  type ProtocolEvent,
-  STREAM_SUBTYPE_RENAMES,
-  type TurnFinishReason,
-} from './events.types'
-import {
-  coalesceStreamPart,
-  extractStreamSubtype,
-  SegmentBuffer,
-} from './streamPart'
+import type { PersistedEvent, TurnFinishReason } from './events.types'
+import { getOrCreateProvider } from './provider-resolver'
+import { SegmentBuffer } from './streamPart'
+import { type ChatTuple, rebuildMessagesFromLog, tuplesEqual } from './tuple'
+
+export type { ChatTuple }
 
 export class TurnInProgressError extends Error {
   readonly code = 'TURN_IN_PROGRESS' as const
@@ -34,20 +34,39 @@ interface ActiveTurn {
   buffer: PersistedEvent[]
   textSegments: SegmentBuffer
   reasoningSegments: SegmentBuffer
+  provider: AcpxProvider
+}
+
+function tupleFromConversation(conv: Conversation): ChatTuple {
+  return {
+    agentId: conv.agentId,
+    modelId: conv.modelId,
+    workspacePath: conv.workspacePath,
+    reasoningEffort: conv.reasoningEffort,
+  }
 }
 
 export class ChatSession {
-  private provider: AcpxProvider | null = null
-  private nextSeq: number
+  private readonly providers = new Map<string, AcpxProvider>()
   private activeTurn: ActiveTurn | null = null
-  private readonly bus = getEventBus()
+  private lastTuple: ChatTuple | null
+  private readonly events: EventSink
 
   private constructor(
     private conversation: Conversation,
     private readonly db: DB,
     nextSeq: number,
   ) {
-    this.nextSeq = nextSeq
+    // Seed lastTuple from the conversation row so a same-tuple resend after
+    // app restart stays on the cheap path. Null fields are part of the key.
+    this.lastTuple = tupleFromConversation(conversation)
+    this.events = new EventSink(
+      db,
+      conversation.id,
+      getEventBus(),
+      nextSeq,
+      () => this.activeTurn,
+    )
   }
 
   static async create(conversationId: string, db: DB): Promise<ChatSession> {
@@ -80,35 +99,105 @@ export class ChatSession {
     return this.activeTurn?.buffer.filter((e) => e.seq > afterSeq) ?? []
   }
 
-  async appendUserMessage(text: string): Promise<{ requestId: string }> {
+  async appendUserMessage(
+    text: string,
+    tuple: ChatTuple,
+  ): Promise<{ requestId: string }> {
     if (this.activeTurn)
       throw new TurnInProgressError('turn already in progress')
 
     const requestId = nanoid(8)
     const controller = new AbortController()
+    await this.setStatus('streaming')
+    await this.events.writeProtocolEvent({
+      type: 'turn.start',
+      payload: {
+        requestId,
+        userMessage: text,
+        agentId: tuple.agentId,
+        modelId: tuple.modelId,
+        workspacePath: tuple.workspacePath,
+        reasoningEffort: tuple.reasoningEffort,
+      },
+    })
+
+    // Provider spin-up + transcript rebuild can throw on any number of
+    // reasons (agent not installed, auth missing, ACP runtime rejects a
+    // config option, etc). Without a guard here, turn.start lives on
+    // forever in the event log and the renderer is stuck on "streaming".
+    try {
+      await this.startTurn(text, tuple, requestId, controller)
+      return { requestId }
+    } catch (err) {
+      await this.failTurnStart(requestId, err)
+      throw err
+    }
+  }
+
+  private async startTurn(
+    text: string,
+    tuple: ChatTuple,
+    requestId: string,
+    controller: AbortController,
+  ): Promise<void> {
+    const tupleChanged = !tuplesEqual(tuple, this.lastTuple)
+    const provider = await getOrCreateProvider(
+      {
+        db: this.db,
+        conversationId: this.conversation.id,
+        providers: this.providers,
+        writeProtocolEvent: (e) => this.events.writeProtocolEvent(e),
+      },
+      tuple,
+    )
+
+    // Cheap path: same tuple → trust acpx's persistent-session memory; only
+    // ship the new user turn. Switch path: full transcript replays into the
+    // new tuple's session via a fresh sessionKey + `mode: 'fresh'`.
+    const messages: ModelMessage[] = tupleChanged
+      ? [
+          // The turn.start for this requestId is already in the event log
+          // (we wrote it above for UI/status bookkeeping). Exclude it from
+          // the replay so we don't ship the user message twice — the
+          // explicit append below is the canonical copy for this turn.
+          ...(await rebuildMessagesFromLog(
+            this.db,
+            this.conversation.id,
+            requestId,
+          )),
+          { role: 'user', content: text },
+        ]
+      : [{ role: 'user', content: text }]
+
     this.activeTurn = {
       requestId,
       controller,
       buffer: [],
       textSegments: new SegmentBuffer(),
       reasoningSegments: new SegmentBuffer(),
+      provider,
     }
-    await this.setStatus('streaming')
-    await this.writeProtocolEvent({
-      type: 'turn.start',
-      payload: { requestId, userMessage: text },
-    })
 
-    const provider = this.ensureProvider()
     const result = streamText({
       model: provider.languageModel(),
-      messages: [{ role: 'user', content: text }],
+      messages,
       abortSignal: controller.signal,
     })
 
-    void this.runTurn(result, requestId, provider)
+    await this.persistTuple(tuple)
+    this.lastTuple = tuple
 
-    return { requestId }
+    void this.runTurn(result, requestId, provider)
+  }
+
+  private async failTurnStart(requestId: string, err: unknown): Promise<void> {
+    const { message, code, details } = extractErrorDetails(err)
+    await this.events.writeProtocolEvent({
+      type: 'turn.error',
+      payload: { requestId, code, message, details },
+    })
+    await this.setStatus('error')
+    this.activeTurn = null
   }
 
   async cancel(reason?: string): Promise<void> {
@@ -116,11 +205,11 @@ export class ChatSession {
     if (!turn) return
     turn.controller.abort()
     try {
-      await this.provider?.cancel(reason)
+      await turn.provider.cancel(reason)
     } catch {
       // provider.cancel can race with stream completion; non-fatal.
     }
-    await this.writeProtocolEvent({
+    await this.events.writeProtocolEvent({
       type: 'turn.cancel',
       payload: { requestId: turn.requestId, reason },
     })
@@ -134,20 +223,9 @@ export class ChatSession {
         this.activeTurn.controller.abort()
       } catch {}
     }
-    try {
-      await this.provider?.close('session disposed')
-    } catch {}
-    this.provider = null
-  }
-
-  private ensureProvider(): AcpxProvider {
-    if (this.provider) return this.provider
-    this.provider = buildAcpxProvider({
-      conversationId: this.conversation.id,
-      agentId: this.conversation.agentId,
-      resumeSessionId: this.conversation.acpxSessionId,
-    })
-    return this.provider
+    const all = [...this.providers.values()]
+    this.providers.clear()
+    await Promise.allSettled(all.map((p) => p.close('session disposed')))
   }
 
   private async runTurn(
@@ -159,11 +237,11 @@ export class ChatSession {
     let finishReason: TurnFinishReason = 'unknown'
     try {
       for await (const part of result.fullStream) {
-        await this.writeStreamEvent(part)
+        await this.events.writeStreamEvent(part)
       }
       finishReason = (await result.finishReason) as TurnFinishReason
       usage = await result.totalUsage
-      await this.writeProtocolEvent({
+      await this.events.writeProtocolEvent({
         type: 'turn.finish',
         payload: { requestId, finishReason, usage },
       })
@@ -172,11 +250,10 @@ export class ChatSession {
     } catch (err) {
       // cancel() already wrote turn.cancel + flipped status, don't double-emit.
       if (this.activeTurn?.requestId !== requestId) return
-      const message = err instanceof Error ? err.message : String(err)
-      const code = err instanceof Error ? err.name : undefined
-      await this.writeProtocolEvent({
+      const { message, code, details } = extractErrorDetails(err)
+      await this.events.writeProtocolEvent({
         type: 'turn.error',
-        payload: { requestId, code, message },
+        payload: { requestId, code, message, details },
       })
       await this.setStatus('error')
     } finally {
@@ -186,96 +263,25 @@ export class ChatSession {
     }
   }
 
-  private async writeProtocolEvent(event: ProtocolEvent): Promise<void> {
-    await this.writeEvent(event.type, event.payload)
-  }
-
-  private async writeStreamEvent(part: unknown): Promise<void> {
-    const subtype = extractStreamSubtype(part)
-    const turn = this.activeTurn
-    if (turn) {
-      const coalesced = coalesceStreamPart(
-        subtype,
-        part,
-        { text: turn.textSegments, reasoning: turn.reasoningSegments },
-        turn.requestId,
-      )
-      if (coalesced) await this.writeProtocolEvent(coalesced)
-    }
-
-    const type = STREAM_SUBTYPE_RENAMES.get(subtype) ?? `stream.${subtype}`
-    if (EPHEMERAL_STREAM_SUBTYPES.has(subtype)) {
-      this.emitTransient(type, part)
-      return
-    }
-    await this.writeEvent(type, part)
-  }
-
-  private emitTransient(type: string, payload: unknown): void {
-    const event: PersistedEvent = {
-      conversationId: this.conversation.id,
-      seq: this.nextSeq++,
-      type,
-      payload,
-      createdAt: new Date(),
-    }
-    this.deliver(event)
-  }
-
-  private async writeEvent(type: string, payload: unknown): Promise<void> {
-    const seq = this.nextSeq++
-    const createdAt = new Date()
-    await this.db
-      .insert(chatEvents)
-      .values({
-        conversationId: this.conversation.id,
-        seq,
-        type,
-        payload: JSON.stringify(payload),
-        createdAt,
-      })
-      .run()
-    this.deliver({
-      conversationId: this.conversation.id,
-      seq,
-      type,
-      payload,
-      createdAt,
-    })
-  }
-
-  // Buffer captures every event emitted during the turn so a mid-turn
-  // SSE subscriber sees the in-flight UI on reconnect.
-  private deliver(event: PersistedEvent): void {
-    if (this.activeTurn) this.activeTurn.buffer.push(event)
-    this.bus.emit(this.conversation.id, event)
-  }
-
   private async setStatus(status: Conversation['status']): Promise<void> {
-    const updatedAt = new Date()
-    await this.db
-      .update(conversations)
-      .set({ status, updatedAt })
-      .where(eq(conversations.id, this.conversation.id))
-      .run()
-    this.conversation = { ...this.conversation, status, updatedAt }
+    this.conversation = await setConversationStatus(
+      this.db,
+      this.conversation,
+      status,
+    )
+  }
+
+  private async persistTuple(tuple: ChatTuple): Promise<void> {
+    this.conversation = await persistTuple(this.db, this.conversation, tuple)
   }
 
   private async persistAcpxIds(provider: AcpxProvider): Promise<void> {
     try {
-      const { handle } = await provider.ensureHandle()
-      const status = await provider.runtime.getStatus?.({ handle })
-      const next = {
-        acpxSessionId: handle.runtimeSessionName ?? null,
-        acpxRecordId: status?.acpxRecordId ?? handle.acpxRecordId ?? null,
-        agentSessionId: status?.agentSessionId ?? handle.agentSessionId ?? null,
-      }
-      await this.db
-        .update(conversations)
-        .set({ ...next, updatedAt: new Date() })
-        .where(eq(conversations.id, this.conversation.id))
-        .run()
-      this.conversation = { ...this.conversation, ...next }
+      this.conversation = await persistAcpxIds(
+        this.db,
+        this.conversation,
+        provider,
+      )
     } catch {
       // Non-fatal: next turn will start a fresh ACP session under the same key.
     }

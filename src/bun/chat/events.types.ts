@@ -12,7 +12,18 @@ export type TurnFinishReason =
 export type ProtocolEvent =
   | {
       type: 'turn.start'
-      payload: { requestId: string; userMessage: string }
+      payload: {
+        requestId: string
+        userMessage: string
+        agentId: string
+        modelId?: string | null
+        workspacePath?: string | null
+        reasoningEffort?: string | null
+      }
+    }
+  | {
+      type: 'meta.workspace-missing'
+      payload: { previousPath: string; fallbackPath: string }
     }
   | {
       type: 'turn.finish'
@@ -28,7 +39,15 @@ export type ProtocolEvent =
     }
   | {
       type: 'turn.error'
-      payload: { requestId: string; code?: string; message: string }
+      payload: {
+        requestId: string
+        code?: string
+        message: string
+        // Optional structured detail string (e.g. JSON-RPC data.details)
+        // surfaced separately so the renderer can show it under the
+        // top-level message without parsing.
+        details?: string
+      }
     }
   | {
       type: 'assistant.text'

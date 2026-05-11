@@ -138,12 +138,18 @@ function handleTurnStart(ctx: ReducerCtx, ev: PersistedEventDTO): void {
 }
 
 function handleTurnError(ctx: ReducerCtx, ev: PersistedEventDTO): void {
-  const p = ev.payload as { message: string; code?: string }
+  const p = ev.payload as {
+    message: string
+    code?: string
+    details?: string
+  }
   finalizeActiveMessage(ctx, (m) => ({
     ...m,
     isStreaming: false,
     isError: true,
     errorMessage: p.message,
+    errorDetails: p.details,
+    errorCode: p.code,
   }))
 }
 

@@ -1,4 +1,4 @@
-import type { InferResponseType } from 'hono/client'
+import type { InferRequestType, InferResponseType } from 'hono/client'
 import { useEffect, useRef } from 'react'
 import { createMutation, createQuery } from 'react-query-kit'
 import { useConversations } from '@/modules/api/chat.hooks'
@@ -16,7 +16,9 @@ export type ConversationDetail = Exclude<
   { error: string }
 >
 
-type SendInput = { id: string; text: string }
+export type SendMessageInput = { id: string } & InferRequestType<
+  typeof $send
+>['json']
 type CancelInput = { id: string; reason?: string }
 
 export const useConversation = createQuery<
@@ -33,9 +35,12 @@ export const useConversation = createQuery<
 
 // Send/cancel don't invalidate the conversation query — events flow back
 // through the SSE stream and update the cache via useChatLiveStream.
-export const useSendMessage = createMutation<{ requestId: string }, SendInput>({
-  mutationFn: ({ id, text }) =>
-    $send({ param: { id }, json: { text } }).then(
+export const useSendMessage = createMutation<
+  { requestId: string },
+  SendMessageInput
+>({
+  mutationFn: ({ id, ...body }) =>
+    $send({ param: { id }, json: body }).then(
       parseResponse<{ requestId: string }>,
     ),
 })
