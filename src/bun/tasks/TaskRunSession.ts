@@ -1,13 +1,10 @@
 import type { AcpxProvider } from 'acpx-ai-provider'
 import { type LanguageModelUsage, streamText } from 'ai'
-import { eq } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import type { DB } from '../../db'
 import { taskRuns } from '../../db/schema/task-runs.sql'
-import { buildAcpxProvider } from '../chat/acpxProvider'
 import { extractErrorDetails } from '../chat/error-details'
 import { SegmentBuffer } from '../chat/streamPart'
-import { readAgentCapability } from '../routes/settings'
 import { getRunEventBus } from './run-event-bus'
 import type { ActiveRunEventCtx } from './run-event-sink'
 import { RunEventSink } from './run-event-sink'
@@ -15,14 +12,16 @@ import type { PersistedRunEvent, RunFinishReason } from './run-events'
 import {
   aggregateAssistantFromEvents,
   extractAssistantTextFromPart,
+  pickOutputSource,
+  writeFinalRow,
 } from './run-result'
+import { SCHEDULED_RUN_SYSTEM_PROMPT } from './run-system-prompt'
+import type { RegisteredCapture } from './task-result-capture'
+import { spinUpTaskRunProvider, type TaskRunTuple } from './task-run-provider'
 
-export interface TaskRunTuple {
-  agentId: string
-  modelId: string | null
-  workspacePath: string | null
-  reasoningEffort: string | null
-}
+// Re-exported so callers (runManager, etc.) don't need to know the
+// tuple lives next door.
+export type { TaskRunTuple } from './task-run-provider'
 
 export interface TaskRunInit {
   taskId: string
@@ -48,8 +47,15 @@ export class TaskRunSession {
   private provider: AcpxProvider | null = null
   private controller: AbortController | null = null
   private activeTurn: ActiveRunEventCtx | null = null
-  // Aggregated assistant text from the run — persisted onto task_runs.
+  // Aggregated assistant text from the run — persisted onto task_runs
+  // as the legacy fallback when the agent doesn't call the
+  // herbie__task_result MCP tool.
   private resultParts: string[] = []
+  // Per-run capture channel for the herbie__task_result tool.
+  // Registered in spinUpProvider, awaited (with a grace window) after
+  // streamText resolves in runStream, disposed in dispose/cancel so
+  // late POSTs are rejected and any awaiter resolves to null.
+  private capture: RegisteredCapture | null = null
   // Resolves after finalize() writes the row — the scheduler awaits
   // this before reading task_runs to deliver the inbox card. The
   // turn.finish bus emit happens before the row update, so a
@@ -165,6 +171,13 @@ export class TaskRunSession {
 
   async dispose(): Promise<void> {
     this.activeTurn = null
+    // Release the capture before tearing down the provider — if the
+    // MCP child is still mid-POST when stdio closes, the route's
+    // receive() will 404 and the child surfaces a tool error to the
+    // agent (which is already going away). Either way the capture
+    // promise resolves to null and any await unblocks.
+    this.capture?.dispose()
+    this.capture = null
     try {
       await this.provider?.close('run disposed')
     } catch {
@@ -174,31 +187,13 @@ export class TaskRunSession {
   }
 
   private async spinUpProvider(): Promise<void> {
-    // sessionKey is unique per run — guarantees `usedKeys` miss on the
-    // acpx side so the agent gets `mode: 'fresh'` and never sees prior
-    // run state.
-    const sessionKey = `__task-run::${this.init.taskId}::${this.runId}`
-    const provider = buildAcpxProvider({
-      conversationId: this.runId,
-      agentId: this.init.tuple.agentId,
-      workspacePath: this.init.tuple.workspacePath ?? undefined,
-      sessionKey,
+    const { provider, capture } = await spinUpTaskRunProvider(this.db, {
+      taskId: this.init.taskId,
+      runId: this.runId,
+      tuple: this.init.tuple,
     })
-    await provider.prepare()
-    if (this.init.tuple.modelId) {
-      await provider.setConfigOption('model', this.init.tuple.modelId)
-    }
-    if (this.init.tuple.reasoningEffort) {
-      const cap = await readAgentCapability(this.db, this.init.tuple.agentId)
-      const reasoningKey = cap?.reasoning?.key
-      if (reasoningKey) {
-        await provider.setConfigOption(
-          reasoningKey,
-          this.init.tuple.reasoningEffort,
-        )
-      }
-    }
     this.provider = provider
+    this.capture = capture
   }
 
   private async runStream(): Promise<void> {
@@ -208,6 +203,7 @@ export class TaskRunSession {
     try {
       const result = streamText({
         model: this.provider.languageModel(),
+        system: SCHEDULED_RUN_SYSTEM_PROMPT,
         messages: [{ role: 'user', content: this.init.promptSnapshot }],
         abortSignal: this.controller.signal,
       })
@@ -221,7 +217,16 @@ export class TaskRunSession {
         type: 'turn.finish',
         payload: { requestId: this.requestId, finishReason, usage },
       })
-      await this.finalize('completed')
+      // Grace window for the MCP POST: the tool's HTTP request may
+      // arrive at Herbie a beat after streamText's `finish` part
+      // lands. Cap the wait so a stuck agent doesn't hold the row
+      // open forever — null means the tool wasn't called and we
+      // fall back to aggregated text in finalize().
+      const markdown = await Promise.race([
+        this.capture?.promise ?? Promise.resolve<string | null>(null),
+        new Promise<string | null>((r) => setTimeout(() => r(null), 2000)),
+      ])
+      await this.finalize('completed', { resultMarkdown: markdown })
     } catch (err) {
       if (!this.activeTurn) return // cancel() already finalized
       const { message, code, details } = extractErrorDetails(err)
@@ -260,7 +265,11 @@ export class TaskRunSession {
 
   private async finalize(
     status: 'completed' | 'cancelled' | 'error',
-    errFields?: {
+    fields?: {
+      // Captured from the herbie__task_result MCP tool, when the
+      // agent called it. Null = tool wasn't called / was disposed /
+      // returned empty — caller falls back to aggregated text.
+      resultMarkdown?: string | null
       errorMessage?: string
       errorCode?: string
       errorDetails?: string
@@ -271,18 +280,16 @@ export class TaskRunSession {
         ? this.resultParts.join('').trim() ||
           (await aggregateAssistantFromEvents(this.db, this.runId))
         : null
-    await this.db
-      .update(taskRuns)
-      .set({
-        status,
-        finishedAt: new Date(),
-        resultText,
-        errorMessage: errFields?.errorMessage ?? null,
-        errorCode: errFields?.errorCode ?? null,
-        errorDetails: errFields?.errorDetails ?? null,
-      })
-      .where(eq(taskRuns.id, this.runId))
-      .run()
+    const markdown = fields?.resultMarkdown?.trim() || null
+    await writeFinalRow(this.db, this.runId, {
+      status,
+      resultText,
+      resultMarkdown: markdown,
+      outputSource: pickOutputSource(markdown, resultText),
+      errorMessage: fields?.errorMessage ?? null,
+      errorCode: fields?.errorCode ?? null,
+      errorDetails: fields?.errorDetails ?? null,
+    })
     this.activeTurn = null
     this.resolveDone()
   }

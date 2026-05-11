@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { initializeDatabase } from '../db'
 import { conversations } from '../db/schema/conversations.sql'
 import { settings as settingsTable } from '../db/schema/settings.sql'
+import { API_PORT } from './api-port'
 import { setupApplicationMenu } from './applicationMenu'
 import { recoverInterruptedTurns } from './chat/recovery'
 import { getSessionManager } from './chat/sessionManager'
@@ -20,7 +21,6 @@ import {
 
 const DEV_SERVER_PORT = 5173
 const DEV_SERVER_URL = `http://localhost:${DEV_SERVER_PORT}`
-const API_PORT = 4575
 
 const { db } = await initializeDatabase()
 setDb(db)
