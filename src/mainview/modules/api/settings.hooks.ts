@@ -1,4 +1,5 @@
 import type { InferRequestType, InferResponseType } from 'hono/client'
+import { nanoid } from 'nanoid'
 import { useCallback } from 'react'
 import { createMutation, createQuery } from 'react-query-kit'
 import type { AgentId } from '../data/herbie-data.types'
@@ -110,4 +111,56 @@ export function useWorkspaces(): {
   )
 
   return { defaultPath, recent, isLoading, addRecent, setDefault }
+}
+
+export type McpServer = SettingsResponse['mcp']['servers'][number]
+// Distributive Omit so the discriminator survives across the union.
+// `Omit<Union, K>` collapses to common-keys-only — this preserves both variants.
+export type McpServerDraft = McpServer extends infer S
+  ? S extends McpServer
+    ? Omit<S, 'id'>
+    : never
+  : never
+
+// MCP servers are stored once and applied to every agent session. Changes
+// only flow into new conversations — acpx passes mcpServers at newSession
+// time; running sessions keep their original list. The UI surfaces this.
+export function useMcpRegistry(): {
+  servers: McpServer[]
+  isLoading: boolean
+  add: (draft: McpServerDraft) => void
+  update: (id: string, draft: McpServerDraft) => void
+  remove: (id: string) => void
+} {
+  const { data, isLoading } = useSettings()
+  const { mutate } = useUpdateSettings()
+  const servers = data?.mcp.servers ?? []
+
+  const add = useCallback(
+    (draft: McpServerDraft) => {
+      const next = [...servers, { ...draft, id: nanoid(8) } as McpServer]
+      mutate({ mcp: { servers: next } })
+    },
+    [mutate, servers],
+  )
+
+  const update = useCallback(
+    (id: string, draft: McpServerDraft) => {
+      const next = servers.map((s) =>
+        s.id === id ? ({ ...draft, id } as McpServer) : s,
+      )
+      mutate({ mcp: { servers: next } })
+    },
+    [mutate, servers],
+  )
+
+  const remove = useCallback(
+    (id: string) => {
+      const next = servers.filter((s) => s.id !== id)
+      mutate({ mcp: { servers: next } })
+    },
+    [mutate, servers],
+  )
+
+  return { servers, isLoading, add, update, remove }
 }

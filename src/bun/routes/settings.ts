@@ -10,6 +10,7 @@ import type * as schema from '../../db/schema/schema'
 import { settings as settingsTable } from '../../db/schema/settings.sql'
 import { getDb } from '../db-singleton'
 import { setLoginItem } from '../loginItems'
+import { mcpSchema } from './settings.mcp.schema'
 
 // Adding a new setting:
 //   - existing domain: add the field below + a default in SETTINGS_DEFAULTS. No migration.
@@ -58,9 +59,10 @@ const settingsSchema = z.object({
   agents: agentsSchema,
   appearance: appearanceSchema,
   composer: composerSchema,
+  mcp: mcpSchema,
 })
 
-const DOMAINS = ['general', 'agents', 'appearance', 'composer'] as const
+const DOMAINS = ['general', 'agents', 'appearance', 'composer', 'mcp'] as const
 
 type Settings = z.infer<typeof settingsSchema>
 type Domain = keyof Settings
@@ -90,6 +92,7 @@ const SETTINGS_DEFAULTS: Settings = {
     workspaces: { default: DEFAULT_WORKSPACE_PATH, recent: [] },
     agentCapabilities: {},
   },
+  mcp: { servers: [] },
 }
 
 // Schemas for PATCH bodies: validation only, no defaults — defaults belong to
@@ -116,6 +119,7 @@ const patchSchema = z
     agents: agentsSchema.partial().optional(),
     appearance: appearanceSchema.partial().optional(),
     composer: composerPatchSchema.optional(),
+    mcp: mcpSchema.partial().optional(),
   })
   .strict()
 
@@ -267,6 +271,12 @@ export const settingsRoute = new Hono()
           }),
         }
         await writeDomain(tx, 'composer', mergedComposer)
+      }
+      if (patch.mcp) {
+        await writeDomain(tx, 'mcp', {
+          ...current.mcp,
+          ...patch.mcp,
+        })
       }
       return readAll(tx)
     })

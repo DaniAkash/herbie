@@ -8,6 +8,7 @@
         "@base-ui/react": "^1.4.1",
         "@fontsource-variable/geist": "^5.2.8",
         "@hono/zod-validator": "^0.7.6",
+        "@hookform/resolvers": "^5.2.2",
         "@libsql/client": "^0.17.3",
         "@radix-ui/react-use-controllable-state": "^1.2.2",
         "@rive-app/react-webgl2": "^4.28.0",
@@ -20,7 +21,7 @@
         "@tanstack/react-router": "^1.168.4",
         "@xyflow/react": "^12.10.2",
         "acpx": "^0.6.1",
-        "acpx-ai-provider": "^0.0.2",
+        "acpx-ai-provider": "^0.0.3",
         "ai": "^6.0.168",
         "ansi-to-react": "^6.2.6",
         "class-variance-authority": "^0.7.1",
@@ -38,6 +39,7 @@
         "next-themes": "^0.4.6",
         "react": "^19.2.4",
         "react-dom": "^19.2.4",
+        "react-hook-form": "^7.75.0",
         "react-jsx-parser": "^2.4.1",
         "react-query-kit": "^3.3.3",
         "shiki": "^4.0.2",
@@ -277,6 +279,8 @@
 
     "@hono/zod-validator": ["@hono/zod-validator@0.7.6", "", { "peerDependencies": { "hono": ">=3.9.0", "zod": "^3.25.0 || ^4.0.0" } }, "sha512-Io1B6d011Gj1KknV4rXYz4le5+5EubcWEU/speUjuw9XMMIaP3n78yXLhjd2A3PXaXaUwEAluOiAyLqhBEJgsw=="],
 
+    "@hookform/resolvers": ["@hookform/resolvers@5.2.2", "", { "dependencies": { "@standard-schema/utils": "^0.3.0" }, "peerDependencies": { "react-hook-form": "^7.55.0" } }, "sha512-A/IxlMLShx3KjV/HeTcTfaMxdwy690+L/ZADoeaTltLx+CVuzkeVIPuybK3jrRfw7YZnmdKsVVHAlEPIAEUNlA=="],
+
     "@iconify/types": ["@iconify/types@2.0.0", "", {}, "sha512-+wluvCrRhXrhyOmRDJ3q8mux9JkKy5SJ/v8ol2tu4FVjyYvtEzkc/3pK15ET6RKg4b4w4BmTk1+gsCUhf21Ykg=="],
 
     "@iconify/utils": ["@iconify/utils@3.1.0", "", { "dependencies": { "@antfu/install-pkg": "^1.1.0", "@iconify/types": "^2.0.0", "mlly": "^1.8.0" } }, "sha512-Zlzem1ZXhI1iHeeERabLNzBHdOa4VhQbqAcOQaMKuTuyZCpwKbC2R4Dd0Zo3g9EAc+Y4fiarO8HIHRAth7+skw=="],
@@ -452,6 +456,8 @@
     "@sindresorhus/merge-streams": ["@sindresorhus/merge-streams@4.0.0", "", {}, "sha512-tlqY9xq5ukxTUZBmoOp+m61cqwQD5pHJtFY3Mn8CA8ps6yghLH/Hw8UPdqg4OLmFW3IFlcXnQNmo/dh8HzXYIQ=="],
 
     "@standard-schema/spec": ["@standard-schema/spec@1.1.0", "", {}, "sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w=="],
+
+    "@standard-schema/utils": ["@standard-schema/utils@0.3.0", "", {}, "sha512-e7Mew686owMaPJVNNLs55PUvgz371nKgwsc4vxE49zsODpJEnxgxRo2y/OKrqueavXgZNMDVj3DdHFlaSAeU8g=="],
 
     "@streamdown/cjk": ["@streamdown/cjk@1.0.3", "", { "dependencies": { "remark-cjk-friendly": "^2.0.1", "remark-cjk-friendly-gfm-strikethrough": "^2.0.1", "unist-util-visit": "^5.0.0" }, "peerDependencies": { "react": "^18.0.0 || ^19.0.0" } }, "sha512-WRg8HR/gHbBoTgsMd91OKFUClIoDcEFVofJvluvEAyjx3KpU0aGgD9tGDqHkHj14ShoMSkX0IYetWGegTcwIJw=="],
 
@@ -659,7 +665,7 @@
 
     "acpx": ["acpx@0.6.1", "", { "dependencies": { "@agentclientprotocol/sdk": "^0.20.0", "commander": "^14.0.3", "skillflag": "^0.1.4", "tsx": "^4.21.0", "zod": "^4.3.6" }, "bin": { "acpx": "dist/cli.js" } }, "sha512-qxZPbm3SKq0UqQ0sOJ0M4iTLkF9AR7+I+JE/L/UeMUU1vW5N4nUVkZHytoHTBAu7nrej6THNzCPgrIZfv9T3AA=="],
 
-    "acpx-ai-provider": ["acpx-ai-provider@0.0.2", "", { "peerDependencies": { "acpx": ">=0.6.1", "ai": ">=6.0.0" } }, "sha512-oMxeAhDzPr3i9cCPr+oWKHLP3DjU4JJTvz6QB/2/9R2INF28svXOB3EGHLwrhOyztmizbm4PJ+mWp248xXGs4g=="],
+    "acpx-ai-provider": ["acpx-ai-provider@0.0.3", "", { "peerDependencies": { "acpx": ">=0.6.1", "ai": ">=6.0.0" } }, "sha512-tE21HARZAKZuhOJ1pjMYmc08b2G3dGLZjK3LeJa74o3S7f+eWXxNuaDgyJQZyFzS/EsNrq+4lDOaOMF5LtuqWw=="],
 
     "agent-base": ["agent-base@7.1.4", "", {}, "sha512-MnA+YT8fwfJPgBx3m60MNqakm30XOkyIoH1y6huTQvC0PwZG7ki8NacLBcrPbNoo8vEZy7Jpuk7+jMO+CUovTQ=="],
 
@@ -1526,6 +1532,8 @@
     "react": ["react@19.2.5", "", {}, "sha512-llUJLzz1zTUBrskt2pwZgLq59AemifIftw4aB7JxOqf1HY2FDaGDxgwpAPVzHU1kdWabH7FauP4i1oEeer2WCA=="],
 
     "react-dom": ["react-dom@19.2.5", "", { "dependencies": { "scheduler": "^0.27.0" }, "peerDependencies": { "react": "^19.2.5" } }, "sha512-J5bAZz+DXMMwW/wV3xzKke59Af6CHY7G4uYLN1OvBcKEsWOs4pQExj86BBKamxl/Ik5bx9whOrvBlSDfWzgSag=="],
+
+    "react-hook-form": ["react-hook-form@7.75.0", "", { "peerDependencies": { "react": "^16.8.0 || ^17 || ^18 || ^19" } }, "sha512-Ovv94H+0p3sJ7B9B5QxPuCP1u8V/cHuVGyH55cSwodYDtoJwK+fqk3vjfIgSX59I2U/bU4z0nRJ9HMLpNiWEmw=="],
 
     "react-jsx-parser": ["react-jsx-parser@2.4.1", "", { "dependencies": { "acorn": "^8.12.1", "acorn-jsx": "^5.3.2" }, "optionalDependencies": { "@types/react": "^18.3.12", "@types/react-dom": "^18.3.1" }, "peerDependencies": { "react": ">=18", "react-dom": ">=18" } }, "sha512-gE25DiHseuKmSbb5O1K1IkyQ/bwth3zl4z3EdW8XMhwrb2agUpuh8GvqHFvGwh/wdZjDDuadGrSR2lEgjcOvqQ=="],
 
