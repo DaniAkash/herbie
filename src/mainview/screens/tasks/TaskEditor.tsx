@@ -314,8 +314,38 @@ function EditorBody({
             )}
           </PageFooter>
         </form>
-        {isExisting && taskId && (
+        {isExisting && taskId ? (
           <TaskRunSidebar taskId={taskId} draft={{ prompt, tuple }} />
+        ) : (
+          // Create mode: same sidebar, but Test takes a
+          // save-then-test-then-navigate path so the user can iterate
+          // on a draft without first hitting the Create button and
+          // navigating back in. testEnabled also requires `name` to
+          // be filled in since the create call won't pass validation
+          // without it.
+          <TaskRunSidebar
+            taskId={null}
+            draft={{ prompt, tuple }}
+            testEnabled={canSave}
+            onBeforeTest={async () => {
+              const payload = {
+                name: name.trim(),
+                prompt: prompt.trim(),
+                agentId: tuple.agentId,
+                modelId: tuple.modelId,
+                workspacePath: tuple.workspacePath,
+                reasoningEffort: tuple.reasoningEffort,
+                schedule,
+              }
+              const created = await createMutation.mutateAsync(payload)
+              navigate({
+                to: '/tasks/$id',
+                params: { id: created.id },
+                replace: true,
+              })
+              return created.id
+            }}
+          />
         )}
       </div>
       {isExisting && (

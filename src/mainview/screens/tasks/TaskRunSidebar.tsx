@@ -23,11 +23,22 @@ import { ChatMessageRow } from '../chat/Chat.parts'
 import { useRunData } from './run.data'
 
 export interface TaskRunSidebarProps {
-  taskId: string
+  // null = create mode (no persisted task yet). When null, the sidebar
+  // skips the runs query (nothing to list) and the Test button routes
+  // through `onBeforeTest` to persist the draft first.
+  taskId: string | null
   draft: {
     prompt: string
     tuple: ComposerTuple
   }
+  // Called before Test fires when there's no taskId yet. Must persist
+  // the draft and return the new task id (or null on failure). The
+  // sidebar then runs the test against that id. The parent is
+  // responsible for any navigation that should follow.
+  onBeforeTest?: () => Promise<string | null>
+  // Extra gate on the Test button — used in create mode to also
+  // require `name` to be non-empty before allowing a save+test.
+  testEnabled?: boolean
 }
 
 const TEXT_ONLY_PART_KINDS = ['text'] as const
@@ -38,11 +49,26 @@ const TEXT_ONLY_PART_KINDS = ['text'] as const
 // expanded run renders through ChatMessageRow with partKinds={['text']}
 // so reasoning + tool blocks stay hidden — only the final synthesized
 // content shows, matching the plan's "natural for the user" goal.
-export function TaskRunSidebar({ taskId, draft }: TaskRunSidebarProps) {
-  const runsQuery = useTaskRuns({ variables: { id: taskId } })
+export function TaskRunSidebar({
+  taskId,
+  draft,
+  onBeforeTest,
+  testEnabled = true,
+}: TaskRunSidebarProps) {
+  // `enabled: false` short-circuits the runs fetch in create mode —
+  // there's no persisted id yet so the list is necessarily empty.
+  const runsQuery = useTaskRuns({
+    variables: { id: taskId ?? '' },
+    enabled: taskId != null,
+  })
   const testMutation = useTestTaskRun()
   const cancelMutation = useCancelTaskRun()
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null)
+  // Covers the full Test click — including the `onBeforeTest` create
+  // step in create mode — so the button can stay disabled across the
+  // whole transition. `testMutation.isPending` alone misses the create
+  // window.
+  const [isStartingTest, setIsStartingTest] = useState(false)
   const runs = runsQuery.data ?? []
   const inFlight = runs.find((r) => r.status === 'running') ?? null
   const isRunning = inFlight !== null
@@ -55,24 +81,38 @@ export function TaskRunSidebar({ taskId, draft }: TaskRunSidebarProps) {
   }, [selectedRunId, inFlight, runs])
 
   async function handleTest() {
-    if (isRunning) return
-    const res = await testMutation.mutateAsync({
-      id: taskId,
-      prompt: draft.prompt,
-      agentId: draft.tuple.agentId,
-      modelId: draft.tuple.modelId,
-      workspacePath: draft.tuple.workspacePath,
-      reasoningEffort: draft.tuple.reasoningEffort,
-    })
-    setSelectedRunId(res.runId)
+    if (isRunning || isStartingTest) return
+    setIsStartingTest(true)
+    try {
+      // Create mode: persist the draft first, then fire the test
+      // against the new id. The parent's `onBeforeTest` handles the
+      // navigation to /tasks/:id so the user lands mid-test.
+      let id = taskId
+      if (id == null) {
+        if (!onBeforeTest) return
+        id = await onBeforeTest()
+        if (id == null) return
+      }
+      const res = await testMutation.mutateAsync({
+        id,
+        prompt: draft.prompt,
+        agentId: draft.tuple.agentId,
+        modelId: draft.tuple.modelId,
+        workspacePath: draft.tuple.workspacePath,
+        reasoningEffort: draft.tuple.reasoningEffort,
+      })
+      setSelectedRunId(res.runId)
+    } finally {
+      setIsStartingTest(false)
+    }
   }
 
   async function handleStop() {
-    if (!inFlight) return
+    if (!inFlight || taskId == null) return
     await cancelMutation.mutateAsync({ taskId, runId: inFlight.id })
   }
 
-  const canTest = draft.prompt.trim().length > 0
+  const canTest = testEnabled && draft.prompt.trim().length > 0
 
   return (
     <aside className="flex w-[420px] shrink-0 flex-col overflow-hidden border-l bg-card/30">
@@ -98,10 +138,10 @@ export function TaskRunSidebar({ taskId, draft }: TaskRunSidebarProps) {
           <Button
             size="sm"
             onClick={handleTest}
-            disabled={!canTest || testMutation.isPending}
+            disabled={!canTest || isStartingTest}
           >
             <PlayIcon data-icon="inline-start" />
-            {testMutation.isPending ? 'Starting…' : 'Test'}
+            {isStartingTest ? 'Starting…' : 'Test'}
           </Button>
         )}
       </div>
@@ -123,7 +163,7 @@ export function TaskRunSidebar({ taskId, draft }: TaskRunSidebarProps) {
                 />
               ))}
             </ul>
-            {selectedRunId && (
+            {selectedRunId && taskId != null && (
               <RunDetail taskId={taskId} runId={selectedRunId} />
             )}
           </div>
