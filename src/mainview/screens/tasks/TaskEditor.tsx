@@ -123,11 +123,13 @@ function EditorBody({
   const form = useForm<TaskFormValues>({
     resolver: zodResolver(taskFormSchema),
     defaultValues,
-    // Validate as the user types — once a field has been touched
-    // and erred, keep validating each keystroke so the error clears
-    // as soon as the value becomes valid.
-    mode: 'onTouched',
-    reValidateMode: 'onChange',
+    // `onChange` (not `onTouched`) on purpose. The schedule field
+    // is a discriminated union whose inputs live inside ScheduleField
+    // and never call `field.onBlur` on the parent `schedule` Controller,
+    // so `onTouched` would suppress the cron-refine error until the
+    // user hit Submit. `onChange` validates on every keystroke; the
+    // form is small enough that the cost is irrelevant.
+    mode: 'onChange',
   })
 
   const [confirmDelete, setConfirmDelete] = useState(false)

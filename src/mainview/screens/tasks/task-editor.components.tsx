@@ -35,6 +35,23 @@ function fieldErrors(err: RHFFieldError | undefined) {
   return err ? [err] : undefined
 }
 
+// Walk a (possibly nested) RHF error subtree and return the first
+// leaf — i.e. the first node that has a `.message`. Used for the
+// schedule field: zod attaches a discriminated-union `.refine` error
+// at `errors.schedule.cron`, so the parent at `errors.schedule` has
+// no `.message` and `FieldError` would render nothing. The same
+// helper covers any future nested validators on schedule kinds.
+function pickLeafError(node: unknown): RHFFieldError | undefined {
+  if (!node || typeof node !== 'object') return undefined
+  const obj = node as Record<string, unknown>
+  if (typeof obj.message === 'string') return obj as unknown as RHFFieldError
+  for (const value of Object.values(obj)) {
+    const leaf = pickLeafError(value)
+    if (leaf) return leaf
+  }
+  return undefined
+}
+
 export function TaskFormFields({ form }: { form: TaskForm }) {
   const errors = form.formState.errors
   return (
@@ -68,12 +85,19 @@ export function TaskFormFields({ form }: { form: TaskForm }) {
       <Controller
         control={form.control}
         name="schedule"
-        render={({ field, fieldState }) => (
-          <Field data-invalid={fieldState.error ? '' : undefined}>
-            <ScheduleField value={field.value} onChange={field.onChange} />
-            <FieldError errors={fieldErrors(fieldState.error)} />
-          </Field>
-        )}
+        render={({ field }) => {
+          // `fieldState.error` for a discriminated-union refine sits
+          // at the union's path (e.g. errors.schedule.cron), so the
+          // node at `errors.schedule` has no `.message`. Walk the
+          // subtree for the leaf.
+          const leaf = pickLeafError(errors.schedule)
+          return (
+            <Field data-invalid={leaf ? '' : undefined}>
+              <ScheduleField value={field.value} onChange={field.onChange} />
+              <FieldError errors={fieldErrors(leaf)} />
+            </Field>
+          )
+        }}
       />
 
       <TupleFields form={form} />
