@@ -1,12 +1,34 @@
 import { homedir } from 'node:os'
 import path from 'node:path'
-import { type AcpxProvider, createAcpxProvider } from 'acpx-ai-provider'
+import {
+  type AcpxMcpServerConfig,
+  type AcpxProvider,
+  createAcpxProvider,
+} from 'acpx-ai-provider'
 
 export const ACPX_STATE_DIR = path.join(homedir(), '.herbie', 'acpx-state')
 
 // Mirror the override in src/bun/agents/detect.ts so a session can spin up
 // hermes — acpx 0.6.x doesn't ship hermes in built-ins yet.
 const REGISTRY_OVERRIDES: Record<string, string> = { hermes: 'hermes acp' }
+
+// What we store in settings (matches ACP wire format: arrays of {name,value}).
+export interface McpServerStdio {
+  type: 'stdio'
+  name: string
+  command: string
+  args: string[]
+  env: Array<{ name: string; value: string }>
+}
+
+export interface McpServerHttp {
+  type: 'http' | 'sse'
+  name: string
+  url: string
+  headers: Array<{ name: string; value: string }>
+}
+
+export type McpServerSpec = McpServerStdio | McpServerHttp
 
 export interface BuildAcpxProviderOptions {
   conversationId: string
@@ -16,6 +38,7 @@ export interface BuildAcpxProviderOptions {
   workspacePath?: string
   sessionKey?: string
   resumeSessionId?: string | null
+  mcpServers?: McpServerSpec[]
 }
 
 export function buildAcpxProvider(
@@ -33,5 +56,10 @@ export function buildAcpxProvider(
     // permission UX is wired. Revisit before any non-personal use.
     permissionMode: 'approve-all',
     nonInteractivePermissions: 'deny',
+    // The provider's public types claim env/headers are records, but the
+    // underlying acpx runtime parses them as [{name,value}] arrays — see
+    // https://github.com/DaniAkash/acpx/issues/21. Our McpServerSpec matches
+    // the runtime shape; the cast skips the provider's stale type check.
+    mcpServers: opts.mcpServers as unknown as AcpxMcpServerConfig[] | undefined,
   })
 }

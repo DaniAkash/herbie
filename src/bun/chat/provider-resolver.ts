@@ -26,11 +26,14 @@ export async function getOrCreateProvider(
   if (cached) return cached
 
   const cwd = await resolveWorkspaceCwd(deps, tuple.workspacePath)
+  const settings = await readSettings()
+  const mcpServers = settings.mcp.servers.map(({ id: _id, ...rest }) => rest)
   const provider = buildAcpxProvider({
     conversationId: deps.conversationId,
     agentId: tuple.agentId,
     workspacePath: cwd,
     sessionKey: key,
+    mcpServers,
   })
 
   // Spawn the ACP server + open the session before applying config —
