@@ -1,4 +1,4 @@
-import { access as fsAccess } from 'node:fs/promises'
+import { stat } from 'node:fs/promises'
 import type { AcpxProvider } from 'acpx-ai-provider'
 import type { DB } from '../../db'
 import {
@@ -62,8 +62,11 @@ export async function getOrCreateProvider(
 }
 
 // Resolves the requested workspace path to an existing directory. If the
-// user-pinned path was deleted out from under us, emit a meta event,
-// prune from the MRU, and return the default workspace.
+// user-pinned path was deleted out from under us — or was somehow set to
+// a file (corrupted row, future MCP-driven update) — emit a meta event,
+// prune from the MRU, and return the default workspace. stat() follows
+// symlinks, so a symlink-to-directory works; broken symlinks and
+// regular files both fall through to the fallback.
 async function resolveWorkspaceCwd(
   deps: ProviderResolverDeps,
   requested: string | null,
@@ -71,20 +74,26 @@ async function resolveWorkspaceCwd(
   const settings = await readSettings()
   const fallback = settings.composer.workspaces.default
   const target = requested ?? fallback
+  if (await isDirectory(target)) return target
+
+  if (target !== fallback) {
+    await deps.writeProtocolEvent({
+      type: 'meta.workspace-missing',
+      payload: { previousPath: target, fallbackPath: fallback },
+    })
+    await removeRecentWorkspace(deps.db, target).catch(() => {
+      // Pruning is a UX nicety; failing to update the MRU shouldn't
+      // block the user's send.
+    })
+  }
+  return fallback
+}
+
+async function isDirectory(p: string): Promise<boolean> {
   try {
-    await fsAccess(target)
-    return target
+    const s = await stat(p)
+    return s.isDirectory()
   } catch {
-    if (target !== fallback) {
-      await deps.writeProtocolEvent({
-        type: 'meta.workspace-missing',
-        payload: { previousPath: target, fallbackPath: fallback },
-      })
-      await removeRecentWorkspace(deps.db, target).catch(() => {
-        // Pruning is a UX nicety; failing to update the MRU shouldn't
-        // block the user's send.
-      })
-    }
-    return fallback
+    return false
   }
 }

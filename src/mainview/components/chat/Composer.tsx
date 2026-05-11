@@ -183,6 +183,7 @@ function SwitchWarning({ onDismiss }: { onDismiss: () => void }) {
       <button
         type="button"
         onClick={onDismiss}
+        aria-label="Dismiss warning"
         className="text-amber-700/70 hover:text-amber-700 dark:text-amber-400/70 dark:hover:text-amber-400"
       >
         ✕
