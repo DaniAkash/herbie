@@ -20,22 +20,6 @@ export type ScheduleConfig =
   | { kind: 'weekly'; weekday: number; hour: number; minute: number }
   | { kind: 'cron'; cron: string }
 
-export type TaskOutput = 'inbox' | 'telegram'
-
-export type Task = {
-  id: string
-  name: string
-  prompt: string
-  agent: AgentId
-  workspaceId?: string
-  schedule: ScheduleConfig
-  outputs: TaskOutput[]
-  status: 'active' | 'paused'
-  lastRunAt?: number
-  nextRunAt?: number
-  createdAt: number
-}
-
 export type InboxItemStatus = 'unread' | 'read' | 'done'
 
 export type InboxItem = {

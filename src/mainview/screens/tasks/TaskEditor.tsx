@@ -2,6 +2,9 @@ import { useNavigate } from '@tanstack/react-router'
 import { ArrowLeftIcon, PauseIcon, PlayIcon, Trash2Icon } from 'lucide-react'
 import { type FormEvent, useState } from 'react'
 import { AgentPicker } from '@/components/chat/AgentPicker'
+import type { ComposerTuple } from '@/components/chat/composer.types'
+import { ModelPicker } from '@/components/chat/ModelPicker'
+import { ReasoningPicker } from '@/components/chat/ReasoningPicker'
 import { WorkspacePicker } from '@/components/chat/WorkspacePicker'
 import { PageFooter, PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
@@ -14,15 +17,18 @@ import {
 } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { LinkButton } from '@/components/ui/link-button'
-import { Switch } from '@/components/ui/switch'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { useDefaultAgent } from '@/modules/api/settings.hooks'
-import { useHerbieData } from '@/modules/data/HerbieDataProvider'
-import type {
-  AgentId,
-  ScheduleConfig,
-  TaskOutput,
-} from '@/modules/data/herbie-data.types'
+import {
+  useCreateTask,
+  useDeleteTask,
+  useTask,
+  useUpdateTask,
+} from '@/modules/api/tasks.hooks'
+import type { AgentId, ScheduleConfig } from '@/modules/data/herbie-data.types'
+import { DeleteTaskDialog } from './DeleteTaskDialog'
+import { OutputsField } from './OutputsField'
 import { ScheduleField } from './ScheduleField'
 
 export type EditorProps = {
@@ -39,72 +45,127 @@ const DEFAULT_SCHEDULE: ScheduleConfig = {
   minute: 0,
 }
 
-export function TaskEditor({
+export function TaskEditor(props: EditorProps) {
+  if (props.mode === 'edit' && props.taskId) {
+    return <EditExisting {...props} taskId={props.taskId} />
+  }
+  return <CreateNew {...props} />
+}
+
+function CreateNew({ initialPrompt, initialAgent }: EditorProps) {
+  const { defaultAgent } = useDefaultAgent()
+  return (
+    <EditorBody
+      mode="create"
+      initial={{
+        name: '',
+        prompt: initialPrompt ?? '',
+        tuple: {
+          agentId: initialAgent ?? defaultAgent,
+          modelId: null,
+          workspacePath: null,
+          reasoningEffort: null,
+        },
+        schedule: DEFAULT_SCHEDULE,
+        status: 'active',
+      }}
+    />
+  )
+}
+
+function EditExisting({ taskId }: EditorProps & { taskId: string }) {
+  const { data, isLoading } = useTask({ variables: { id: taskId } })
+  if (isLoading) return <EditorSkeleton />
+  if (!data) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <p className="text-muted-foreground text-sm">Task not found.</p>
+      </div>
+    )
+  }
+  return (
+    <EditorBody
+      mode="edit"
+      taskId={taskId}
+      initial={{
+        name: data.name,
+        prompt: data.prompt,
+        tuple: {
+          agentId: data.agentId as AgentId,
+          modelId: data.modelId,
+          workspacePath: data.workspacePath,
+          reasoningEffort: data.reasoningEffort,
+        },
+        schedule: data.schedule,
+        status: data.status,
+      }}
+    />
+  )
+}
+
+interface EditorState {
+  name: string
+  prompt: string
+  tuple: ComposerTuple
+  schedule: ScheduleConfig
+  status: 'active' | 'paused'
+}
+
+function EditorBody({
   mode,
   taskId,
-  initialPrompt,
-  initialAgent,
-  initialWorkspaceId,
-}: EditorProps) {
+  initial,
+}: {
+  mode: 'create' | 'edit'
+  taskId?: string
+  initial: EditorState
+}) {
   const navigate = useNavigate()
-  const { tasks, createTask, updateTask, deleteTask } = useHerbieData()
-  const { defaultAgent } = useDefaultAgent()
+  const createMutation = useCreateTask()
+  const updateMutation = useUpdateTask()
+  const deleteMutation = useDeleteTask()
 
-  const existing = taskId ? tasks.find((t) => t.id === taskId) : undefined
-
-  const [name, setName] = useState(existing?.name ?? '')
-  const [prompt, setPrompt] = useState(existing?.prompt ?? initialPrompt ?? '')
-  const [agent, setAgent] = useState<AgentId>(
-    existing?.agent ?? initialAgent ?? defaultAgent,
-  )
-  const [workspaceId, setWorkspaceId] = useState<string | undefined>(
-    existing?.workspaceId ?? initialWorkspaceId,
-  )
-  const [schedule, setSchedule] = useState<ScheduleConfig>(
-    existing?.schedule ?? DEFAULT_SCHEDULE,
-  )
-  const [outputs, setOutputs] = useState<Set<TaskOutput>>(
-    new Set(existing?.outputs ?? ['inbox']),
-  )
+  const [name, setName] = useState(initial.name)
+  const [prompt, setPrompt] = useState(initial.prompt)
+  const [tuple, setTuple] = useState<ComposerTuple>(initial.tuple)
+  const [schedule, setSchedule] = useState<ScheduleConfig>(initial.schedule)
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   const canSave = name.trim().length > 0 && prompt.trim().length > 0
+  const isExisting = mode === 'edit' && taskId
+  const isBusy = createMutation.isPending || updateMutation.isPending
 
-  function toggleOutput(o: TaskOutput) {
-    setOutputs((prev) => {
-      const next = new Set(prev)
-      if (next.has(o)) next.delete(o)
-      else next.add(o)
-      return next
-    })
-  }
-
-  function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     if (!canSave) return
     const payload = {
       name: name.trim(),
       prompt: prompt.trim(),
-      agent,
-      workspaceId,
+      agentId: tuple.agentId,
+      modelId: tuple.modelId,
+      workspacePath: tuple.workspacePath,
+      reasoningEffort: tuple.reasoningEffort,
       schedule,
-      outputs: [...outputs],
     }
-    if (existing) updateTask({ id: existing.id, ...payload })
-    else createTask(payload)
+    if (isExisting) {
+      await updateMutation.mutateAsync({ id: taskId, ...payload })
+    } else {
+      await createMutation.mutateAsync(payload)
+    }
     navigate({ to: '/tasks' })
   }
 
-  function handleDelete() {
-    if (!existing) return
-    deleteTask(existing.id)
+  async function handleDeleteConfirmed() {
+    if (!taskId) return
+    await deleteMutation.mutateAsync({ id: taskId })
     navigate({ to: '/tasks' })
   }
 
-  function togglePause() {
-    if (!existing) return
-    updateTask({
-      id: existing.id,
-      status: existing.status === 'active' ? 'paused' : 'active',
+  async function togglePause() {
+    if (!taskId) return
+    await updateMutation.mutateAsync({
+      id: taskId,
+      status: initial.status === 'active' ? 'paused' : 'active',
     })
   }
 
@@ -116,7 +177,7 @@ export function TaskEditor({
           Tasks
         </LinkButton>
         <h1 className="font-semibold text-base tracking-tight">
-          {mode === 'create' ? 'New scheduled task' : existing?.name}
+          {mode === 'create' ? 'New scheduled task' : initial.name}
         </h1>
       </PageHeader>
       <form
@@ -153,48 +214,70 @@ export function TaskEditor({
               <ScheduleField value={schedule} onChange={setSchedule} />
 
               <FieldSet>
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-2 gap-4">
                   <Field>
                     <FieldLabel>Agent</FieldLabel>
-                    <AgentPicker value={agent} onChange={setAgent} />
+                    <AgentPicker
+                      value={tuple.agentId}
+                      onChange={(agentId) =>
+                        // Same invalidation rule as Composer: switching
+                        // agent resets model + reasoning since their
+                        // valid value sets are agent-specific.
+                        setTuple({
+                          ...tuple,
+                          agentId,
+                          modelId: null,
+                          reasoningEffort: null,
+                        })
+                      }
+                    />
+                  </Field>
+                  <Field>
+                    <FieldLabel>Model</FieldLabel>
+                    <ModelPicker
+                      agentId={tuple.agentId}
+                      value={tuple.modelId}
+                      onChange={(modelId) => setTuple({ ...tuple, modelId })}
+                    />
                   </Field>
                   <Field>
                     <FieldLabel>Workspace</FieldLabel>
                     <WorkspacePicker
-                      value={workspaceId ?? null}
-                      onChange={(p) => setWorkspaceId(p ?? undefined)}
+                      value={tuple.workspacePath}
+                      onChange={(workspacePath) =>
+                        setTuple({ ...tuple, workspacePath })
+                      }
+                    />
+                  </Field>
+                  <Field>
+                    <FieldLabel>Reasoning</FieldLabel>
+                    <ReasoningPicker
+                      agentId={tuple.agentId}
+                      value={tuple.reasoningEffort}
+                      onChange={(reasoningEffort) =>
+                        setTuple({ ...tuple, reasoningEffort })
+                      }
                     />
                   </Field>
                 </div>
               </FieldSet>
 
-              <Field>
-                <FieldLabel>Send result to</FieldLabel>
-                <div className="flex flex-col gap-1 divide-y divide-border rounded-lg border bg-card">
-                  <OutputToggle
-                    label="Inbox"
-                    description="Land as a card in your Herbie inbox"
-                    checked={outputs.has('inbox')}
-                    onChange={() => toggleOutput('inbox')}
-                  />
-                  <OutputToggle
-                    label="Telegram"
-                    description="Send to your bound Telegram chat"
-                    checked={outputs.has('telegram')}
-                    onChange={() => toggleOutput('telegram')}
-                  />
-                </div>
-              </Field>
+              <OutputsField />
             </FieldGroup>
           </div>
         </div>
         <PageFooter maxWidth="max-w-2xl">
-          <Button type="submit" disabled={!canSave}>
+          <Button type="submit" disabled={!canSave || isBusy}>
             {mode === 'create' ? 'Create task' : 'Save'}
           </Button>
-          {existing && (
-            <Button type="button" variant="outline" onClick={togglePause}>
-              {existing.status === 'active' ? (
+          {isExisting && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={togglePause}
+              disabled={isBusy}
+            >
+              {initial.status === 'active' ? (
                 <>
                   <PauseIcon data-icon="inline-start" /> Pause
                 </>
@@ -205,13 +288,14 @@ export function TaskEditor({
               )}
             </Button>
           )}
-          {existing && (
+          {isExisting && (
             <>
               <div className="flex-1" />
               <Button
                 type="button"
                 variant="ghost"
-                onClick={handleDelete}
+                onClick={() => setConfirmDelete(true)}
+                disabled={isBusy}
                 className="text-muted-foreground hover:text-destructive"
               >
                 <Trash2Icon data-icon="inline-start" />
@@ -221,32 +305,26 @@ export function TaskEditor({
           )}
         </PageFooter>
       </form>
+      {isExisting && (
+        <DeleteTaskDialog
+          open={confirmDelete}
+          taskName={initial.name}
+          onCancel={() => setConfirmDelete(false)}
+          onConfirm={handleDeleteConfirmed}
+          isPending={deleteMutation.isPending}
+        />
+      )}
     </div>
   )
 }
 
-function OutputToggle({
-  label,
-  description,
-  checked,
-  onChange,
-}: {
-  label: string
-  description: string
-  checked: boolean
-  onChange: () => void
-}) {
+function EditorSkeleton() {
   return (
-    <button
-      type="button"
-      onClick={onChange}
-      className="flex cursor-pointer items-center justify-between gap-4 px-5 py-4 text-left"
-    >
-      <div>
-        <div className="font-medium text-sm">{label}</div>
-        <div className="text-muted-foreground text-xs">{description}</div>
-      </div>
-      <Switch checked={checked} onCheckedChange={onChange} />
-    </button>
+    <div className="flex flex-1 flex-col gap-4 px-6 py-8">
+      <Skeleton className="h-8 w-1/3" />
+      <Skeleton className="h-10 w-full" />
+      <Skeleton className="h-32 w-full" />
+      <Skeleton className="h-20 w-full" />
+    </div>
   )
 }

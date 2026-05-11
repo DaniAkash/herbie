@@ -1,4 +1,4 @@
-import type { AgentInfo, InboxItem, Task, Workspace } from './herbie-data.types'
+import type { AgentInfo, InboxItem, Workspace } from './herbie-data.types'
 
 const MINUTE = 60_000
 const HOUR = 60 * MINUTE
@@ -54,64 +54,6 @@ export const seedWorkspaces: Workspace[] = [
     id: 'control-center',
     name: 'control-center',
     path: '~/Documents/Github/DaniAkash/control-center',
-  },
-]
-
-export const seedTasks: Task[] = [
-  {
-    id: 'task-morning-github',
-    name: 'morning-github',
-    prompt:
-      'Summarise overnight GitHub activity across my repos. Group by repo, list notable PRs, mentions, and issues.',
-    agent: 'hermes',
-    workspaceId: undefined,
-    schedule: { kind: 'daily', hour: 9, minute: 0 },
-    outputs: ['inbox', 'telegram'],
-    status: 'active',
-    lastRunAt: now - 3 * HOUR,
-    nextRunAt: now + 21 * HOUR,
-    createdAt: now - 14 * DAY,
-  },
-  {
-    id: 'task-sentry-watch',
-    name: 'sentry-watch',
-    prompt:
-      'Check Sentry for new errors in the last 4 hours. Summarise by service. Flag anything affecting >5 users.',
-    agent: 'claude',
-    workspaceId: 'browseros',
-    schedule: { kind: 'interval', hours: 4 },
-    outputs: ['inbox'],
-    status: 'active',
-    lastRunAt: now - 2 * HOUR,
-    nextRunAt: now + 2 * HOUR,
-    createdAt: now - 7 * DAY,
-  },
-  {
-    id: 'task-linear-weekly',
-    name: 'linear-weekly',
-    prompt:
-      "Pull this week's Linear activity — issues closed, opened, blocked. One paragraph per project.",
-    agent: 'hermes',
-    workspaceId: undefined,
-    schedule: { kind: 'weekly', weekday: 1, hour: 9, minute: 0 },
-    outputs: ['inbox'],
-    status: 'active',
-    lastRunAt: now - 2 * DAY,
-    nextRunAt: now + 5 * DAY,
-    createdAt: now - 30 * DAY,
-  },
-  {
-    id: 'task-prs-review',
-    name: 'prs-needing-review',
-    prompt:
-      'List PRs in my repos that need review and have been open >24h. Sort by age.',
-    agent: 'gemini',
-    workspaceId: undefined,
-    schedule: { kind: 'daily', hour: 8, minute: 0 },
-    outputs: ['inbox'],
-    status: 'paused',
-    lastRunAt: now - 4 * DAY,
-    createdAt: now - 21 * DAY,
   },
 ]
 

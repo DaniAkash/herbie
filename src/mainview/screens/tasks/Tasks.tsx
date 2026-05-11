@@ -11,6 +11,7 @@ import {
   EmptyTitle,
 } from '@/components/ui/empty'
 import { LinkButton } from '@/components/ui/link-button'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
   TableBody,
@@ -19,13 +20,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { useHerbieData } from '@/modules/data/HerbieDataProvider'
-import type { ScheduleConfig } from '@/modules/data/herbie-data.types'
+import { type TaskSummary, useTasks } from '@/modules/api/tasks.hooks'
 import { relativeTime } from '@/modules/utils/relativeTime'
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
-function describeSchedule(s: ScheduleConfig): string {
+function describeSchedule(s: TaskSummary['schedule']): string {
   if (s.kind === 'daily') return `every day at ${pad(s.hour)}:${pad(s.minute)}`
   if (s.kind === 'interval') return `every ${s.hours} hours`
   if (s.kind === 'weekly')
@@ -38,9 +38,9 @@ function pad(n: number) {
 }
 
 export function Tasks() {
-  const { tasks } = useHerbieData()
   const navigate = useNavigate()
-  const sorted = [...tasks].sort((a, b) => b.createdAt - a.createdAt)
+  const { data, isLoading } = useTasks()
+  const tasks = data ?? []
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -50,7 +50,7 @@ export function Tasks() {
             Scheduled tasks
           </h1>
           <span className="font-mono text-muted-foreground text-xs">
-            {sorted.length} task{sorted.length === 1 ? '' : 's'}
+            {tasks.length} task{tasks.length === 1 ? '' : 's'}
           </span>
         </div>
         <LinkButton to="/tasks/new" size="sm">
@@ -60,7 +60,13 @@ export function Tasks() {
       </PageHeader>
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-5xl px-6 py-6 2xl:max-w-6xl">
-          {sorted.length === 0 ? (
+          {isLoading ? (
+            <div className="flex flex-col gap-3">
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+            </div>
+          ) : tasks.length === 0 ? (
             <Empty>
               <EmptyHeader>
                 <EmptyMedia variant="icon">
@@ -92,7 +98,7 @@ export function Tasks() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sorted.map((task) => (
+                  {tasks.map((task) => (
                     <TableRow
                       key={task.id}
                       className="cursor-pointer"
@@ -108,7 +114,9 @@ export function Tasks() {
                         {describeSchedule(task.schedule)}
                       </TableCell>
                       <TableCell>
-                        <span className="font-mono text-xs">{task.agent}</span>
+                        <span className="font-mono text-xs">
+                          {task.agentId}
+                        </span>
                       </TableCell>
                       <TableCell className="text-muted-foreground text-xs tabular-nums">
                         {task.lastRunAt

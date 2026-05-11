@@ -4,6 +4,7 @@ import { agentsRoute } from './routes/agents'
 import { chatRoute } from './routes/chat'
 import { settingsRoute } from './routes/settings'
 import { systemRoute } from './routes/system'
+import { tasksRoute } from './routes/tasks'
 
 const app = new Hono()
 // The API binds to 127.0.0.1 only (see src/bun/index.ts), so it's
@@ -19,6 +20,7 @@ const routes = app
   .route('/', agentsRoute)
   .route('/', systemRoute)
   .route('/', chatRoute)
+  .route('/', tasksRoute)
 
 export type AppType = typeof routes
 export default routes
