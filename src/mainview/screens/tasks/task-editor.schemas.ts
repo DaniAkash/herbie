@@ -1,3 +1,4 @@
+import { Cron } from 'croner'
 import { z } from 'zod'
 
 // Mirrors the server-side schema in src/bun/routes/tasks.ts. Kept in
@@ -28,9 +29,26 @@ export const scheduleSchema = z.discriminatedUnion('kind', [
     cron: z
       .string()
       .min(1, 'Cron expression is required')
-      .max(120, 'Cron expression is too long'),
+      .max(120, 'Cron expression is too long')
+      .refine(isValidCronExpression, {
+        message:
+          'Not a valid cron expression. Five space-separated fields, e.g. "0 9 * * *" for 9am daily.',
+      }),
   }),
 ])
+
+// croner's constructor throws synchronously on a malformed pattern.
+// Wrap it so the form can flag bad input inline before the user
+// hits Save. `paused: true` makes this side-effect-free — no timer
+// is started.
+function isValidCronExpression(value: string): boolean {
+  try {
+    new Cron(value, { paused: true })
+    return true
+  } catch {
+    return false
+  }
+}
 
 export const taskFormSchema = z.object({
   name: z

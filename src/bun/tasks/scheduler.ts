@@ -70,9 +70,25 @@ class TaskSchedulerImpl implements TaskScheduler {
     if (!schedule) return
     const expr = cronExpressionFor(schedule)
     if (!expr) return
-    const job = new Cron(expr, { paused: false }, () => {
-      void this.fireNow(row.id)
-    })
+    // `new Cron(expr, …)` throws synchronously on a malformed pattern.
+    // We can't let that kill the bun process — one bad row would take
+    // every other scheduled task down with it. Validation lives in the
+    // API + form schemas, but pre-validation data and future schema
+    // drift still land here. Skip + log; the row stays untouched on
+    // disk and the user can fix it from the editor.
+    let job: Cron
+    try {
+      job = new Cron(expr, { paused: false }, () => {
+        void this.fireNow(row.id)
+      })
+    } catch (err) {
+      // biome-ignore lint/suspicious/noConsole: surface bad cron rows at boot — no logger wired in bun yet
+      console.warn(
+        `[tasks] skipping task ${row.id} (${row.name}) — invalid cron expression ${JSON.stringify(expr)}:`,
+        err instanceof Error ? err.message : err,
+      )
+      return
+    }
     // Persist the next-fire time so the boot catch-up can decide
     // whether a missed run should fire-once or be skipped.
     const next = job.nextRun()

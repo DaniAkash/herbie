@@ -3,9 +3,9 @@ import { and, desc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
 import { nanoid } from 'nanoid'
-import { z } from 'zod'
+import type { z } from 'zod'
 import { taskRuns } from '../../db/schema/task-runs.sql'
-import { TASK_STATUSES, tasks } from '../../db/schema/tasks.sql'
+import { tasks } from '../../db/schema/tasks.sql'
 import { getDb } from '../db-singleton'
 import {
   loadAllRunEvents,
@@ -14,76 +14,13 @@ import {
 } from '../tasks/run-stream'
 import { getRunManager } from '../tasks/runManager'
 import { getTaskScheduler } from '../tasks/scheduler'
-
-const AGENT_IDS = ['claude', 'codex', 'gemini', 'hermes'] as const
-
-// ScheduleConfig — kept as a discriminated union mirroring the
-// renderer's shape. Stored as JSON on the row; validated here.
-const scheduleSchema = z.discriminatedUnion('kind', [
-  z.object({
-    kind: z.literal('daily'),
-    hour: z.number().int().min(0).max(23),
-    minute: z.number().int().min(0).max(59),
-  }),
-  z.object({
-    kind: z.literal('interval'),
-    hours: z.number().int().min(1).max(168),
-  }),
-  z.object({
-    kind: z.literal('weekly'),
-    weekday: z.number().int().min(0).max(6),
-    hour: z.number().int().min(0).max(23),
-    minute: z.number().int().min(0).max(59),
-  }),
-  z.object({
-    kind: z.literal('cron'),
-    cron: z.string().min(1).max(120),
-  }),
-])
-
-// Extra delivery channels beyond inbox (inbox is implicit). Today the
-// only candidate is telegram, but its toggle is disabled in the UI
-// until the feature ships, so this is effectively always [].
-const outputSchema = z.array(z.enum(['telegram']))
-
-const tupleFields = {
-  modelId: z.string().min(1).nullish(),
-  workspacePath: z.string().min(1).nullish(),
-  reasoningEffort: z.string().min(1).nullish(),
-} as const
-
-const createSchema = z
-  .object({
-    name: z.string().min(1).max(120),
-    prompt: z.string().min(1),
-    agentId: z.enum(AGENT_IDS),
-    schedule: scheduleSchema,
-    outputs: outputSchema.optional(),
-    ...tupleFields,
-  })
-  .strict()
-
-const updateSchema = z
-  .object({
-    name: z.string().min(1).max(120).optional(),
-    prompt: z.string().min(1).optional(),
-    agentId: z.enum(AGENT_IDS).optional(),
-    schedule: scheduleSchema.optional(),
-    outputs: outputSchema.optional(),
-    status: z.enum(TASK_STATUSES).optional(),
-    ...tupleFields,
-  })
-  .strict()
-
-const testSchema = z
-  .object({
-    // All four are optional overrides; if any are omitted, the run
-    // falls back to the persisted task row.
-    prompt: z.string().min(1).optional(),
-    agentId: z.enum(AGENT_IDS).optional(),
-    ...tupleFields,
-  })
-  .strict()
+import {
+  createSchema,
+  type outputSchema,
+  type scheduleSchema,
+  testSchema,
+  updateSchema,
+} from './tasks.schemas'
 
 type TaskRow = typeof tasks.$inferSelect
 
