@@ -39,7 +39,15 @@ export type ProtocolEvent =
     }
   | {
       type: 'turn.error'
-      payload: { requestId: string; code?: string; message: string }
+      payload: {
+        requestId: string
+        code?: string
+        message: string
+        // Optional structured detail string (e.g. JSON-RPC data.details)
+        // surfaced separately so the renderer can show it under the
+        // top-level message without parsing.
+        details?: string
+      }
     }
   | {
       type: 'assistant.text'

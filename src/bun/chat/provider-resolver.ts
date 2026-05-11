@@ -35,15 +35,26 @@ export async function getOrCreateProvider(
 
   // Spawn the ACP server + open the session before applying config —
   // setConfigOption is an in-session IPC call. Effort changes apply to
-  // the *next* turn, which is exactly what we're about to issue.
+  // the *next* turn, which is exactly what we're about to issue. A
+  // failure here (unknown agent, auth, config key the runtime doesn't
+  // accept) propagates to appendUserMessage, which writes turn.error
+  // and unsticks the conversation.
   await provider.prepare()
   if (tuple.modelId) {
     await provider.setConfigOption('model', tuple.modelId)
   }
   if (tuple.reasoningEffort) {
+    // Only apply reasoning when we know the agent advertises a key for
+    // it. No fallback to 'reasoning_effort' — earlier builds did that
+    // and tripped on agents that document but don't actually accept
+    // the option (e.g. claude). The picker hides when the cap is
+    // missing, so reaching this branch with a missing cap means a
+    // stale conversation row; skip silently.
     const cap = await readAgentCapability(deps.db, tuple.agentId)
-    const reasoningKey = cap?.reasoning?.key ?? 'reasoning_effort'
-    await provider.setConfigOption(reasoningKey, tuple.reasoningEffort)
+    const reasoningKey = cap?.reasoning?.key
+    if (reasoningKey) {
+      await provider.setConfigOption(reasoningKey, tuple.reasoningEffort)
+    }
   }
 
   deps.providers.set(key, provider)

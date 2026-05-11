@@ -163,6 +163,24 @@ export async function patchAgentCapabilities(
   })
 }
 
+// Drops an agent's cached capability so the next picker open re-runs
+// discovery. Used by the bootstrap migration when shipped defaults
+// changed (e.g. claude's bogus reasoning entry from an earlier build).
+export async function clearAgentCapability(
+  db: ReturnType<typeof getDb>,
+  agentId: string,
+): Promise<void> {
+  await db.transaction(async (tx) => {
+    const current = await readAll(tx)
+    if (!(agentId in current.composer.agentCapabilities)) return
+    const { [agentId]: _dropped, ...rest } = current.composer.agentCapabilities
+    await writeDomain(tx, 'composer', {
+      ...current.composer,
+      agentCapabilities: rest,
+    })
+  })
+}
+
 // Removes a path from composer.workspaces.recent. Called from the workspace
 // existence guard when the user-pinned path was deleted out from under us.
 export async function removeRecentWorkspace(

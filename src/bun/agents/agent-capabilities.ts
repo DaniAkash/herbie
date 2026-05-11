@@ -8,17 +8,15 @@ import {
   readAgentCapability,
 } from '../routes/settings'
 
-// Agents that ship with a documented reasoning_effort spectrum (per the
-// acpx-ai-provider README's Configuration table). The runtime's
-// `configOptionKeys` advertises the *key*, not its valid values, so we
-// hardcode the value sets for these two until acpx ships an introspection
-// hook. Other agents fall back to runtime discovery — which gives us the
-// key but no value list, so the picker just shows {low, medium, high}.
+// Agents with a documented reasoning_effort spectrum that the ACP server
+// actually accepts via `session/set_config_option`. We previously included
+// claude here based on the acpx-ai-provider README, but the live claude
+// ACP server rejects the option with `Unknown config option:
+// reasoning_effort`. Until openclaw/herbie#12 maps the real per-agent
+// surface, only codex is opted in. Other agents fall back to runtime
+// discovery — which gives us the key but no value list, so the picker
+// just shows {low, medium, high}.
 const REASONING_DEFAULTS: Record<string, AgentCapability['reasoning']> = {
-  claude: {
-    key: 'reasoning_effort',
-    values: ['low', 'medium', 'high', 'xhigh'],
-  },
   codex: {
     key: 'reasoning_effort',
     values: ['low', 'medium', 'high', 'xhigh'],

@@ -13,6 +13,7 @@ import {
   persistTuple,
   setConversationStatus,
 } from './conversation-state'
+import { extractErrorDetails } from './error-details'
 import { EventSink } from './event-sink'
 import { getEventBus } from './eventBus'
 import type { PersistedEvent, TurnFinishReason } from './events.types'
@@ -120,6 +121,25 @@ export class ChatSession {
       },
     })
 
+    // Provider spin-up + transcript rebuild can throw on any number of
+    // reasons (agent not installed, auth missing, ACP runtime rejects a
+    // config option, etc). Without a guard here, turn.start lives on
+    // forever in the event log and the renderer is stuck on "streaming".
+    try {
+      await this.startTurn(text, tuple, requestId, controller)
+      return { requestId }
+    } catch (err) {
+      await this.failTurnStart(requestId, err)
+      throw err
+    }
+  }
+
+  private async startTurn(
+    text: string,
+    tuple: ChatTuple,
+    requestId: string,
+    controller: AbortController,
+  ): Promise<void> {
     const tupleChanged = !tuplesEqual(tuple, this.lastTuple)
     const provider = await getOrCreateProvider(
       {
@@ -160,7 +180,16 @@ export class ChatSession {
     this.lastTuple = tuple
 
     void this.runTurn(result, requestId, provider)
-    return { requestId }
+  }
+
+  private async failTurnStart(requestId: string, err: unknown): Promise<void> {
+    const { message, code, details } = extractErrorDetails(err)
+    await this.events.writeProtocolEvent({
+      type: 'turn.error',
+      payload: { requestId, code, message, details },
+    })
+    await this.setStatus('error')
+    this.activeTurn = null
   }
 
   async cancel(reason?: string): Promise<void> {
@@ -213,11 +242,10 @@ export class ChatSession {
     } catch (err) {
       // cancel() already wrote turn.cancel + flipped status, don't double-emit.
       if (this.activeTurn?.requestId !== requestId) return
-      const message = err instanceof Error ? err.message : String(err)
-      const code = err instanceof Error ? err.name : undefined
+      const { message, code, details } = extractErrorDetails(err)
       await this.events.writeProtocolEvent({
         type: 'turn.error',
-        payload: { requestId, code, message },
+        payload: { requestId, code, message, details },
       })
       await this.setStatus('error')
     } finally {

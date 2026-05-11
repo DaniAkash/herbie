@@ -9,7 +9,10 @@ import { setDb } from './db-singleton'
 import { setLoginItem } from './loginItems'
 import app from './server'
 import { loadFrame, persistFrame, type WindowFrame } from './windowState'
-import { ensureDefaultWorkspace } from './workspaces/bootstrap'
+import {
+  ensureDefaultWorkspace,
+  migrateStaleCapabilities,
+} from './workspaces/bootstrap'
 
 const DEV_SERVER_PORT = 5173
 const DEV_SERVER_URL = `http://localhost:${DEV_SERVER_PORT}`
@@ -48,6 +51,10 @@ await setLoginItem(bootGeneral.launchAtLogin)
 // First-boot guard: ensure the default workspace directory and KV row are
 // present. Idempotent on subsequent boots.
 await ensureDefaultWorkspace()
+
+// One-shot cleanup for a stale claude.reasoning entry shipped in an
+// earlier build. Idempotent.
+await migrateStaleCapabilities()
 
 // idleTimeout: 0 disables Bun's per-connection 10s reaper. SSE chat streams
 // can sit idle for minutes during a long agent thinking pause; the default

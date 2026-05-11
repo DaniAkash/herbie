@@ -9,6 +9,11 @@ import {
   ReasoningTrigger,
 } from '@/components/ai-elements/reasoning'
 import {
+  TestError,
+  TestErrorMessage,
+  TestErrorStack,
+} from '@/components/ai-elements/test-results'
+import {
   Tool,
   ToolContent,
   ToolHeader,
@@ -86,9 +91,17 @@ export function ChatMessageRow({
           <div className="text-muted-foreground text-sm italic">thinking…</div>
         )}
         {message.errorMessage && (
-          <div className="rounded border border-destructive/40 bg-destructive/5 px-3 py-2 text-destructive text-xs">
-            {message.errorMessage}
-          </div>
+          <TestError>
+            <TestErrorMessage>{message.errorMessage}</TestErrorMessage>
+            {(message.errorCode || message.errorDetails) && (
+              <TestErrorStack>
+                {message.errorCode && (
+                  <span className="opacity-70">{message.errorCode}: </span>
+                )}
+                {message.errorDetails ?? ''}
+              </TestErrorStack>
+            )}
+          </TestError>
         )}
       </div>
     </Message>
