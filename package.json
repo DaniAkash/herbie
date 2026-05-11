@@ -21,6 +21,7 @@
     "@hono/zod-validator": "^0.7.6",
     "@hookform/resolvers": "^5.2.2",
     "@libsql/client": "^0.17.3",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@radix-ui/react-use-controllable-state": "^1.2.2",
     "@rive-app/react-webgl2": "^4.28.0",
     "@streamdown/cjk": "^1.0.3",
