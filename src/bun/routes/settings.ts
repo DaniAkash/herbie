@@ -89,11 +89,25 @@ const SETTINGS_DEFAULTS: Settings = {
 // SETTINGS_DEFAULTS. (Earlier versions used `generalSchema.partial()` with
 // inner `.default()` calls, but `.partial()` doesn't strip defaults, so a
 // PATCH of one field would inflate to the full domain with all defaults.)
+//
+// `composer.workspaces` is itself partial: callers can PATCH just
+// `{recent: [...]}` without having to ship the current `default` (which
+// might still be loading on the client). The handler merges field-wise.
+const composerPatchSchema = z.object({
+  workspaces: z
+    .object({
+      default: z.string().min(1).optional(),
+      recent: z.array(z.string().min(1)).optional(),
+    })
+    .optional(),
+  agentCapabilities: z.record(z.string(), agentCapabilitySchema).optional(),
+})
+
 const patchSchema = z
   .object({
     general: generalSchema.partial().optional(),
     agents: agentsSchema.partial().optional(),
-    composer: composerSchema.partial().optional(),
+    composer: composerPatchSchema.optional(),
   })
   .strict()
 
@@ -222,10 +236,23 @@ export const settingsRoute = new Hono()
         })
       }
       if (patch.composer) {
-        await writeDomain(tx, 'composer', {
+        // Top-level shallow merge for composer, but nested workspaces
+        // merges field-wise so a partial {workspaces: {recent: [...]}}
+        // doesn't blank out `default`.
+        const ws = patch.composer.workspaces
+        const mergedComposer = {
           ...current.composer,
-          ...patch.composer,
-        })
+          ...(patch.composer.agentCapabilities && {
+            agentCapabilities: patch.composer.agentCapabilities,
+          }),
+          ...(ws && {
+            workspaces: {
+              default: ws.default ?? current.composer.workspaces.default,
+              recent: ws.recent ?? current.composer.workspaces.recent,
+            },
+          }),
+        }
+        await writeDomain(tx, 'composer', mergedComposer)
       }
       return readAll(tx)
     })

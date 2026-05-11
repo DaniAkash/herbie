@@ -67,25 +67,23 @@ export function useWorkspaces(): {
   const addRecent = useCallback(
     (path: string) => {
       // De-dupe + bump to head; cap to keep the dropdown scannable. The
-      // server enforces no max — the cap is purely UX.
+      // server enforces no max — the cap is purely UX. Sparse patch:
+      // only ship `recent` so a settings-still-loading race can't blank
+      // out `default` with an empty string.
       const next = [path, ...recent.filter((p) => p !== path)].slice(
         0,
         RECENT_WORKSPACES_CAP,
       )
-      mutate({
-        composer: {
-          workspaces: { default: defaultPath ?? '', recent: next },
-        },
-      })
+      mutate({ composer: { workspaces: { recent: next } } })
     },
-    [mutate, recent, defaultPath],
+    [mutate, recent],
   )
 
   const setDefault = useCallback(
     (path: string) => {
-      mutate({ composer: { workspaces: { default: path, recent } } })
+      mutate({ composer: { workspaces: { default: path } } })
     },
-    [mutate, recent],
+    [mutate],
   )
 
   return { defaultPath, recent, isLoading, addRecent, setDefault }
