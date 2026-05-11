@@ -1,5 +1,5 @@
 import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
-import { taskRuns } from './task-runs.sql'
+import { TASK_RUN_OUTPUT_SOURCES, taskRuns } from './task-runs.sql'
 import { tasks } from './tasks.sql'
 
 export const INBOX_STATUSES = ['unread', 'read', 'done'] as const
@@ -23,6 +23,14 @@ export const inboxItems = sqliteTable('inbox_items', {
     .notNull()
     .references(() => taskRuns.id, { onDelete: 'cascade' }),
   body: text('body').notNull(),
+  // Mirrors task_runs.outputSource so the renderer can branch
+  // markdown vs aggregated-text rendering without joining back to
+  // task_runs. `tool` = body is structured markdown from
+  // herbie__task_result; `text` = legacy aggregated assistant text;
+  // `empty` = nothing renderable.
+  bodySource: text('body_source', { enum: TASK_RUN_OUTPUT_SOURCES })
+    .notNull()
+    .default('text'),
   agentId: text('agent_id').notNull(),
   modelId: text('model_id'),
   workspacePath: text('workspace_path'),
