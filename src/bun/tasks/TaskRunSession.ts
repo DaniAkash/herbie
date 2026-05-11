@@ -31,15 +31,9 @@ export interface TaskRunInit {
 }
 
 // Single-turn ACP run with a fresh sessionKey so the agent has no
-// memory of prior runs (statelessness guarantee per the plan). The
-// lifecycle:
-//   1. row inserted in task_runs (status='running')
-//   2. provider built with a unique sessionKey, prepare() + setConfig
-//   3. streamText with the prompt; deltas → SSE via run-event-sink
-//   4. on success: aggregate resultText, mark status='completed', emit
-//      turn.finish
-//   5. on cancel/error: emit terminal event, set status, dispose
-//   6. dispose closes the provider so no state leaks to a future run
+// memory of prior runs. Lifecycle: row inserted (status='running')
+// → spinUpProvider → streamText loop (deltas → SSE) → finalize on
+// success/cancel/error → dispose closes the provider.
 export class TaskRunSession {
   private readonly runId: string
   private readonly requestId: string
@@ -51,11 +45,14 @@ export class TaskRunSession {
   // as the legacy fallback when the agent doesn't call the
   // herbie__task_result MCP tool.
   private resultParts: string[] = []
-  // Per-run capture channel for the herbie__task_result tool.
-  // Registered in spinUpProvider, awaited (with a grace window) after
-  // streamText resolves in runStream, disposed in dispose/cancel so
-  // late POSTs are rejected and any awaiter resolves to null.
+  // Per-run capture for the herbie__task_result MCP tool. Awaited
+  // with a 2s grace after streamText resolves; disposed on
+  // cancel/dispose so late POSTs 404.
   private capture: RegisteredCapture | null = null
+  // First-write-wins guard — without it, a Stop during the post-
+  // stream capture grace window writes status='cancelled', then the
+  // 2s timeout fires and runStream overwrites with 'completed'.
+  private finalized = false
   // Resolves after finalize() writes the row — the scheduler awaits
   // this before reading task_runs to deliver the inbox card. The
   // turn.finish bus emit happens before the row update, so a
@@ -117,8 +114,8 @@ export class TaskRunSession {
     return this.activeTurn?.buffer.filter((e) => e.seq > afterSeq) ?? []
   }
 
-  // Kicks off the run. Resolves with the runId immediately; the actual
-  // streaming happens in the background and lands on the SSE bus.
+  // Kicks off the run. Returns the runId immediately; streaming
+  // happens in the background and lands on the SSE bus.
   async start(): Promise<{ runId: string }> {
     this.controller = new AbortController()
     this.activeTurn = {
@@ -156,6 +153,9 @@ export class TaskRunSession {
     // this method, the catch would race past that guard and we'd
     // double-finalize (turn.cancel + turn.error, status flipped twice).
     this.activeTurn = null
+    // Unblock the post-stream capture race so cancel returns fast;
+    // the `finalized` guard catches the same race regardless.
+    this.capture?.dispose()
     this.controller?.abort()
     try {
       await this.provider?.cancel(reason)
@@ -171,11 +171,9 @@ export class TaskRunSession {
 
   async dispose(): Promise<void> {
     this.activeTurn = null
-    // Release the capture before tearing down the provider — if the
-    // MCP child is still mid-POST when stdio closes, the route's
-    // receive() will 404 and the child surfaces a tool error to the
-    // agent (which is already going away). Either way the capture
-    // promise resolves to null and any await unblocks.
+    // Release the capture so any pending await unblocks; a late MCP
+    // POST after this hits a 404 and the child surfaces a tool error
+    // to the (already going away) agent.
     this.capture?.dispose()
     this.capture = null
     try {
@@ -275,6 +273,9 @@ export class TaskRunSession {
       errorDetails?: string
     },
   ): Promise<void> {
+    // First-write-wins — see the `finalized` field comment.
+    if (this.finalized) return
+    this.finalized = true
     const resultText =
       status === 'completed'
         ? this.resultParts.join('').trim() ||
