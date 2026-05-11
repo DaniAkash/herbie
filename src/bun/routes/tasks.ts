@@ -13,6 +13,7 @@ import {
   runEventStream,
 } from '../tasks/run-stream'
 import { getRunManager } from '../tasks/runManager'
+import { getTaskScheduler } from '../tasks/scheduler'
 
 const AGENT_IDS = ['claude', 'codex', 'gemini', 'hermes'] as const
 
@@ -131,6 +132,7 @@ export const tasksRoute = new Hono()
       updatedAt: now,
     }
     await getDb().insert(tasks).values(row).run()
+    await getTaskScheduler(getDb()).rescheduleTask(row.id)
     return c.json(serializeTask(row))
   })
   .get('/tasks/:id', async (c) => {
@@ -174,6 +176,7 @@ export const tasksRoute = new Hono()
       updatedAt: new Date(),
     }
     await getDb().update(tasks).set(next).where(eq(tasks.id, id)).run()
+    await getTaskScheduler(getDb()).rescheduleTask(id)
     const updated = { ...current, ...next }
     return c.json(serializeTask(updated))
   })
@@ -183,6 +186,7 @@ export const tasksRoute = new Hono()
     if (result.rowsAffected === 0) {
       return c.json({ error: 'task not found' }, 404)
     }
+    getTaskScheduler(getDb()).cancelTask(id)
     return c.json({ ok: true })
   })
   // The Test button fires this — accepts the editor's unsaved draft so

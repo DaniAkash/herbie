@@ -10,6 +10,7 @@ import { getSessionManager } from './chat/sessionManager'
 import { setDb } from './db-singleton'
 import { setLoginItem } from './loginItems'
 import app from './server'
+import { getTaskScheduler } from './tasks/scheduler'
 import { loadFrame, persistFrame, type WindowFrame } from './windowState'
 import {
   ensureDefaultWorkspace,
@@ -68,6 +69,12 @@ await migrateStaleCapabilities()
 // Synthesizes a turn.cancel + flips status to idle so the renderer
 // doesn't render the conversation as streaming forever.
 await recoverInterruptedTurns(db)
+
+// Boot the task scheduler — registers a Cron job per active task and
+// applies the per-kind catch-up policy for runs missed while the app
+// was quit. Idempotent: stop() runs in the shutdown handler.
+const taskScheduler = getTaskScheduler(db)
+await taskScheduler.start()
 
 // idleTimeout: 0 disables Bun's per-connection 10s reaper. SSE chat streams
 // can sit idle for minutes during a long agent thinking pause; the default
@@ -177,6 +184,9 @@ Electrobun.events.on('before-quit', () => {
 })
 
 async function shutdown(): Promise<void> {
+  // Stop all cron jobs so no in-flight fire interleaves with the
+  // shutdown writes below.
+  taskScheduler.stop()
   // Flip any in-flight conversations back to idle so the UI doesn't render
   // them stuck on 'streaming' next launch.
   await db
