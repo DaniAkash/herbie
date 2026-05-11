@@ -21,7 +21,9 @@ const mcpServerHttpSchema = z.object({
   id: z.string().min(1),
   type: z.enum(['http', 'sse']),
   name: z.string().min(1),
-  url: z.url(),
+  url: z
+    .url()
+    .refine((u) => /^https?:\/\//i.test(u), 'only http(s) URLs are allowed'),
   headers: z.array(namedValueSchema),
 })
 

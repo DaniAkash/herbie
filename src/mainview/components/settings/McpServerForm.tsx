@@ -25,14 +25,17 @@ import { Input } from '@/components/ui/input'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import type { McpServer, McpServerDraft } from '@/modules/api/settings.hooks'
 
+// .trim() before .min(1) so whitespace-only input ('   ') fails client-side
+// with the same 'Required' message instead of slipping past and being trimmed
+// to '' inside toDraft() (where the server would then reject it confusingly).
 const namedValueSchema = z.object({
-  name: z.string().min(1, 'Required'),
-  value: z.string().min(1, 'Required'),
+  name: z.string().trim().min(1, 'Required'),
+  value: z.string().trim().min(1, 'Required'),
 })
 
 const formSchema = z
   .object({
-    name: z.string().min(1, 'Required'),
+    name: z.string().trim().min(1, 'Required'),
     type: z.enum(['stdio', 'http', 'sse']),
     command: z.string(),
     args: z.array(z.object({ value: z.string() })),
