@@ -10,6 +10,7 @@ import { getSessionManager } from './chat/sessionManager'
 import { setDb } from './db-singleton'
 import { setLoginItem } from './loginItems'
 import app from './server'
+import { recoverInterruptedRuns } from './tasks/recovery'
 import { getTaskScheduler } from './tasks/scheduler'
 import { loadFrame, persistFrame, type WindowFrame } from './windowState'
 import {
@@ -69,6 +70,11 @@ await migrateStaleCapabilities()
 // Synthesizes a turn.cancel + flips status to idle so the renderer
 // doesn't render the conversation as streaming forever.
 await recoverInterruptedTurns(db)
+
+// Same idea for task_runs: any row left at status='running' from a
+// previous bun process needs a synthetic turn.cancel + status flip so
+// the renderer doesn't render a phantom streaming message.
+await recoverInterruptedRuns(db)
 
 // Boot the task scheduler — registers a Cron job per active task and
 // applies the per-kind catch-up policy for runs missed while the app
