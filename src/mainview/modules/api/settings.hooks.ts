@@ -9,7 +9,7 @@ import { queryClient } from './queryClient'
 const $get = api.settings.$get
 const $patch = api.settings.$patch
 
-type SettingsResponse = InferResponseType<typeof $get>
+export type SettingsResponse = InferResponseType<typeof $get>
 type UpdateSettingsInput = InferRequestType<typeof $patch>['json']
 type UpdateSettingsResponse = InferResponseType<typeof $patch>
 
@@ -45,6 +45,29 @@ export function useDefaultAgent(): {
   return {
     defaultAgent: data?.agents.defaultAgent ?? 'claude',
     setDefaultAgent,
+  }
+}
+
+// Derived from the API response so server-schema drift surfaces here
+// as a TS error rather than silently casting unknown values into a
+// stale union.
+export type ThemeMode = SettingsResponse['appearance']['theme']
+
+export function useTheme(): {
+  theme: ThemeMode
+  setTheme: (theme: ThemeMode) => void
+} {
+  const { data } = useSettings()
+  const { mutate } = useUpdateSettings()
+  const setTheme = useCallback(
+    (theme: ThemeMode) => {
+      mutate({ appearance: { theme } })
+    },
+    [mutate],
+  )
+  return {
+    theme: data?.appearance.theme ?? 'system',
+    setTheme,
   }
 }
 
