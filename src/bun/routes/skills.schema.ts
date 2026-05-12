@@ -42,15 +42,22 @@ export const skillsStateSchema = z.object({
   links: z.array(linkRowSchema),
 })
 
-export const addBodySchema = z.object({
-  source: z.string().min(1),
-  skillNames: z.union([z.literal('*'), z.array(z.string().min(1))]).optional(),
-})
+export const addBodySchema = z
+  .object({
+    source: z.string().min(1),
+    skillNames: z
+      .union([z.literal('*'), z.array(z.string().min(1))])
+      .optional(),
+  })
+  .strict()
 
-export const linkBodySchema = z.object({
-  agent: HERBIE_SKILLS_AGENT_ENUM,
-})
+export const linkBodySchema = z
+  .object({
+    agent: HERBIE_SKILLS_AGENT_ENUM,
+  })
+  .strict()
 
 export const rescanBodySchema = z
   .object({ mode: z.enum(['merge', 'replace']).default('merge') })
+  .strict()
   .optional()

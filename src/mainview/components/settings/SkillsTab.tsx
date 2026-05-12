@@ -170,11 +170,9 @@ function SkillRow({
               </Badge>
             )}
           </div>
-          {skill.description && (
-            <span className="truncate text-muted-foreground text-xs">
-              {skill.description}
-            </span>
-          )}
+          <span className="truncate text-muted-foreground text-xs">
+            {skill.description}
+          </span>
           <SourceLine source={skill.source} addedAt={skill.addedAt} />
         </div>
         <DropdownMenu>
@@ -237,9 +235,18 @@ function SkillRow({
               </ToggleGroupItem>
             )
             if (installed) return item
+            // Disabled ToggleGroupItems carry `pointer-events: none` (from
+            // toggleVariants), which would swallow the hover that opens the
+            // tooltip. Wrap in a non-disabled span so the trigger still gets
+            // pointer events while the item underneath remains disabled.
+            // (No tabIndex — the chip itself isn't focusable when disabled,
+            // matching native input behaviour; keyboard users see the
+            // disabled state visually instead of via a tooltip.)
             return (
               <Tooltip key={agent}>
-                <TooltipTrigger render={item} />
+                <TooltipTrigger render={<span className="inline-flex" />}>
+                  {item}
+                </TooltipTrigger>
                 <TooltipContent>
                   {AGENT_LABELS[agent]} is not installed on this machine.
                 </TooltipContent>

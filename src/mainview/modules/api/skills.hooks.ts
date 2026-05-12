@@ -25,21 +25,36 @@ export const useSkillsState = createQuery<SkillsState>({
   fetcher: () => $skillsGet().then(parseResponse<SkillsState>),
 })
 
-function invalidate() {
-  queryClient.invalidateQueries({ queryKey: useSkillsState.getKey() })
+// Each mutation endpoint returns the full post-mutation snapshot
+// (`{ skills, links, … }`) so we don't need a follow-up GET — just narrow
+// the response and write it straight into the query cache. Toggling a chip
+// goes from "click → mutation → invalidate → refetch → re-render" to
+// "click → mutation → cache write → re-render", which is what makes the
+// toggles feel instant.
+type WithSnapshot = SkillsState & Record<string, unknown>
+
+function applySnapshot(data: unknown) {
+  if (!data || typeof data !== 'object') return
+  const snap = data as Partial<WithSnapshot>
+  if (Array.isArray(snap.skills) && Array.isArray(snap.links)) {
+    queryClient.setQueryData(useSkillsState.getKey(), {
+      skills: snap.skills,
+      links: snap.links,
+    })
+  }
 }
 
 const useAddSkillMutation = createMutation<unknown, { source: string }>({
   mutationFn: ({ source }) =>
     $skillsAdd({ json: { source } }).then(parseResponse),
-  onSuccess: invalidate,
+  onSuccess: applySnapshot,
   onError: toastApiError('Could not install skill'),
 })
 
 const useRemoveSkillMutation = createMutation<unknown, { name: string }>({
   mutationFn: ({ name }) =>
     $skillDelete({ param: { name } }).then(parseResponse),
-  onSuccess: invalidate,
+  onSuccess: applySnapshot,
   onError: toastApiError('Could not remove skill'),
 })
 
@@ -49,7 +64,7 @@ const useLinkSkillMutation = createMutation<
 >({
   mutationFn: ({ name, agent }) =>
     $linkAdd({ param: { name }, json: { agent } }).then(parseResponse),
-  onSuccess: invalidate,
+  onSuccess: applySnapshot,
   onError: toastApiError('Could not install skill for this agent'),
 })
 
@@ -59,7 +74,7 @@ const useUnlinkSkillMutation = createMutation<
 >({
   mutationFn: ({ name, agent }) =>
     $linkDelete({ param: { name, agent } }).then(parseResponse),
-  onSuccess: invalidate,
+  onSuccess: applySnapshot,
   onError: toastApiError('Could not uninstall skill for this agent'),
 })
 
@@ -68,9 +83,9 @@ export function useSkills(): {
   linksBySkill: Map<string, Set<SkillsAgentId>>
   isLoading: boolean
   add: (source: string) => Promise<void>
-  remove: (name: string) => Promise<void>
-  link: (name: string, agent: SkillsAgentId) => Promise<void>
-  unlink: (name: string, agent: SkillsAgentId) => Promise<void>
+  remove: (name: string) => void
+  link: (name: string, agent: SkillsAgentId) => void
+  unlink: (name: string, agent: SkillsAgentId) => void
 } {
   const { data, isLoading } = useSkillsState()
   const addM = useAddSkillMutation()
@@ -96,27 +111,34 @@ export function useSkills(): {
     skills,
     linksBySkill,
     isLoading,
+    // `add` keeps the async signature — the install dialog awaits the
+    // result before closing on success. Errors are surfaced by the
+    // mutation's onError; the dialog catches the rethrow and stays open.
     add: useCallback(
       async (source: string) => {
         await addM.mutateAsync({ source })
       },
       [addM],
     ),
+    // remove / link / unlink are fire-and-forget from the UI's perspective
+    // — `mutate` (not `mutateAsync`) swallows rejections so they don't
+    // surface as unhandled promise rejections from event handlers.
+    // The onError handler still runs and shows the toast.
     remove: useCallback(
-      async (name: string) => {
-        await removeM.mutateAsync({ name })
+      (name: string) => {
+        removeM.mutate({ name })
       },
       [removeM],
     ),
     link: useCallback(
-      async (name: string, agent: SkillsAgentId) => {
-        await linkM.mutateAsync({ name, agent })
+      (name: string, agent: SkillsAgentId) => {
+        linkM.mutate({ name, agent })
       },
       [linkM],
     ),
     unlink: useCallback(
-      async (name: string, agent: SkillsAgentId) => {
-        await unlinkM.mutateAsync({ name, agent })
+      (name: string, agent: SkillsAgentId) => {
+        unlinkM.mutate({ name, agent })
       },
       [unlinkM],
     ),

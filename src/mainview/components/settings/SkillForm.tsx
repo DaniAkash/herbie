@@ -22,10 +22,10 @@ import { Input } from '@/components/ui/input'
 import { Spinner } from '@/components/ui/spinner'
 
 // Accept the same source shapes the package's parseSourceInput recognises:
-// owner/repo[#ref], any URL, or a local path (absolute / relative / ~). We
-// surface that as a friendly error; the server runs the real parse and may
-// still reject anything past the first sniff (e.g. a non-existent local
-// path) with a SourceParseError.
+// owner/repo[#ref], any git/http URL (including SSH `git@host:org/repo`
+// and `*.git` variants), or a local path (absolute / relative / ~). The
+// server runs the real parse and may still reject anything past the first
+// sniff (e.g. a non-existent local path) with a SourceParseError.
 const formSchema = z.object({
   source: z
     .string()
@@ -35,6 +35,9 @@ const formSchema = z.object({
       (s) =>
         /^[\w.-]+\/[\w.-]+(#[\w.-]+)?$/.test(s) ||
         /^https?:\/\//i.test(s) ||
+        /^git@[^:]+:.+$/.test(s) ||
+        /^git:\/\//i.test(s) ||
+        /\.git(#[\w.-]+)?$/i.test(s) ||
         s.startsWith('/') ||
         s.startsWith('~') ||
         s.startsWith('.'),

@@ -26,7 +26,11 @@ async function snapshot() {
   return {
     skills: rawSkills.map((s) => ({
       name: s.name,
-      description: s.description,
+      // Defensive: the package's .d.ts says `description` is required, but
+      // older / hand-edited SKILL.md bundles could realistically omit it.
+      // Coercing to '' here keeps the wire shape's `description: string`
+      // contract intact so the client doesn't have to guard on every read.
+      description: s.description ?? '',
       workspacePath: s.workspacePath,
       ...(s.source ? { source: s.source } : {}),
       ...(s.addedAt ? { addedAt: s.addedAt } : {}),
