@@ -1,11 +1,8 @@
 import { ExternalLinkIcon } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
-import {
-  AboutTab,
-  MobileTab,
-  PlaceholderTab,
-} from '@/components/settings/MiscTabs'
+import { AboutTab, MobileTab } from '@/components/settings/MiscTabs'
 import { RegistryTab } from '@/components/settings/RegistryTab'
+import { SkillsTab } from '@/components/settings/SkillsTab'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -64,10 +61,7 @@ export function Settings() {
               <RegistryTab />
             </TabsContent>
             <TabsContent value="skills">
-              <PlaceholderTab
-                title="Skills"
-                body="Drop a skill folder in ~/.herbie/skills. Herbie symlinks it into each agent's skills directory."
-              />
+              <SkillsTab />
             </TabsContent>
             <TabsContent value="mobile">
               <MobileTab />

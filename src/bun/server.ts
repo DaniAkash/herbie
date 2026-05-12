@@ -5,6 +5,7 @@ import { chatRoute } from './routes/chat'
 import { inboxRoute } from './routes/inbox'
 import { internalRoute } from './routes/internal'
 import { settingsRoute } from './routes/settings'
+import { skillsRoute } from './routes/skills'
 import { systemRoute } from './routes/system'
 import { tasksRoute } from './routes/tasks'
 
@@ -25,6 +26,7 @@ const routes = app
   .route('/', tasksRoute)
   .route('/', inboxRoute)
   .route('/', internalRoute)
+  .route('/', skillsRoute)
 
 export type AppType = typeof routes
 export default routes
