@@ -20,8 +20,16 @@ export interface ProviderResolverDeps {
 export async function getOrCreateProvider(
   deps: ProviderResolverDeps,
   tuple: ChatTuple,
+  // Override the default tuple-derived sessionKey. Used when a chat
+  // was seeded from elsewhere (inbox open-in-chat) and must NOT
+  // resume an acpx session from another conversation that happens
+  // to share the same tuple — the seeded conversation has its own
+  // rebuilt prompt and would be silently stripped to a single user
+  // message under acpx's `mode: 'continuation'` if the sessionKey
+  // had been used before.
+  sessionKeyOverride?: string,
 ): Promise<AcpxProvider> {
-  const key = tupleKey(tuple)
+  const key = sessionKeyOverride ?? tupleKey(tuple)
   const cached = deps.providers.get(key)
   if (cached) return cached
 

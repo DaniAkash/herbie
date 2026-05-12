@@ -1,3 +1,5 @@
+import { and, eq } from 'drizzle-orm'
+import { taskRuns } from '../../db/schema/task-runs.sql'
 import { getDb } from '../db-singleton'
 import type { TaskRunInit } from './TaskRunSession'
 import { TaskRunSession } from './TaskRunSession'
@@ -43,9 +45,28 @@ class RunManagerImpl implements RunManager {
 
   async cancel(runId: string, reason?: string): Promise<void> {
     const session = this.runs.get(runId)
-    if (!session) return
-    await session.cancel(reason)
-    this.runs.delete(runId)
+    if (session) {
+      await session.cancel(reason)
+      this.runs.delete(runId)
+      return
+    }
+    // Session already reaped — the run is no longer in-memory. The
+    // row on disk is usually already terminal, but a stale renderer
+    // cache (post-completion before the SSE invalidation lands) can
+    // make the user click Stop on a row that's still showing
+    // `running` locally. Force-flip only if the row is genuinely
+    // still `running`; the `and(eq(id), eq(status, 'running'))`
+    // guard prevents clobbering an already-completed row back to
+    // cancelled. Either way, the next /tasks/:id/runs fetch unsticks
+    // the UI.
+    await getDb()
+      .update(taskRuns)
+      .set({ status: 'cancelled', finishedAt: new Date() })
+      .where(and(eq(taskRuns.id, runId), eq(taskRuns.status, 'running')))
+      .run()
+      .catch(() => {
+        /* row might be gone; no-op */
+      })
   }
 
   async disposeAll(): Promise<void> {

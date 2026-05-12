@@ -18,6 +18,11 @@ export default {
       'dist/index.html': 'views/mainview/index.html',
       'dist/assets': 'views/mainview/assets',
       drizzle: 'drizzle',
+      // The herbie__task_result MCP child is spawned per scheduled run
+      // by the agent (via acpx). It runs as a bun script next to the
+      // bundled bun executable; the spec builder resolves the path
+      // from `process.execPath`.
+      'src/bun/tasks/mcp-task-result': 'mcp-task-result',
     },
     watchIgnore: ['dist/**'],
     mac: {

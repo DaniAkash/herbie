@@ -7,6 +7,7 @@ import {
   Trash2Icon,
 } from 'lucide-react'
 import { useEffect, useRef } from 'react'
+import { MessageResponse } from '@/components/ai-elements/message'
 import {
   TestError,
   TestErrorMessage,
@@ -125,8 +126,17 @@ export function InboxItem({ id }: { id: string }) {
               )}
             </TestError>
           ) : (
-            <article className="whitespace-pre-line rounded-lg border bg-card/60 p-6 text-[15px] leading-relaxed">
-              {item.body}
+            // bodySource = 'tool' → markdown from the herbie__task_result
+            // MCP tool; render through the same Streamdown path as
+            // chat replies. 'text' / 'empty' → legacy aggregated
+            // assistant text; whitespace-pre-line keeps line breaks
+            // sensible without trying to interpret it as markdown.
+            <article className="rounded-lg border bg-card/60 p-6 text-[15px] leading-relaxed">
+              {item.bodySource === 'tool' ? (
+                <MessageResponse>{item.body}</MessageResponse>
+              ) : (
+                <div className="whitespace-pre-line">{item.body}</div>
+              )}
             </article>
           )}
         </div>

@@ -12,9 +12,18 @@ export type TaskRunStatus = (typeof TASK_RUN_STATUSES)[number]
 export const TASK_RUN_TRIGGERS = ['scheduled', 'test'] as const
 export type TaskRunTrigger = (typeof TASK_RUN_TRIGGERS)[number]
 
+// `tool`  — agent called herbie__task_result; resultMarkdown is canonical
+// `text`  — agent didn't call the tool; fall back to aggregated resultText
+// `empty` — neither produced anything renderable
+export const TASK_RUN_OUTPUT_SOURCES = ['tool', 'text', 'empty'] as const
+export type TaskRunOutputSource = (typeof TASK_RUN_OUTPUT_SOURCES)[number]
+
 // Each run snapshots the tuple + prompt at fire time so a later task
 // edit doesn't rewrite history. resultText aggregates assistant text
 // at terminal time; the live event stream lives in task_run_events.
+// resultMarkdown carries the structured brief from the task_result
+// MCP tool when the agent calls it (preferred over resultText for
+// rendering).
 export const taskRuns = sqliteTable('task_runs', {
   id: text('id').primaryKey(),
   taskId: text('task_id')
@@ -32,6 +41,10 @@ export const taskRuns = sqliteTable('task_runs', {
   startedAt: integer('started_at', { mode: 'timestamp_ms' }).notNull(),
   finishedAt: integer('finished_at', { mode: 'timestamp_ms' }),
   resultText: text('result_text'),
+  resultMarkdown: text('result_markdown'),
+  outputSource: text('output_source', { enum: TASK_RUN_OUTPUT_SOURCES })
+    .notNull()
+    .default('text'),
   errorMessage: text('error_message'),
   errorCode: text('error_code'),
   errorDetails: text('error_details'),

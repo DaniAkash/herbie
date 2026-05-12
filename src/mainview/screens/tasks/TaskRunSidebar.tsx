@@ -38,8 +38,6 @@ export interface TaskRunSidebarProps {
   onBeforeTest?: () => Promise<string | null>
 }
 
-const TEXT_ONLY_PART_KINDS = ['text'] as const
-
 // Right-side panel paired with TaskEditor. Top: Test button that
 // fires the current draft against the persisted task; flips to Stop
 // while a run streams. Below: list of past runs, latest first. The
@@ -267,6 +265,12 @@ function RunDetail({ taskId, runId }: { taskId: string; runId: string }) {
 
   const promptSnapshot = run.run?.promptSnapshot ?? ''
 
+  // Test runs are for *debugging* a scheduled task — the user is
+  // tuning the prompt and wants to see everything the agent did:
+  // reasoning, tool calls (including herbie__task_result with the
+  // markdown payload), tool results. That's the full ChatMessageRow
+  // view, same parts the chat screen renders. The structured digest
+  // alone is the inbox card's job, not this view.
   return (
     <div className="flex flex-col gap-3 border-t pt-3">
       <details className="rounded-md border bg-card">
@@ -283,14 +287,19 @@ function RunDetail({ taskId, runId }: { taskId: string; runId: string }) {
             key={m.id}
             message={m}
             agent={run.run.agentId as AgentId}
-            partKinds={TEXT_ONLY_PART_KINDS}
           />
         ))}
       </div>
       {run.run?.finishedAt && (
-        <div className="border-t pt-2 text-[11px] text-muted-foreground tabular-nums">
-          Finished {clockTime(run.run.finishedAt)} ·{' '}
-          {((run.run.finishedAt - run.run.startedAt) / 1000).toFixed(1)}s
+        <div className="flex items-center justify-between border-t pt-2 text-[11px] text-muted-foreground tabular-nums">
+          <span>
+            Finished {clockTime(run.run.finishedAt)} ·{' '}
+            {((run.run.finishedAt - run.run.startedAt) / 1000).toFixed(1)}s
+          </span>
+          <span className="font-mono uppercase tracking-wider opacity-70">
+            via{' '}
+            {run.run.outputSource === 'tool' ? 'task_result' : 'assistant text'}
+          </span>
         </div>
       )}
     </div>

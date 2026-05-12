@@ -19,7 +19,12 @@ import { getEventBus } from './eventBus'
 import type { PersistedEvent, TurnFinishReason } from './events.types'
 import { getOrCreateProvider } from './provider-resolver'
 import { SegmentBuffer } from './streamPart'
-import { type ChatTuple, rebuildMessagesFromLog, tuplesEqual } from './tuple'
+import {
+  type ChatTuple,
+  rebuildMessagesFromLog,
+  tupleKey,
+  tuplesEqual,
+} from './tuple'
 
 export type { ChatTuple }
 
@@ -50,6 +55,7 @@ export class ChatSession {
   private readonly providers = new Map<string, AcpxProvider>()
   private activeTurn: ActiveTurn | null = null
   private lastTuple: ChatTuple | null
+  private readonly seededFromInbox: boolean
   private readonly events: EventSink
 
   private constructor(
@@ -57,9 +63,13 @@ export class ChatSession {
     private readonly db: DB,
     nextSeq: number,
   ) {
-    // Seed lastTuple from the conversation row so a same-tuple resend after
-    // app restart stays on the cheap path. Null fields are part of the key.
-    this.lastTuple = tupleFromConversation(conversation)
+    // Inbox-seeded convo (events present + no acpx session yet) —
+    // need our own sessionKey + force rebuild on first turn.
+    const seededFromInbox = nextSeq > 0 && conversation.acpxRecordId == null
+    this.seededFromInbox = seededFromInbox
+    this.lastTuple = seededFromInbox
+      ? null
+      : tupleFromConversation(conversation)
     this.events = new EventSink(
       db,
       conversation.id,
@@ -141,6 +151,9 @@ export class ChatSession {
     controller: AbortController,
   ): Promise<void> {
     const tupleChanged = !tuplesEqual(tuple, this.lastTuple)
+    const sessionKeyOverride = this.seededFromInbox
+      ? `seeded::${this.conversation.id}::${tupleKey(tuple)}`
+      : undefined
     const provider = await getOrCreateProvider(
       {
         db: this.db,
@@ -149,17 +162,13 @@ export class ChatSession {
         writeProtocolEvent: (e) => this.events.writeProtocolEvent(e),
       },
       tuple,
+      sessionKeyOverride,
     )
 
-    // Cheap path: same tuple → trust acpx's persistent-session memory; only
-    // ship the new user turn. Switch path: full transcript replays into the
-    // new tuple's session via a fresh sessionKey + `mode: 'fresh'`.
+    // Switch path rebuilds full transcript (excluding this turn's
+    // own turn.start so we don't double-ship the user message).
     const messages: ModelMessage[] = tupleChanged
       ? [
-          // The turn.start for this requestId is already in the event log
-          // (we wrote it above for UI/status bookkeeping). Exclude it from
-          // the replay so we don't ship the user message twice — the
-          // explicit append below is the canonical copy for this turn.
           ...(await rebuildMessagesFromLog(
             this.db,
             this.conversation.id,

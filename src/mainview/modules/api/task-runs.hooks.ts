@@ -59,6 +59,22 @@ export const useCancelTaskRun = createMutation<
     $cancel({ param: { id: taskId, runId } }).then(
       parseResponse<{ ok: boolean }>,
     ),
+  onSuccess: (_data, vars) => {
+    // SSE invalidates on terminal events too, but it requires the
+    // run-detail cache to be populated first (appendRunEvent short-
+    // circuits otherwise). If the user clicked Stop before the
+    // detail finished its initial fetch, the SSE path can miss the
+    // invalidation and leave the sidebar's `inFlight` lookup
+    // pointing at a stale `running` row — the Stop button never
+    // flips back. Belt-and-braces invalidation here covers that
+    // window.
+    queryClient.invalidateQueries({
+      queryKey: useTaskRuns.getKey({ id: vars.taskId }),
+    })
+    queryClient.invalidateQueries({
+      queryKey: useTaskRun.getKey({ taskId: vars.taskId, runId: vars.runId }),
+    })
+  },
   onError: toastApiError('Failed to cancel run'),
 })
 

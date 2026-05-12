@@ -163,6 +163,12 @@ class TaskSchedulerImpl implements TaskScheduler {
       .where(eq(taskRuns.id, runId))
       .get()
     if (!run) return
+    // Prefer the structured markdown from herbie__task_result. Fall
+    // back to aggregated assistant text only when the tool wasn't
+    // called. bodySource mirrors run.outputSource so the inbox
+    // renderer can pick the markdown vs text path without joining
+    // back to task_runs.
+    const body = run.resultMarkdown ?? run.resultText ?? ''
     await this.db
       .insert(inboxItems)
       .values({
@@ -170,7 +176,8 @@ class TaskSchedulerImpl implements TaskScheduler {
         taskId: task.id,
         taskName: task.name,
         taskRunId: run.id,
-        body: run.resultText ?? '',
+        body,
+        bodySource: run.outputSource,
         agentId: run.agentId,
         modelId: run.modelId,
         workspacePath: run.workspacePath,

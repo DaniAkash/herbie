@@ -1,13 +1,10 @@
 import type { AcpxProvider } from 'acpx-ai-provider'
 import { type LanguageModelUsage, streamText } from 'ai'
-import { eq } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import type { DB } from '../../db'
 import { taskRuns } from '../../db/schema/task-runs.sql'
-import { buildAcpxProvider } from '../chat/acpxProvider'
 import { extractErrorDetails } from '../chat/error-details'
 import { SegmentBuffer } from '../chat/streamPart'
-import { readAgentCapability } from '../routes/settings'
 import { getRunEventBus } from './run-event-bus'
 import type { ActiveRunEventCtx } from './run-event-sink'
 import { RunEventSink } from './run-event-sink'
@@ -15,14 +12,16 @@ import type { PersistedRunEvent, RunFinishReason } from './run-events'
 import {
   aggregateAssistantFromEvents,
   extractAssistantTextFromPart,
+  pickOutputSource,
+  writeFinalRow,
 } from './run-result'
+import { SCHEDULED_RUN_SYSTEM_PROMPT } from './run-system-prompt'
+import type { RegisteredCapture } from './task-result-capture'
+import { spinUpTaskRunProvider, type TaskRunTuple } from './task-run-provider'
 
-export interface TaskRunTuple {
-  agentId: string
-  modelId: string | null
-  workspacePath: string | null
-  reasoningEffort: string | null
-}
+// Re-exported so callers (runManager, etc.) don't need to know the
+// tuple lives next door.
+export type { TaskRunTuple } from './task-run-provider'
 
 export interface TaskRunInit {
   taskId: string
@@ -32,15 +31,9 @@ export interface TaskRunInit {
 }
 
 // Single-turn ACP run with a fresh sessionKey so the agent has no
-// memory of prior runs (statelessness guarantee per the plan). The
-// lifecycle:
-//   1. row inserted in task_runs (status='running')
-//   2. provider built with a unique sessionKey, prepare() + setConfig
-//   3. streamText with the prompt; deltas → SSE via run-event-sink
-//   4. on success: aggregate resultText, mark status='completed', emit
-//      turn.finish
-//   5. on cancel/error: emit terminal event, set status, dispose
-//   6. dispose closes the provider so no state leaks to a future run
+// memory of prior runs. Lifecycle: row inserted (status='running')
+// → spinUpProvider → streamText loop (deltas → SSE) → finalize on
+// success/cancel/error → dispose closes the provider.
 export class TaskRunSession {
   private readonly runId: string
   private readonly requestId: string
@@ -48,8 +41,18 @@ export class TaskRunSession {
   private provider: AcpxProvider | null = null
   private controller: AbortController | null = null
   private activeTurn: ActiveRunEventCtx | null = null
-  // Aggregated assistant text from the run — persisted onto task_runs.
+  // Aggregated assistant text from the run — persisted onto task_runs
+  // as the legacy fallback when the agent doesn't call the
+  // herbie__task_result MCP tool.
   private resultParts: string[] = []
+  // Per-run capture for the herbie__task_result MCP tool. Awaited
+  // with a 2s grace after streamText resolves; disposed on
+  // cancel/dispose so late POSTs 404.
+  private capture: RegisteredCapture | null = null
+  // First-write-wins guard — without it, a Stop during the post-
+  // stream capture grace window writes status='cancelled', then the
+  // 2s timeout fires and runStream overwrites with 'completed'.
+  private finalized = false
   // Resolves after finalize() writes the row — the scheduler awaits
   // this before reading task_runs to deliver the inbox card. The
   // turn.finish bus emit happens before the row update, so a
@@ -111,8 +114,8 @@ export class TaskRunSession {
     return this.activeTurn?.buffer.filter((e) => e.seq > afterSeq) ?? []
   }
 
-  // Kicks off the run. Resolves with the runId immediately; the actual
-  // streaming happens in the background and lands on the SSE bus.
+  // Kicks off the run. Returns the runId immediately; streaming
+  // happens in the background and lands on the SSE bus.
   async start(): Promise<{ runId: string }> {
     this.controller = new AbortController()
     this.activeTurn = {
@@ -142,14 +145,14 @@ export class TaskRunSession {
 
   async cancel(reason?: string): Promise<void> {
     if (!this.activeTurn) return
-    // Clear activeTurn synchronously *before* we yield to the
-    // event loop. controller.abort() makes runStream's `for await`
-    // throw on the next tick; its catch checks `if (!this.activeTurn)
-    // return` to skip emitting a competing turn.error + finalize.
-    // If we left activeTurn populated until finalize() at the end of
-    // this method, the catch would race past that guard and we'd
-    // double-finalize (turn.cancel + turn.error, status flipped twice).
+    // Clear activeTurn synchronously so runStream's catch (the
+    // abort throws on the next tick) returns early via its
+    // `if (!this.activeTurn) return` guard — no competing
+    // turn.error + finalize race.
     this.activeTurn = null
+    // Unblock the post-stream capture race so cancel returns fast;
+    // the `finalized` guard catches the same race regardless.
+    this.capture?.dispose()
     this.controller?.abort()
     try {
       await this.provider?.cancel(reason)
@@ -165,6 +168,11 @@ export class TaskRunSession {
 
   async dispose(): Promise<void> {
     this.activeTurn = null
+    // Release the capture so any pending await unblocks; a late MCP
+    // POST after this hits a 404 and the child surfaces a tool error
+    // to the (already going away) agent.
+    this.capture?.dispose()
+    this.capture = null
     try {
       await this.provider?.close('run disposed')
     } catch {
@@ -174,31 +182,13 @@ export class TaskRunSession {
   }
 
   private async spinUpProvider(): Promise<void> {
-    // sessionKey is unique per run — guarantees `usedKeys` miss on the
-    // acpx side so the agent gets `mode: 'fresh'` and never sees prior
-    // run state.
-    const sessionKey = `__task-run::${this.init.taskId}::${this.runId}`
-    const provider = buildAcpxProvider({
-      conversationId: this.runId,
-      agentId: this.init.tuple.agentId,
-      workspacePath: this.init.tuple.workspacePath ?? undefined,
-      sessionKey,
+    const { provider, capture } = await spinUpTaskRunProvider(this.db, {
+      taskId: this.init.taskId,
+      runId: this.runId,
+      tuple: this.init.tuple,
     })
-    await provider.prepare()
-    if (this.init.tuple.modelId) {
-      await provider.setConfigOption('model', this.init.tuple.modelId)
-    }
-    if (this.init.tuple.reasoningEffort) {
-      const cap = await readAgentCapability(this.db, this.init.tuple.agentId)
-      const reasoningKey = cap?.reasoning?.key
-      if (reasoningKey) {
-        await provider.setConfigOption(
-          reasoningKey,
-          this.init.tuple.reasoningEffort,
-        )
-      }
-    }
     this.provider = provider
+    this.capture = capture
   }
 
   private async runStream(): Promise<void> {
@@ -206,9 +196,16 @@ export class TaskRunSession {
     let usage: LanguageModelUsage | undefined
     let finishReason: RunFinishReason = 'unknown'
     try {
+      // acpx-ai-provider flattens streamText's `system` field to
+      // "System: ..." plain text the agent ignores. Workaround:
+      // wrap in <system>…</system> inside the user message;
+      // instruction-tuned models honour the XML even on the user
+      // role. DB stores promptSnapshot verbatim — renderers read
+      // from there, never see the tag.
+      const wrappedPrompt = `<system>\n${SCHEDULED_RUN_SYSTEM_PROMPT}\n</system>\n\n${this.init.promptSnapshot}`
       const result = streamText({
         model: this.provider.languageModel(),
-        messages: [{ role: 'user', content: this.init.promptSnapshot }],
+        messages: [{ role: 'user', content: wrappedPrompt }],
         abortSignal: this.controller.signal,
       })
       for await (const part of result.fullStream) {
@@ -221,7 +218,16 @@ export class TaskRunSession {
         type: 'turn.finish',
         payload: { requestId: this.requestId, finishReason, usage },
       })
-      await this.finalize('completed')
+      // Grace window for the MCP POST: the tool's HTTP request may
+      // arrive at Herbie a beat after streamText's `finish` part
+      // lands. Cap the wait so a stuck agent doesn't hold the row
+      // open forever — null means the tool wasn't called and we
+      // fall back to aggregated text in finalize().
+      const markdown = await Promise.race([
+        this.capture?.promise ?? Promise.resolve<string | null>(null),
+        new Promise<string | null>((r) => setTimeout(() => r(null), 2000)),
+      ])
+      await this.finalize('completed', { resultMarkdown: markdown })
     } catch (err) {
       if (!this.activeTurn) return // cancel() already finalized
       const { message, code, details } = extractErrorDetails(err)
@@ -260,29 +266,34 @@ export class TaskRunSession {
 
   private async finalize(
     status: 'completed' | 'cancelled' | 'error',
-    errFields?: {
+    fields?: {
+      // Captured from the herbie__task_result MCP tool, when the
+      // agent called it. Null = tool wasn't called / was disposed /
+      // returned empty — caller falls back to aggregated text.
+      resultMarkdown?: string | null
       errorMessage?: string
       errorCode?: string
       errorDetails?: string
     },
   ): Promise<void> {
+    // First-write-wins — see the `finalized` field comment.
+    if (this.finalized) return
+    this.finalized = true
     const resultText =
       status === 'completed'
         ? this.resultParts.join('').trim() ||
           (await aggregateAssistantFromEvents(this.db, this.runId))
         : null
-    await this.db
-      .update(taskRuns)
-      .set({
-        status,
-        finishedAt: new Date(),
-        resultText,
-        errorMessage: errFields?.errorMessage ?? null,
-        errorCode: errFields?.errorCode ?? null,
-        errorDetails: errFields?.errorDetails ?? null,
-      })
-      .where(eq(taskRuns.id, this.runId))
-      .run()
+    const markdown = fields?.resultMarkdown?.trim() || null
+    await writeFinalRow(this.db, this.runId, {
+      status,
+      resultText,
+      resultMarkdown: markdown,
+      outputSource: pickOutputSource(markdown, resultText),
+      errorMessage: fields?.errorMessage ?? null,
+      errorCode: fields?.errorCode ?? null,
+      errorDetails: fields?.errorDetails ?? null,
+    })
     this.activeTurn = null
     this.resolveDone()
   }
