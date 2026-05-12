@@ -19,16 +19,19 @@ import {
   useSettings,
   useUpdateSettings,
 } from '@/modules/api/settings.hooks'
-import { useHerbieData } from '@/modules/data/HerbieDataProvider'
 import type { AgentId } from '@/modules/data/herbie-data.types'
 import { openExternal } from '@/modules/system/openExternal'
 
-const HERBIE_PRIMARY_AGENTS: ReadonlySet<AgentId> = new Set([
-  'claude',
-  'codex',
-  'gemini',
-  'hermes',
-])
+const AGENT_LABELS: Record<AgentId, string> = {
+  claude: 'Claude Code',
+  codex: 'Codex CLI',
+  gemini: 'Gemini CLI',
+  hermes: 'Hermes Agent',
+}
+
+const HERBIE_PRIMARY_AGENTS: ReadonlySet<AgentId> = new Set(
+  Object.keys(AGENT_LABELS) as AgentId[],
+)
 
 function isPrimaryAgent(agentId: string): agentId is AgentId {
   return HERBIE_PRIMARY_AGENTS.has(agentId as AgentId)
@@ -156,7 +159,6 @@ function SettingRow({
 }
 
 function AgentsTab() {
-  const { agents } = useHerbieData()
   const { defaultAgent, setDefaultAgent } = useDefaultAgent()
   const { data, isLoading } = useAgents()
 
@@ -168,12 +170,9 @@ function AgentsTab() {
   )
   const notInstalled = rows.filter((r) => r.installState === 'not-installed')
 
-  const installedPrimaryIds = new Set<AgentId>(
-    [...installed, ...npxAvailable]
-      .map((r) => r.agentId)
-      .filter(isPrimaryAgent),
-  )
-  const pickerAgents = agents.filter((a) => installedPrimaryIds.has(a.id))
+  const pickerAgents: AgentId[] = [...installed, ...npxAvailable]
+    .map((r) => r.agentId)
+    .filter(isPrimaryAgent)
 
   return (
     <div className="flex flex-col gap-8">
@@ -191,13 +190,13 @@ function AgentsTab() {
             }
             variant="outline"
           >
-            {pickerAgents.map((agent) => (
+            {pickerAgents.map((id) => (
               <ToggleGroupItem
-                key={agent.id}
-                value={agent.id}
-                aria-label={agent.label}
+                key={id}
+                value={id}
+                aria-label={AGENT_LABELS[id]}
               >
-                {agent.label}
+                {AGENT_LABELS[id]}
               </ToggleGroupItem>
             ))}
           </ToggleGroup>
