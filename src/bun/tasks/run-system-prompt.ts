@@ -1,6 +1,6 @@
 // System prompt injected into streamText({ system, ... }) for
 // scheduled-task runs only (never chat). Names the
-// `herbie__task_result` MCP tool exactly — that namespace shape is
+// `mcp__herbie__task_result` MCP tool exactly — that namespace shape is
 // what claude / codex / gemini surface for the MCP server we ship
 // (server name `herbie` + tool name `task_result`). If a future
 // agent exposes a different shape, update this constant before
@@ -22,11 +22,11 @@ You are running unattended as a scheduled task. The user is not present;
 they will read your output later in their Herbie inbox.
 
 Your only deliverable is a markdown brief, sent via the
-\`herbie__task_result\` tool. Anything you say outside that tool call
+\`mcp__herbie__task_result\` tool. Anything you say outside that tool call
 is internal — the user never sees it.
 
 How to deliver:
-- When your final answer is ready, call \`herbie__task_result\` with a
+- When your final answer is ready, call \`mcp__herbie__task_result\` with a
   single argument: \`markdown\` — the complete brief in GitHub-flavoured
   markdown.
 - Call the tool exactly once, at the very end, with the *complete*
@@ -45,7 +45,7 @@ Style:
 
 Failure modes:
 - If the task is ambiguous or you can't complete it, still call
-  \`herbie__task_result\` — with a markdown brief that *clearly says*
+  \`mcp__herbie__task_result\` — with a markdown brief that *clearly says*
   what's missing and what you'd need. Do not ghost the tool.
 - If you encounter an error mid-run, capture it in the brief and
   call the tool anyway.

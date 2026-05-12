@@ -6,7 +6,6 @@ import {
   XCircleIcon,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { MessageResponse } from '@/components/ai-elements/message'
 import type { ComposerTuple } from '@/components/chat/composer.types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -38,8 +37,6 @@ export interface TaskRunSidebarProps {
   // parent is responsible for any navigation that should follow.
   onBeforeTest?: () => Promise<string | null>
 }
-
-const TEXT_ONLY_PART_KINDS = ['text'] as const
 
 // Right-side panel paired with TaskEditor. Top: Test button that
 // fires the current draft against the persisted task; flips to Stop
@@ -267,14 +264,13 @@ function RunDetail({ taskId, runId }: { taskId: string; runId: string }) {
   if (!run) return null
 
   const promptSnapshot = run.run?.promptSnapshot ?? ''
-  // The agent called herbie__task_result and we captured the
-  // canonical brief — render the markdown directly via Streamdown,
-  // skipping the chat-reducer / ChatMessageRow text-only filter
-  // path. The events still exist in task_run_events for a future
-  // debug view; they just don't drive the surface render.
-  const toolMarkdown =
-    run.run.outputSource === 'tool' ? (run.run.resultMarkdown ?? '') : null
 
+  // Test runs are for *debugging* a scheduled task — the user is
+  // tuning the prompt and wants to see everything the agent did:
+  // reasoning, tool calls (including herbie__task_result with the
+  // markdown payload), tool results. That's the full ChatMessageRow
+  // view, same parts the chat screen renders. The structured digest
+  // alone is the inbox card's job, not this view.
   return (
     <div className="flex flex-col gap-3 border-t pt-3">
       <details className="rounded-md border bg-card">
@@ -285,22 +281,15 @@ function RunDetail({ taskId, runId }: { taskId: string; runId: string }) {
           {promptSnapshot}
         </pre>
       </details>
-      {toolMarkdown !== null ? (
-        <article className="rounded-md border bg-card/60 p-4 text-sm leading-relaxed">
-          <MessageResponse>{toolMarkdown}</MessageResponse>
-        </article>
-      ) : (
-        <div className="flex flex-col gap-3">
-          {messages.map((m) => (
-            <ChatMessageRow
-              key={m.id}
-              message={m}
-              agent={run.run.agentId as AgentId}
-              partKinds={TEXT_ONLY_PART_KINDS}
-            />
-          ))}
-        </div>
-      )}
+      <div className="flex flex-col gap-3">
+        {messages.map((m) => (
+          <ChatMessageRow
+            key={m.id}
+            message={m}
+            agent={run.run.agentId as AgentId}
+          />
+        ))}
+      </div>
       {run.run?.finishedAt && (
         <div className="flex items-center justify-between border-t pt-2 text-[11px] text-muted-foreground tabular-nums">
           <span>

@@ -1,11 +1,12 @@
 import { zValidator } from '@hono/zod-validator'
-import { desc, eq } from 'drizzle-orm'
+import { asc, desc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { nanoid } from 'nanoid'
 import { z } from 'zod'
 import { chatEvents } from '../../db/schema/chat-events.sql'
 import { conversations } from '../../db/schema/conversations.sql'
 import { INBOX_STATUSES, inboxItems } from '../../db/schema/inbox-items.sql'
+import { taskRunEvents } from '../../db/schema/task-run-events.sql'
 import { getDb } from '../db-singleton'
 
 type InboxRow = typeof inboxItems.$inferSelect
@@ -73,12 +74,25 @@ export const inboxRoute = new Hono()
       return c.json({ error: 'inbox item not found' }, 404)
     return c.json({ ok: true })
   })
-  // Seeds a new chat conversation with the task prompt as the user's
-  // first message and the inbox body as the assistant's first reply,
-  // then redirects the renderer to it. The user lands mid-conversation
-  // and can continue typing. The chat reducer treats the synthetic
-  // events identically to live ones; same-tuple resend stays on the
-  // cheap path because lastTuple is seeded from the row.
+  // Seeds a new chat conversation from a scheduled-task run by
+  // copying the source run's task_run_events stream verbatim into
+  // chat_events for the new conversation. The chat reducer then
+  // replays the FULL transcript — user prompt, reasoning, tool
+  // calls, tool results, the agent's eventual response — same way
+  // it would for a live chat. The user can pick up where the task
+  // left off and the agent gets the prior conversation back via
+  // `rebuildMessagesFromLog` on the first follow-up turn (same
+  // mechanism the chat side uses on a tuple switch).
+  //
+  // For tool-source rows (the agent delivered via
+  // mcp__herbie__task_result), the event stream may contain only
+  // the tool.call / tool.result frames with no `assistant.text`.
+  // `rebuildMessagesFromLog` only projects user + assistant.text,
+  // so without a synthetic assistant.text the agent's rebuild
+  // would see only the user prompt and have no record of what it
+  // produced. Inject one carrying the markdown right before
+  // turn.finish so both the chat reducer's UI and the rebuild path
+  // see a proper assistant turn.
   .post('/inbox/:id/open-in-chat', async (c) => {
     const id = c.req.param('id')
     const item = await getDb()
@@ -89,8 +103,67 @@ export const inboxRoute = new Hono()
     if (!item) return c.json({ error: 'inbox item not found' }, 404)
 
     const conversationId = nanoid()
-    const requestId = nanoid(8)
     const now = new Date()
+
+    // Source events from the originating task run, in seq order.
+    const sourceEvents = await getDb()
+      .select()
+      .from(taskRunEvents)
+      .where(eq(taskRunEvents.runId, item.taskRunId))
+      .orderBy(asc(taskRunEvents.seq))
+      .all()
+
+    // Decide whether we need to synthesise an assistant.text for the
+    // markdown brief. Tool-source rows almost always lack one (the
+    // agent went straight to the tool call); text-source rows
+    // already carry assistant.text frames.
+    const needsSyntheticAssistant =
+      item.bodySource === 'tool' && item.body.length > 0
+    // Pull the requestId off the first turn.start so the synthetic
+    // event is correlated with the same turn.
+    let turnRequestId: string | null = null
+    for (const ev of sourceEvents) {
+      if (ev.type !== 'turn.start') continue
+      try {
+        const p = JSON.parse(ev.payload) as { requestId?: string }
+        if (typeof p.requestId === 'string') {
+          turnRequestId = p.requestId
+          break
+        }
+      } catch {
+        /* ignore — fall back to nanoid below */
+      }
+    }
+    const requestId = turnRequestId ?? nanoid(8)
+
+    const copied: Array<typeof chatEvents.$inferInsert> = []
+    let nextSeq = 0
+    for (const ev of sourceEvents) {
+      // Inject the synthetic assistant.text immediately before the
+      // first turn.finish event. If the run terminated via
+      // turn.cancel / turn.error we skip — partial briefs aren't
+      // canonical enough to seed as the previous assistant message.
+      if (needsSyntheticAssistant && ev.type === 'turn.finish') {
+        copied.push({
+          conversationId,
+          seq: nextSeq++,
+          type: 'assistant.text',
+          payload: JSON.stringify({
+            requestId,
+            textId: nanoid(),
+            text: item.body,
+          }),
+          createdAt: ev.createdAt,
+        })
+      }
+      copied.push({
+        conversationId,
+        seq: nextSeq++,
+        type: ev.type,
+        payload: ev.payload,
+        createdAt: ev.createdAt,
+      })
+    }
 
     await getDb().transaction(async (tx) => {
       await tx
@@ -111,68 +184,9 @@ export const inboxRoute = new Hono()
         })
         .run()
 
-      // Seed events so the reducer renders a complete first exchange:
-      // user prompt → assistant body (or error) → terminal event.
-      // Without the terminal event the reducer's isStreaming would
-      // stick on true and the composer would render disabled.
-      //
-      // Two shapes — successful runs seed assistant.text + turn.finish;
-      // failed runs seed turn.error so the chat shows the same rich
-      // error block the inbox card shows, instead of a blank reply.
-      const isError = item.errorMessage != null
-      const events = [
-        {
-          conversationId,
-          seq: 0,
-          type: 'turn.start',
-          payload: JSON.stringify({
-            requestId,
-            userMessage: item.promptSnapshot,
-            agentId: item.agentId,
-            modelId: item.modelId,
-            workspacePath: item.workspacePath,
-            reasoningEffort: item.reasoningEffort,
-          }),
-          createdAt: now,
-        },
-        isError
-          ? {
-              conversationId,
-              seq: 1,
-              type: 'turn.error',
-              payload: JSON.stringify({
-                requestId,
-                message: item.errorMessage,
-                code: item.errorCode ?? undefined,
-                details: item.errorDetails ?? undefined,
-              }),
-              createdAt: now,
-            }
-          : {
-              conversationId,
-              seq: 1,
-              type: 'assistant.text',
-              payload: JSON.stringify({
-                requestId,
-                textId: nanoid(),
-                text: item.body,
-              }),
-              createdAt: now,
-            },
-      ]
-      if (!isError) {
-        events.push({
-          conversationId,
-          seq: 2,
-          type: 'turn.finish',
-          payload: JSON.stringify({
-            requestId,
-            finishReason: 'stop',
-          }),
-          createdAt: now,
-        })
+      if (copied.length > 0) {
+        await tx.insert(chatEvents).values(copied).run()
       }
-      await tx.insert(chatEvents).values(events).run()
 
       // Mark read since the user explicitly engaged with this card.
       if (item.status === 'unread') {
