@@ -57,9 +57,17 @@ export class ChatSession {
     private readonly db: DB,
     nextSeq: number,
   ) {
-    // Seed lastTuple from the conversation row so a same-tuple resend after
-    // app restart stays on the cheap path. Null fields are part of the key.
-    this.lastTuple = tupleFromConversation(conversation)
+    // Seed lastTuple from the conversation row so a same-tuple resend
+    // after app restart stays on the cheap path — except when the
+    // conversation has events but no acpx session yet (e.g. it was
+    // seeded by inbox open-in-chat from a scheduled task run). In
+    // that case the acpx side has zero memory of the prior turns;
+    // ship the rebuild on the first user message so the agent sees
+    // the prior conversation.
+    const hasEvents = nextSeq > 0
+    const hasAcpxSession = conversation.acpxRecordId != null
+    this.lastTuple =
+      hasEvents && !hasAcpxSession ? null : tupleFromConversation(conversation)
     this.events = new EventSink(
       db,
       conversation.id,
