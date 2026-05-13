@@ -2,7 +2,7 @@ import {
   createTelegramAdapter,
   type TelegramAdapter,
 } from '@chat-adapter/telegram'
-import { Chat } from 'chat'
+import { Chat, type Thread } from 'chat'
 import { eq } from 'drizzle-orm'
 import {
   type TelegramConnection,
@@ -69,6 +69,18 @@ class TelegramManager {
     if (this.bots.has(connectionId)) return 'running'
     if (this.starting.has(connectionId)) return 'starting'
     return 'stopped'
+  }
+
+  // Returns a Thread handle for posting outside the inbound handler
+  // flow (e.g. mirroring app-typed user messages back to Telegram).
+  // Null when the bot for that connection isn't running.
+  getThread(connectionId: string, telegramChatId: string): Thread | null {
+    const running = this.bots.get(connectionId)
+    if (!running) return null
+    const threadId = running.adapter.encodeThreadId({
+      chatId: telegramChatId,
+    })
+    return running.chat.thread(threadId)
   }
 
   private async doStart(connection: TelegramConnection): Promise<void> {
