@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
+    "@chat-adapter/telegram": "4.27.0",
     "@fontsource-variable/geist": "^5.2.8",
     "@hono/zod-validator": "^0.7.6",
     "@hookform/resolvers": "^5.2.2",
@@ -37,6 +38,7 @@
     "agent-skills-manager": "0.0.1",
     "ai": "^6.0.168",
     "ansi-to-react": "^6.2.6",
+    "chat": "4.27.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",

@@ -89,6 +89,8 @@ export const chatRoute = new Hono()
       acpxRecordId: null,
       agentSessionId: null,
       status: 'idle' as const,
+      origin: 'chat' as const,
+      archivedAt: null,
       createdAt: now,
       updatedAt: now,
     }
