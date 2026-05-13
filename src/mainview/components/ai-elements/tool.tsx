@@ -90,12 +90,21 @@ export const ToolHeader = ({
       )}
       {...props}
     >
-      <div className="flex items-center gap-2">
-        <WrenchIcon className="size-4 text-muted-foreground" />
-        <span className="font-medium text-sm">{title ?? derivedName}</span>
+      {/*
+        `min-w-0 flex-1` lets the title shrink below its content width so
+        the badge + chevron stay aligned no matter how long the tool name
+        gets. Without it, agents that emit verbose tool names (long paths,
+        pipe-separated method lists) push the trigger out past the chat
+        container.
+      */}
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        <WrenchIcon className="size-4 shrink-0 text-muted-foreground" />
+        <span className="truncate text-left font-medium text-sm">
+          {title ?? derivedName}
+        </span>
         {getStatusBadge(state)}
       </div>
-      <ChevronDownIcon className="size-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+      <ChevronDownIcon className="size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
     </CollapsibleTrigger>
   )
 }
