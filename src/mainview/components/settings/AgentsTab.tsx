@@ -1,21 +1,10 @@
 import { ExternalLinkIcon } from 'lucide-react'
-import { PageHeader } from '@/components/layout/PageHeader'
-import { AboutTab, MobileTab } from '@/components/settings/MiscTabs'
-import { RegistryTab } from '@/components/settings/RegistryTab'
-import { SkillsTab } from '@/components/settings/SkillsTab'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Switch } from '@/components/ui/switch'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { type AgentDetection, useAgents } from '@/modules/api/agents.hooks'
-import {
-  type ThemeMode,
-  useDefaultAgent,
-  useSettings,
-  useUpdateSettings,
-} from '@/modules/api/settings.hooks'
+import { useDefaultAgent } from '@/modules/api/settings.hooks'
 import type { AgentId } from '@/modules/data/herbie-data.types'
 import { openExternal } from '@/modules/system/openExternal'
 
@@ -34,125 +23,7 @@ function isPrimaryAgent(agentId: string): agentId is AgentId {
   return HERBIE_PRIMARY_AGENTS.has(agentId as AgentId)
 }
 
-export function Settings() {
-  return (
-    <div className="flex flex-1 flex-col overflow-hidden">
-      <PageHeader maxWidth="max-w-3xl">
-        <h1 className="font-semibold text-base tracking-tight">Settings</h1>
-      </PageHeader>
-      <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-3xl px-6 py-8">
-          <Tabs defaultValue="general">
-            <TabsList variant="line" className="mb-6 gap-4">
-              <TabsTrigger value="general">General</TabsTrigger>
-              <TabsTrigger value="agents">Agents</TabsTrigger>
-              <TabsTrigger value="registry">Registry</TabsTrigger>
-              <TabsTrigger value="skills">Skills</TabsTrigger>
-              <TabsTrigger value="mobile">Mobile</TabsTrigger>
-              <TabsTrigger value="about">About</TabsTrigger>
-            </TabsList>
-            <TabsContent value="general">
-              <GeneralTab />
-            </TabsContent>
-            <TabsContent value="agents">
-              <AgentsTab />
-            </TabsContent>
-            <TabsContent value="registry">
-              <RegistryTab />
-            </TabsContent>
-            <TabsContent value="skills">
-              <SkillsTab />
-            </TabsContent>
-            <TabsContent value="mobile">
-              <MobileTab />
-            </TabsContent>
-            <TabsContent value="about">
-              <AboutTab />
-            </TabsContent>
-          </Tabs>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function GeneralTab() {
-  const { data, isLoading } = useSettings()
-  const { mutate } = useUpdateSettings()
-
-  if (isLoading || !data) {
-    return <Skeleton className="h-40 rounded-lg" />
-  }
-
-  return (
-    <div className="flex flex-col gap-8">
-      <section className="flex flex-col gap-3">
-        <h2 className="font-medium text-sm">Appearance</h2>
-        <ToggleGroup
-          value={[data.appearance.theme]}
-          onValueChange={(v: string[]) =>
-            v[0] && mutate({ appearance: { theme: v[0] as ThemeMode } })
-          }
-          variant="outline"
-        >
-          <ToggleGroupItem value="light" aria-label="Light">
-            Light
-          </ToggleGroupItem>
-          <ToggleGroupItem value="dark" aria-label="Dark">
-            Dark
-          </ToggleGroupItem>
-          <ToggleGroupItem value="system" aria-label="System">
-            System
-          </ToggleGroupItem>
-        </ToggleGroup>
-      </section>
-
-      <section className="flex flex-col gap-3">
-        <h2 className="font-medium text-sm">Application</h2>
-        <div className="divide-y divide-border rounded-lg border bg-card">
-          <SettingRow
-            label="Launch at login"
-            description="Open Herbie automatically when you log in to your Mac."
-            checked={data.general.launchAtLogin}
-            onChange={(v) => mutate({ general: { launchAtLogin: v } })}
-          />
-          <SettingRow
-            label="Keep in menu bar on close"
-            description="When the window is closed, hide it instead of quitting. Reach Herbie again via the menu bar icon."
-            checked={data.general.minimizeToMenubarOnClose}
-            onChange={(v) =>
-              mutate({ general: { minimizeToMenubarOnClose: v } })
-            }
-          />
-        </div>
-      </section>
-    </div>
-  )
-}
-
-function SettingRow({
-  label,
-  description,
-  checked,
-  onChange,
-}: {
-  label: string
-  description: string
-  checked: boolean
-  onChange: (next: boolean) => void
-}) {
-  return (
-    <div className="flex items-center justify-between gap-4 px-5 py-4">
-      <div>
-        <div className="font-medium text-sm">{label}</div>
-        <div className="text-muted-foreground text-xs">{description}</div>
-      </div>
-      <Switch checked={checked} onCheckedChange={onChange} />
-    </div>
-  )
-}
-
-function AgentsTab() {
+export function AgentsTab() {
   const { defaultAgent, setDefaultAgent } = useDefaultAgent()
   const { data, isLoading } = useAgents()
 

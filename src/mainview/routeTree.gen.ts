@@ -12,10 +12,17 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TasksIndexRouteImport } from './routes/tasks.index'
+import { Route as SettingsIndexRouteImport } from './routes/settings.index'
 import { Route as InboxIndexRouteImport } from './routes/inbox.index'
 import { Route as ChatIndexRouteImport } from './routes/chat.index'
 import { Route as TasksNewRouteImport } from './routes/tasks.new'
 import { Route as TasksIdRouteImport } from './routes/tasks.$id'
+import { Route as SettingsSkillsRouteImport } from './routes/settings.skills'
+import { Route as SettingsRegistryRouteImport } from './routes/settings.registry'
+import { Route as SettingsMobileRouteImport } from './routes/settings.mobile'
+import { Route as SettingsGeneralRouteImport } from './routes/settings.general'
+import { Route as SettingsAgentsRouteImport } from './routes/settings.agents'
+import { Route as SettingsAboutRouteImport } from './routes/settings.about'
 import { Route as InboxIdRouteImport } from './routes/inbox.$id'
 import { Route as ChatNewRouteImport } from './routes/chat.new'
 import { Route as ChatIdRouteImport } from './routes/chat.$id'
@@ -34,6 +41,11 @@ const TasksIndexRoute = TasksIndexRouteImport.update({
   id: '/tasks/',
   path: '/tasks/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsIndexRoute = SettingsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => SettingsRoute,
 } as any)
 const InboxIndexRoute = InboxIndexRouteImport.update({
   id: '/inbox/',
@@ -55,6 +67,36 @@ const TasksIdRoute = TasksIdRouteImport.update({
   path: '/tasks/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SettingsSkillsRoute = SettingsSkillsRouteImport.update({
+  id: '/skills',
+  path: '/skills',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsRegistryRoute = SettingsRegistryRouteImport.update({
+  id: '/registry',
+  path: '/registry',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsMobileRoute = SettingsMobileRouteImport.update({
+  id: '/mobile',
+  path: '/mobile',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsGeneralRoute = SettingsGeneralRouteImport.update({
+  id: '/general',
+  path: '/general',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsAgentsRoute = SettingsAgentsRouteImport.update({
+  id: '/agents',
+  path: '/agents',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsAboutRoute = SettingsAboutRouteImport.update({
+  id: '/about',
+  path: '/about',
+  getParentRoute: () => SettingsRoute,
+} as any)
 const InboxIdRoute = InboxIdRouteImport.update({
   id: '/inbox/$id',
   path: '/inbox/$id',
@@ -73,39 +115,59 @@ const ChatIdRoute = ChatIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/settings': typeof SettingsRoute
+  '/settings': typeof SettingsRouteWithChildren
   '/chat/$id': typeof ChatIdRoute
   '/chat/new': typeof ChatNewRoute
   '/inbox/$id': typeof InboxIdRoute
+  '/settings/about': typeof SettingsAboutRoute
+  '/settings/agents': typeof SettingsAgentsRoute
+  '/settings/general': typeof SettingsGeneralRoute
+  '/settings/mobile': typeof SettingsMobileRoute
+  '/settings/registry': typeof SettingsRegistryRoute
+  '/settings/skills': typeof SettingsSkillsRoute
   '/tasks/$id': typeof TasksIdRoute
   '/tasks/new': typeof TasksNewRoute
   '/chat/': typeof ChatIndexRoute
   '/inbox/': typeof InboxIndexRoute
+  '/settings/': typeof SettingsIndexRoute
   '/tasks/': typeof TasksIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/settings': typeof SettingsRoute
   '/chat/$id': typeof ChatIdRoute
   '/chat/new': typeof ChatNewRoute
   '/inbox/$id': typeof InboxIdRoute
+  '/settings/about': typeof SettingsAboutRoute
+  '/settings/agents': typeof SettingsAgentsRoute
+  '/settings/general': typeof SettingsGeneralRoute
+  '/settings/mobile': typeof SettingsMobileRoute
+  '/settings/registry': typeof SettingsRegistryRoute
+  '/settings/skills': typeof SettingsSkillsRoute
   '/tasks/$id': typeof TasksIdRoute
   '/tasks/new': typeof TasksNewRoute
   '/chat': typeof ChatIndexRoute
   '/inbox': typeof InboxIndexRoute
+  '/settings': typeof SettingsIndexRoute
   '/tasks': typeof TasksIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/settings': typeof SettingsRoute
+  '/settings': typeof SettingsRouteWithChildren
   '/chat/$id': typeof ChatIdRoute
   '/chat/new': typeof ChatNewRoute
   '/inbox/$id': typeof InboxIdRoute
+  '/settings/about': typeof SettingsAboutRoute
+  '/settings/agents': typeof SettingsAgentsRoute
+  '/settings/general': typeof SettingsGeneralRoute
+  '/settings/mobile': typeof SettingsMobileRoute
+  '/settings/registry': typeof SettingsRegistryRoute
+  '/settings/skills': typeof SettingsSkillsRoute
   '/tasks/$id': typeof TasksIdRoute
   '/tasks/new': typeof TasksNewRoute
   '/chat/': typeof ChatIndexRoute
   '/inbox/': typeof InboxIndexRoute
+  '/settings/': typeof SettingsIndexRoute
   '/tasks/': typeof TasksIndexRoute
 }
 export interface FileRouteTypes {
@@ -116,22 +178,35 @@ export interface FileRouteTypes {
     | '/chat/$id'
     | '/chat/new'
     | '/inbox/$id'
+    | '/settings/about'
+    | '/settings/agents'
+    | '/settings/general'
+    | '/settings/mobile'
+    | '/settings/registry'
+    | '/settings/skills'
     | '/tasks/$id'
     | '/tasks/new'
     | '/chat/'
     | '/inbox/'
+    | '/settings/'
     | '/tasks/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/settings'
     | '/chat/$id'
     | '/chat/new'
     | '/inbox/$id'
+    | '/settings/about'
+    | '/settings/agents'
+    | '/settings/general'
+    | '/settings/mobile'
+    | '/settings/registry'
+    | '/settings/skills'
     | '/tasks/$id'
     | '/tasks/new'
     | '/chat'
     | '/inbox'
+    | '/settings'
     | '/tasks'
   id:
     | '__root__'
@@ -140,16 +215,23 @@ export interface FileRouteTypes {
     | '/chat/$id'
     | '/chat/new'
     | '/inbox/$id'
+    | '/settings/about'
+    | '/settings/agents'
+    | '/settings/general'
+    | '/settings/mobile'
+    | '/settings/registry'
+    | '/settings/skills'
     | '/tasks/$id'
     | '/tasks/new'
     | '/chat/'
     | '/inbox/'
+    | '/settings/'
     | '/tasks/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  SettingsRoute: typeof SettingsRoute
+  SettingsRoute: typeof SettingsRouteWithChildren
   ChatIdRoute: typeof ChatIdRoute
   ChatNewRoute: typeof ChatNewRoute
   InboxIdRoute: typeof InboxIdRoute
@@ -183,6 +265,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TasksIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/settings/': {
+      id: '/settings/'
+      path: '/'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof SettingsIndexRouteImport
+      parentRoute: typeof SettingsRoute
+    }
     '/inbox/': {
       id: '/inbox/'
       path: '/inbox'
@@ -211,6 +300,48 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TasksIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/settings/skills': {
+      id: '/settings/skills'
+      path: '/skills'
+      fullPath: '/settings/skills'
+      preLoaderRoute: typeof SettingsSkillsRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/registry': {
+      id: '/settings/registry'
+      path: '/registry'
+      fullPath: '/settings/registry'
+      preLoaderRoute: typeof SettingsRegistryRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/mobile': {
+      id: '/settings/mobile'
+      path: '/mobile'
+      fullPath: '/settings/mobile'
+      preLoaderRoute: typeof SettingsMobileRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/general': {
+      id: '/settings/general'
+      path: '/general'
+      fullPath: '/settings/general'
+      preLoaderRoute: typeof SettingsGeneralRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/agents': {
+      id: '/settings/agents'
+      path: '/agents'
+      fullPath: '/settings/agents'
+      preLoaderRoute: typeof SettingsAgentsRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/about': {
+      id: '/settings/about'
+      path: '/about'
+      fullPath: '/settings/about'
+      preLoaderRoute: typeof SettingsAboutRouteImport
+      parentRoute: typeof SettingsRoute
+    }
     '/inbox/$id': {
       id: '/inbox/$id'
       path: '/inbox/$id'
@@ -235,9 +366,33 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface SettingsRouteChildren {
+  SettingsAboutRoute: typeof SettingsAboutRoute
+  SettingsAgentsRoute: typeof SettingsAgentsRoute
+  SettingsGeneralRoute: typeof SettingsGeneralRoute
+  SettingsMobileRoute: typeof SettingsMobileRoute
+  SettingsRegistryRoute: typeof SettingsRegistryRoute
+  SettingsSkillsRoute: typeof SettingsSkillsRoute
+  SettingsIndexRoute: typeof SettingsIndexRoute
+}
+
+const SettingsRouteChildren: SettingsRouteChildren = {
+  SettingsAboutRoute: SettingsAboutRoute,
+  SettingsAgentsRoute: SettingsAgentsRoute,
+  SettingsGeneralRoute: SettingsGeneralRoute,
+  SettingsMobileRoute: SettingsMobileRoute,
+  SettingsRegistryRoute: SettingsRegistryRoute,
+  SettingsSkillsRoute: SettingsSkillsRoute,
+  SettingsIndexRoute: SettingsIndexRoute,
+}
+
+const SettingsRouteWithChildren = SettingsRoute._addFileChildren(
+  SettingsRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  SettingsRoute: SettingsRoute,
+  SettingsRoute: SettingsRouteWithChildren,
   ChatIdRoute: ChatIdRoute,
   ChatNewRoute: ChatNewRoute,
   InboxIdRoute: InboxIdRoute,
