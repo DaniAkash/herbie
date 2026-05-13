@@ -1,12 +1,15 @@
 import type { InferRequestType, InferResponseType } from 'hono/client'
 import { createMutation, createQuery } from 'react-query-kit'
 import { api } from './client'
+import { toastApiError } from './errorToast'
 import { parseResponse } from './parseResponse'
 import { queryClient } from './queryClient'
 
 const $list = api.chat.$get
 const $create = api.chat.$post
 const $seen = api.chat[':id'].seen.$post
+const $patch = api.chat[':id'].$patch
+const $delete = api.chat[':id'].$delete
 
 export type ConversationsResponse = InferResponseType<typeof $list>
 export type ConversationSummary = ConversationsResponse[number]
@@ -19,14 +22,34 @@ export const useConversations = createQuery<ConversationsResponse>({
   fetcher: () => $list().then(parseResponse<ConversationsResponse>),
 })
 
+function invalidateConversationLists(): void {
+  queryClient.invalidateQueries({ queryKey: useConversations.getKey() })
+  // Telegram sidebar reads its own list; keep them in sync since both
+  // panels may surface unread badges that came from the same DB write.
+  queryClient.invalidateQueries({ queryKey: ['telegram', 'chats'] })
+}
+
+// Detail queries for the open chat screen — useConversation in
+// screens/chat/chat.hooks.ts keys these as ['chat', 'conversation', { id }].
+// Renaming or otherwise mutating a conversation has to invalidate the
+// detail too, otherwise the header reads a stale title until the user
+// navigates away and back.
+//
+// Uses the prefix key (no id) so a single call refreshes every cached
+// conversation. Only the on-screen chat is rendered at a time, so the
+// background refetches stay cheap and the cache stays consistent for a
+// fast tab-back.
+function invalidateConversationDetails(): void {
+  queryClient.invalidateQueries({ queryKey: ['chat', 'conversation'] })
+}
+
 export const useCreateConversation = createMutation<
   CreateResponse,
   CreateInput
 >({
   mutationFn: (json) => $create({ json }).then(parseResponse<CreateResponse>),
-  onSuccess: () => {
-    queryClient.invalidateQueries({ queryKey: useConversations.getKey() })
-  },
+  onSuccess: invalidateConversationLists,
+  onError: toastApiError('Could not create conversation'),
 })
 
 // Fires when a conversation opens — clears its unread badge in the
@@ -38,7 +61,45 @@ export const useMarkConversationSeen = createMutation<
 >({
   mutationFn: ({ id }) =>
     $seen({ param: { id } }).then(parseResponse<{ ok: boolean }>),
+  onSuccess: invalidateConversationLists,
+})
+
+export const useRenameConversation = createMutation<
+  unknown,
+  { id: string; title: string }
+>({
+  mutationFn: ({ id, title }) =>
+    $patch({ param: { id }, json: { title } }).then(parseResponse),
   onSuccess: () => {
-    queryClient.invalidateQueries({ queryKey: ['telegram', 'chats'] })
+    invalidateConversationLists()
+    invalidateConversationDetails()
   },
+  onError: toastApiError('Could not rename conversation'),
+})
+
+export const useToggleConversationPin = createMutation<
+  unknown,
+  { id: string; pinned: boolean }
+>({
+  mutationFn: ({ id, pinned }) =>
+    $patch({ param: { id }, json: { pinned } }).then(parseResponse),
+  onSuccess: () => {
+    invalidateConversationLists()
+    invalidateConversationDetails()
+  },
+  onError: toastApiError('Could not update pin state'),
+})
+
+export const useDeleteConversation = createMutation<unknown, { id: string }>({
+  mutationFn: ({ id }) => $delete({ param: { id } }).then(parseResponse),
+  onSuccess: (_data, vars) => {
+    invalidateConversationLists()
+    // Drop the detail cache for the deleted id so a future visit to
+    // /chat/$id misses and surfaces the route's own "not found" UI
+    // rather than rendering against a stale snapshot.
+    queryClient.removeQueries({
+      queryKey: ['chat', 'conversation', { id: vars.id }],
+    })
+  },
+  onError: toastApiError('Could not delete conversation'),
 })

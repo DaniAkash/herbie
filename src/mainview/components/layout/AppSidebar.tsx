@@ -1,11 +1,5 @@
 import { Link, useRouterState } from '@tanstack/react-router'
-import {
-  ClockIcon,
-  InboxIcon,
-  MessageSquareIcon,
-  PlusIcon,
-  SettingsIcon,
-} from 'lucide-react'
+import { ClockIcon, InboxIcon, PlusIcon, SettingsIcon } from 'lucide-react'
 import { Fragment, useMemo } from 'react'
 import {
   Sidebar,
@@ -26,6 +20,7 @@ import {
 } from '@/modules/api/chat.hooks'
 import { useInboxItems } from '@/modules/api/inbox.hooks'
 import { dayBucket } from '@/modules/utils/relativeTime'
+import { ConversationRow } from './ConversationRow'
 import { TelegramSidebarGroup } from './TelegramSidebarGroup'
 
 export function AppSidebar() {
@@ -35,15 +30,22 @@ export function AppSidebar() {
 
   const unreadCount = inboxItems.filter((i) => i.status === 'unread').length
 
-  const grouped = useMemo(() => {
-    const buckets: Array<{ label: string; items: ConversationSummary[] }> = []
-    for (const conv of conversations ?? []) {
+  // Pinned rows render above the dated buckets; within each group the
+  // order mirrors recency (pinnedAt for pinned, updatedAt otherwise).
+  const { pinned, buckets } = useMemo(() => {
+    const all = conversations ?? []
+    const pinnedRows = all
+      .filter((c) => c.pinnedAt != null)
+      .sort((a, b) => (b.pinnedAt ?? 0) - (a.pinnedAt ?? 0))
+    const unpinned = all.filter((c) => c.pinnedAt == null)
+    const dated: Array<{ label: string; items: ConversationSummary[] }> = []
+    for (const conv of unpinned) {
       const label = dayBucket(conv.updatedAt)
-      const last = buckets[buckets.length - 1]
+      const last = dated[dated.length - 1]
       if (last && last.label === label) last.items.push(conv)
-      else buckets.push({ label, items: [conv] })
+      else dated.push({ label, items: [conv] })
     }
-    return buckets
+    return { pinned: pinnedRows, buckets: dated }
   }, [conversations])
 
   return (
@@ -100,25 +102,35 @@ export function AppSidebar() {
 
         <TelegramSidebarGroup />
 
-        {grouped.map((bucket) => (
+        {pinned.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Pinned</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {pinned.map((conv) => (
+                  <ConversationRow
+                    key={conv.id}
+                    conv={conv}
+                    isActive={pathname === `/chat/${conv.id}`}
+                  />
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {buckets.map((bucket) => (
           <Fragment key={bucket.label}>
             <SidebarGroup>
               <SidebarGroupLabel>{bucket.label}</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
                   {bucket.items.map((conv) => (
-                    <SidebarMenuItem key={conv.id}>
-                      <SidebarMenuButton
-                        render={
-                          <Link to="/chat/$id" params={{ id: conv.id }} />
-                        }
-                        isActive={pathname === `/chat/${conv.id}`}
-                        size="sm"
-                      >
-                        <MessageSquareIcon />
-                        <span className="truncate">{conv.title}</span>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
+                    <ConversationRow
+                      key={conv.id}
+                      conv={conv}
+                      isActive={pathname === `/chat/${conv.id}`}
+                    />
                   ))}
                 </SidebarMenu>
               </SidebarGroupContent>

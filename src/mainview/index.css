@@ -170,3 +170,24 @@ body {
     cursor: text;
   }
 }
+
+/* Sidebar typing indicator — three dots pulsing in sequence to signal
+   that an agent in a background conversation is mid-stream. Kept inline
+   so the keyframe travels with the .animate-typing-dot utility. */
+@keyframes typing-dot {
+  0%,
+  60%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-1px);
+  }
+}
+
+.animate-typing-dot {
+  animation: typing-dot 1s ease-in-out infinite;
+}
+
