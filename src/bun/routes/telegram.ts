@@ -1,7 +1,9 @@
 import { zValidator } from '@hono/zod-validator'
-import { desc, eq } from 'drizzle-orm'
+import { desc, eq, inArray } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { nanoid } from 'nanoid'
+import { conversations } from '../../db/schema/conversations.sql'
+import { telegramChats } from '../../db/schema/telegram-chats.sql'
 import {
   type TelegramConnection,
   telegramConnections,
@@ -148,10 +150,27 @@ export const telegramRoute = new Hono()
       .get()
     if (!current) return c.json({ error: 'connection not found' }, 404)
     await getTelegramManager().stop(id)
-    // Phase 1: no telegram_chats rows exist yet (Phase 2 wires the
-    // inbound bridge). The cascade in telegram_chats handles it once
-    // they do; archiving the linked conversations themselves moves
-    // into Phase 2 alongside the conversation-creation path.
+
+    // Mark every conversation tied to this connection as archived so
+    // the sidebar hides it. chat_events stay on disk for future
+    // archive-browsing UI. The telegram_chats mapping rows themselves
+    // get dropped by ON DELETE CASCADE when the connection row goes.
+    const mappedConversationIds = (
+      await getDb()
+        .select({ id: telegramChats.conversationId })
+        .from(telegramChats)
+        .where(eq(telegramChats.connectionId, id))
+        .all()
+    ).map((r) => r.id)
+    if (mappedConversationIds.length > 0) {
+      const now = new Date()
+      await getDb()
+        .update(conversations)
+        .set({ archivedAt: now, updatedAt: now })
+        .where(inArray(conversations.id, mappedConversationIds))
+        .run()
+    }
+
     await getDb()
       .delete(telegramConnections)
       .where(eq(telegramConnections.id, id))

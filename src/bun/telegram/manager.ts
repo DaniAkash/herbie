@@ -10,6 +10,7 @@ import {
 } from '../../db/schema/telegram-connections.sql'
 import { getDb } from '../db-singleton'
 import { decryptSecret } from '../security/secrets'
+import { handleIncomingTelegramMessage } from './bridge'
 import { MemoryStateAdapter } from './state-adapter'
 
 type RunningBot = {
@@ -92,11 +93,23 @@ class TelegramManager {
       logger: 'warn',
     })
 
-    // Phase 1: bot answers /start with a hard-coded ack so the user
-    // can sanity-check the wiring end-to-end. Phase 2 replaces this
-    // with the real ChatSession bridge.
-    chat.onNewMessage(/^\/start\b/, async (thread) => {
-      await thread.post('Herbie is online ✓')
+    // Three entry points → the same bridge:
+    //  - onDirectMessage: 1:1 DMs (Telegram private chats)
+    //  - onNewMention: a @-mention in a group, first time
+    //  - onSubscribedMessage: every follow-up after we subscribe
+    // Subscribing in the first two routes follow-ups through
+    // onSubscribedMessage, which keeps the agent in the same
+    // conversation rather than re-handshaking each turn.
+    chat.onDirectMessage(async (thread, message) => {
+      await thread.subscribe()
+      await handleIncomingTelegramMessage(connection, thread, message)
+    })
+    chat.onNewMention(async (thread, message) => {
+      await thread.subscribe()
+      await handleIncomingTelegramMessage(connection, thread, message)
+    })
+    chat.onSubscribedMessage(async (thread, message) => {
+      await handleIncomingTelegramMessage(connection, thread, message)
     })
 
     try {

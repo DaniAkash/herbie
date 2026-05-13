@@ -1,5 +1,5 @@
 import { zValidator } from '@hono/zod-validator'
-import { and, desc, eq, gt } from 'drizzle-orm'
+import { and, desc, eq, gt, isNull } from 'drizzle-orm'
 import { Hono } from 'hono'
 import type { SSEStreamingApi } from 'hono/streaming'
 import { streamSSE } from 'hono/streaming'
@@ -98,9 +98,17 @@ export const chatRoute = new Hono()
     return c.json(serializeConversation(row))
   })
   .get('/chat', async (c) => {
+    // Sidebar listing: only show in-app conversations that haven't
+    // been archived. Telegram-origin threads will render under their
+    // own "External Chats → Telegram" group in Phase 3; until then,
+    // surfacing them here would mix them with TODAY/YESTERDAY buckets
+    // and double-count once the dedicated UI lands.
     const rows = await getDb()
       .select()
       .from(conversations)
+      .where(
+        and(eq(conversations.origin, 'chat'), isNull(conversations.archivedAt)),
+      )
       .orderBy(desc(conversations.updatedAt))
       .all()
     return c.json(rows.map((r) => serializeConversation(r)))
