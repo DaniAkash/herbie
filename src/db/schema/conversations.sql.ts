@@ -41,6 +41,11 @@ export const conversations = sqliteTable('conversations', {
   // createdAt > lastSeenAt. NULL means "never seen" (every event is
   // unread).
   lastSeenAt: integer('last_seen_at', { mode: 'timestamp_ms' }),
+  // Set when the user pins this conversation in the sidebar. NULL =
+  // unpinned. Used as a sort key (DESC) so the most recently pinned
+  // row sits on top within the Pinned group — gives a future "reorder
+  // pins" UI a natural ordering without an extra column.
+  pinnedAt: integer('pinned_at', { mode: 'timestamp_ms' }),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 })

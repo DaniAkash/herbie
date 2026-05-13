@@ -1,9 +1,10 @@
 import { zValidator } from '@hono/zod-validator'
-import { and, desc, eq, isNull } from 'drizzle-orm'
+import { and, desc, eq, isNull, sql } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
 import { nanoid } from 'nanoid'
 import { z } from 'zod'
+import { chatEvents } from '../../db/schema/chat-events.sql'
 import { conversations } from '../../db/schema/conversations.sql'
 import { type ChatTuple, TurnInProgressError } from '../chat/ChatSession'
 import { getSessionManager } from '../chat/sessionManager'
@@ -20,6 +21,11 @@ function serializeConversation(row: ConversationRow) {
     ...row,
     createdAt: row.createdAt.getTime(),
     updatedAt: row.updatedAt.getTime(),
+    // Surface these as numbers (or null) on the wire so the renderer
+    // can compare timestamps without parsing ISO strings.
+    lastSeenAt: row.lastSeenAt?.getTime() ?? null,
+    pinnedAt: row.pinnedAt?.getTime() ?? null,
+    archivedAt: row.archivedAt?.getTime() ?? null,
   }
 }
 
@@ -52,6 +58,19 @@ const conversationQuery = z
   .object({ afterSeq: z.string().optional() })
   .optional()
 
+// PATCH /chat/:id accepts a title rename, a pin/unpin toggle, or both.
+// At least one field must be present — an empty patch is rejected so
+// callers don't accidentally bump updatedAt with nothing to change.
+const patchSchema = z
+  .object({
+    title: z.string().trim().min(1).max(200).optional(),
+    pinned: z.boolean().optional(),
+  })
+  .strict()
+  .refine((v) => v.title !== undefined || v.pinned !== undefined, {
+    message: 'patch must include title or pinned',
+  })
+
 export const chatRoute = new Hono()
   .post('/chat', zValidator('json', createSchema), async (c) => {
     const body = c.req.valid('json')
@@ -70,27 +89,49 @@ export const chatRoute = new Hono()
       origin: 'chat' as const,
       archivedAt: null,
       lastSeenAt: null,
+      pinnedAt: null,
       createdAt: now,
       updatedAt: now,
     }
     await getDb().insert(conversations).values(row).run()
-    return c.json(serializeConversation(row))
+    return c.json({ ...serializeConversation(row), unread: false })
   })
   .get('/chat', async (c) => {
     // Sidebar listing: only show in-app conversations that haven't
-    // been archived. Telegram-origin threads will render under their
-    // own "External Chats → Telegram" group in Phase 3; until then,
-    // surfacing them here would mix them with TODAY/YESTERDAY buckets
-    // and double-count once the dedicated UI lands.
+    // been archived. Telegram-origin threads render under their own
+    // group via TelegramSidebarGroup; surfacing them here would
+    // mix them with TODAY/YESTERDAY buckets.
+    //
+    // The correlated `lastEventAt` subquery powers the sidebar's
+    // unread dot: an event whose createdAt > lastSeenAt is new since
+    // the user last opened this conversation. SQLite handles this
+    // cheaply at our scale (<1000 conversations); revisit only if
+    // the list ever needs pagination.
     const rows = await getDb()
-      .select()
+      .select({
+        conversation: conversations,
+        lastEventAt: sql<number | null>`(
+          SELECT MAX(${chatEvents.createdAt})
+          FROM ${chatEvents}
+          WHERE ${chatEvents.conversationId} = ${conversations.id}
+        )`,
+      })
       .from(conversations)
       .where(
         and(eq(conversations.origin, 'chat'), isNull(conversations.archivedAt)),
       )
       .orderBy(desc(conversations.updatedAt))
       .all()
-    return c.json(rows.map((r) => serializeConversation(r)))
+
+    return c.json(
+      rows.map(({ conversation, lastEventAt }) => {
+        const serialized = serializeConversation(conversation)
+        const unread =
+          lastEventAt != null &&
+          (serialized.lastSeenAt == null || lastEventAt > serialized.lastSeenAt)
+        return { ...serialized, unread }
+      }),
+    )
   })
   .get('/chat/:id', zValidator('query', conversationQuery), async (c) => {
     const id = c.req.param('id')
@@ -117,6 +158,35 @@ export const chatRoute = new Hono()
     const id = c.req.param('id')
     await getSessionManager().dispose(id)
     await getDb().delete(conversations).where(eq(conversations.id, id)).run()
+    return c.json({ ok: true })
+  })
+  // Rename + pin/unpin. Refuses Telegram-origin rows because their
+  // title is sourced from the upstream chat — mutating it locally
+  // would drift and the next inbound message would clobber it anyway.
+  .patch('/chat/:id', zValidator('json', patchSchema), async (c) => {
+    const id = c.req.param('id')
+    const body = c.req.valid('json')
+    const conv = await getDb()
+      .select()
+      .from(conversations)
+      .where(eq(conversations.id, id))
+      .get()
+    if (!conv) return c.json({ error: 'conversation not found' }, 404)
+    if (conv.origin !== 'chat') {
+      return c.json({ error: 'cannot modify telegram conversations' }, 400)
+    }
+    const next: Partial<typeof conversations.$inferInsert> = {
+      updatedAt: new Date(),
+    }
+    if (body.title !== undefined) next.title = body.title
+    if (body.pinned !== undefined) {
+      next.pinnedAt = body.pinned ? new Date() : null
+    }
+    await getDb()
+      .update(conversations)
+      .set(next)
+      .where(eq(conversations.id, id))
+      .run()
     return c.json({ ok: true })
   })
   // Bumps lastSeenAt to "now" so the sidebar's unread badge clears.
