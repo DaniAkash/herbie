@@ -8,6 +8,7 @@ import { settingsRoute } from './routes/settings'
 import { skillsRoute } from './routes/skills'
 import { systemRoute } from './routes/system'
 import { tasksRoute } from './routes/tasks'
+import { telegramRoute } from './routes/telegram'
 
 const app = new Hono()
 // The API binds to 127.0.0.1 only (see src/bun/index.ts), so it's
@@ -27,6 +28,7 @@ const routes = app
   .route('/', inboxRoute)
   .route('/', internalRoute)
   .route('/', skillsRoute)
+  .route('/', telegramRoute)
 
 export type AppType = typeof routes
 export default routes

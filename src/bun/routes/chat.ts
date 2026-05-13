@@ -1,17 +1,15 @@
 import { zValidator } from '@hono/zod-validator'
-import { and, desc, eq, gt } from 'drizzle-orm'
+import { and, desc, eq, isNull } from 'drizzle-orm'
 import { Hono } from 'hono'
-import type { SSEStreamingApi } from 'hono/streaming'
 import { streamSSE } from 'hono/streaming'
 import { nanoid } from 'nanoid'
 import { z } from 'zod'
-import { chatEvents } from '../../db/schema/chat-events.sql'
 import { conversations } from '../../db/schema/conversations.sql'
 import { type ChatTuple, TurnInProgressError } from '../chat/ChatSession'
-import { getEventBus } from '../chat/eventBus'
-import type { PersistedEvent } from '../chat/events.types'
 import { getSessionManager } from '../chat/sessionManager'
 import { getDb } from '../db-singleton'
+import { mirrorAppTurnToTelegram } from '../telegram/outbound'
+import { loadEvents, parseAfter, runChatStream } from './chat.stream'
 
 const AGENT_IDS = ['claude', 'codex', 'gemini', 'hermes'] as const
 
@@ -54,26 +52,6 @@ const conversationQuery = z
   .object({ afterSeq: z.string().optional() })
   .optional()
 
-function parseAfter(raw: string | undefined | null): number {
-  if (!raw) return -1
-  const n = Number.parseInt(raw, 10)
-  return Number.isFinite(n) ? n : -1
-}
-
-async function loadEvents(conversationId: string, afterSeq: number) {
-  return getDb()
-    .select()
-    .from(chatEvents)
-    .where(
-      and(
-        eq(chatEvents.conversationId, conversationId),
-        gt(chatEvents.seq, afterSeq),
-      ),
-    )
-    .orderBy(chatEvents.seq)
-    .all()
-}
-
 export const chatRoute = new Hono()
   .post('/chat', zValidator('json', createSchema), async (c) => {
     const body = c.req.valid('json')
@@ -89,6 +67,9 @@ export const chatRoute = new Hono()
       acpxRecordId: null,
       agentSessionId: null,
       status: 'idle' as const,
+      origin: 'chat' as const,
+      archivedAt: null,
+      lastSeenAt: null,
       createdAt: now,
       updatedAt: now,
     }
@@ -96,9 +77,17 @@ export const chatRoute = new Hono()
     return c.json(serializeConversation(row))
   })
   .get('/chat', async (c) => {
+    // Sidebar listing: only show in-app conversations that haven't
+    // been archived. Telegram-origin threads will render under their
+    // own "External Chats → Telegram" group in Phase 3; until then,
+    // surfacing them here would mix them with TODAY/YESTERDAY buckets
+    // and double-count once the dedicated UI lands.
     const rows = await getDb()
       .select()
       .from(conversations)
+      .where(
+        and(eq(conversations.origin, 'chat'), isNull(conversations.archivedAt)),
+      )
       .orderBy(desc(conversations.updatedAt))
       .all()
     return c.json(rows.map((r) => serializeConversation(r)))
@@ -128,6 +117,20 @@ export const chatRoute = new Hono()
     const id = c.req.param('id')
     await getSessionManager().dispose(id)
     await getDb().delete(conversations).where(eq(conversations.id, id)).run()
+    return c.json({ ok: true })
+  })
+  // Bumps lastSeenAt to "now" so the sidebar's unread badge clears.
+  // Called by the renderer when a conversation is opened. Idempotent.
+  .post('/chat/:id/seen', async (c) => {
+    const id = c.req.param('id')
+    const result = await getDb()
+      .update(conversations)
+      .set({ lastSeenAt: new Date() })
+      .where(eq(conversations.id, id))
+      .run()
+    if (result.rowsAffected === 0) {
+      return c.json({ error: 'conversation not found' }, 404)
+    }
     return c.json({ ok: true })
   })
   .post('/chat/:id/messages', zValidator('json', sendSchema), async (c) => {
@@ -163,6 +166,16 @@ export const chatRoute = new Hono()
 
       const session = await getSessionManager().getOrCreate(id)
       const result = await session.appendUserMessage(body.text, tuple)
+
+      // If this conversation is mapped to a Telegram chat, mirror the
+      // user message + agent reply back so the Telegram side stays in
+      // sync. Fire-and-forget: HTTP response returns immediately and
+      // the mirror finishes alongside the SSE stream. No-ops for
+      // in-app-only conversations and for paused/error connections.
+      if (conv.origin === 'telegram') {
+        void mirrorAppTurnToTelegram(id, result.requestId, body.text)
+      }
+
       return c.json(result, 202)
     } catch (err) {
       if (err instanceof TurnInProgressError) {
@@ -189,84 +202,3 @@ export const chatRoute = new Hono()
     )
     return streamSSE(c, (stream) => runChatStream(stream, id, after))
   })
-
-async function runChatStream(
-  stream: SSEStreamingApi,
-  id: string,
-  after: number,
-): Promise<void> {
-  // Subscribe before replay so events arriving mid-replay aren't lost.
-  // Buffered events drain at the end with dedupe against `lastReplaySeq`.
-  const liveBuffer: PersistedEvent[] = []
-  let replaying = true
-
-  const writeLive = (ev: PersistedEvent) =>
-    stream
-      .writeSSE({
-        id: String(ev.seq),
-        data: JSON.stringify({
-          type: ev.type,
-          payload: ev.payload,
-          createdAt: ev.createdAt.getTime(),
-        }),
-      })
-      .catch(() => {
-        // Connection closed mid-write; the abort handler will clean up.
-      })
-
-  const unsub = getEventBus().subscribe(id, (ev) => {
-    if (replaying) liveBuffer.push(ev)
-    else void writeLive(ev)
-  })
-  stream.onAbort(unsub)
-
-  let lastReplaySeq = await replayDbEvents(stream, id, after)
-  lastReplaySeq = await replayActiveTurn(stream, id, lastReplaySeq, writeLive)
-
-  replaying = false
-  for (const e of liveBuffer) {
-    if (e.seq > lastReplaySeq) await writeLive(e)
-  }
-  liveBuffer.length = 0
-
-  await new Promise<void>((resolve) => stream.onAbort(resolve))
-}
-
-async function replayDbEvents(
-  stream: SSEStreamingApi,
-  id: string,
-  after: number,
-): Promise<number> {
-  const replay = await loadEvents(id, after)
-  for (const e of replay) {
-    if (stream.aborted || stream.closed) return after
-    // Hand-build the JSON envelope so we don't parse + re-stringify the
-    // already-encoded payload column for every replayed event.
-    await stream.writeSSE({
-      id: String(e.seq),
-      data: `{"type":${JSON.stringify(e.type)},"payload":${e.payload},"createdAt":${e.createdAt.getTime()}}`,
-    })
-  }
-  return replay.length > 0 ? (replay[replay.length - 1]?.seq ?? after) : after
-}
-
-// Bridges DB replay (terminal events from past turns) and the live bus
-// (events emitted from now on). Without this, a subscriber that connects
-// mid-turn would never see ephemeral stream events emitted before it
-// attached to the bus.
-async function replayActiveTurn(
-  stream: SSEStreamingApi,
-  id: string,
-  lastReplaySeq: number,
-  writeLive: (ev: PersistedEvent) => Promise<void>,
-): Promise<number> {
-  const session = getSessionManager().get(id)
-  if (!session) return lastReplaySeq
-  const snapshot = session.getActiveTurnSnapshot(lastReplaySeq)
-  for (const e of snapshot) {
-    if (stream.aborted || stream.closed) return lastReplaySeq
-    await writeLive(e)
-  }
-  const last = snapshot[snapshot.length - 1]
-  return last ? last.seq : lastReplaySeq
-}

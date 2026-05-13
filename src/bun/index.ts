@@ -13,6 +13,7 @@ import { setLoginItem } from './loginItems'
 import app from './server'
 import { recoverInterruptedRuns } from './tasks/recovery'
 import { getTaskScheduler } from './tasks/scheduler'
+import { getTelegramManager } from './telegram/manager'
 import { loadFrame, persistFrame, type WindowFrame } from './windowState'
 import {
   ensureDefaultWorkspace,
@@ -81,6 +82,13 @@ await recoverInterruptedRuns(db)
 // was quit. Idempotent: stop() runs in the shutdown handler.
 const taskScheduler = getTaskScheduler(db)
 await taskScheduler.start()
+
+// Spin up the bot polling loop for every active telegram_connections
+// row. Errors per-row are swallowed and persisted as
+// telegramConnections.lastError so a single bad token doesn't block
+// boot.
+const telegramManager = getTelegramManager()
+await telegramManager.startAll()
 
 // idleTimeout: 0 disables Bun's per-connection 10s reaper. SSE chat streams
 // can sit idle for minutes during a long agent thinking pause; the default
@@ -193,6 +201,7 @@ async function shutdown(): Promise<void> {
   // Stop all cron jobs so no in-flight fire interleaves with the
   // shutdown writes below.
   taskScheduler.stop()
+  await telegramManager.stopAll()
   // Flip any in-flight conversations back to idle so the UI doesn't render
   // them stuck on 'streaming' next launch.
   await db
