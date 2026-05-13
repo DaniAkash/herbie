@@ -36,6 +36,11 @@ export const conversations = sqliteTable('conversations', {
   // browsing, but anything filtering by archivedAt IS NULL hides it
   // from the sidebar.
   archivedAt: integer('archived_at', { mode: 'timestamp_ms' }),
+  // Bumped to "now" when the renderer opens the conversation. Unread
+  // count for sidebar badges is the number of chat_events with
+  // createdAt > lastSeenAt. NULL means "never seen" (every event is
+  // unread).
+  lastSeenAt: integer('last_seen_at', { mode: 'timestamp_ms' }),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
 })

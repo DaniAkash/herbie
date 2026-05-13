@@ -1,6 +1,6 @@
 import { useNavigate } from '@tanstack/react-router'
 import { SparklesIcon } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Conversation,
   ConversationContent,
@@ -11,7 +11,10 @@ import type { ComposerTuple } from '@/components/chat/composer.types'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useCreateConversation } from '@/modules/api/chat.hooks'
+import {
+  useCreateConversation,
+  useMarkConversationSeen,
+} from '@/modules/api/chat.hooks'
 import { useDefaultAgent } from '@/modules/api/settings.hooks'
 import type { AgentId } from '@/modules/data/herbie-data.types'
 import { ChatMessageRow } from './Chat.parts'
@@ -108,6 +111,16 @@ function NewChat() {
 
 function ExistingChat({ conversationId }: { conversationId: string }) {
   const data = useChatData(conversationId)
+  const markSeen = useMarkConversationSeen()
+
+  // Clear the sidebar unread badge whenever the user opens a
+  // conversation. mutateAsync is identity-stable across renders, so
+  // the effect fires once per conversation per mount. Failures are
+  // silent — the next telegram-chats poll refreshes the badge.
+  const markSeenMutate = markSeen.mutateAsync
+  useEffect(() => {
+    void markSeenMutate({ id: conversationId }).catch(() => {})
+  }, [conversationId, markSeenMutate])
 
   if (data.isLoading) {
     return (

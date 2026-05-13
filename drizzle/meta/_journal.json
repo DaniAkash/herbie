@@ -71,6 +71,13 @@
       "when": 1778664351637,
       "tag": "0009_minor_wendell_rand",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1778667424970,
+      "tag": "0010_little_cable",
+      "breakpoints": true
     }
   ]
 }

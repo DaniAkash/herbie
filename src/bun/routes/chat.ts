@@ -91,6 +91,7 @@ export const chatRoute = new Hono()
       status: 'idle' as const,
       origin: 'chat' as const,
       archivedAt: null,
+      lastSeenAt: null,
       createdAt: now,
       updatedAt: now,
     }
@@ -138,6 +139,20 @@ export const chatRoute = new Hono()
     const id = c.req.param('id')
     await getSessionManager().dispose(id)
     await getDb().delete(conversations).where(eq(conversations.id, id)).run()
+    return c.json({ ok: true })
+  })
+  // Bumps lastSeenAt to "now" so the sidebar's unread badge clears.
+  // Called by the renderer when a conversation is opened. Idempotent.
+  .post('/chat/:id/seen', async (c) => {
+    const id = c.req.param('id')
+    const result = await getDb()
+      .update(conversations)
+      .set({ lastSeenAt: new Date() })
+      .where(eq(conversations.id, id))
+      .run()
+    if (result.rowsAffected === 0) {
+      return c.json({ error: 'conversation not found' }, 404)
+    }
     return c.json({ ok: true })
   })
   .post('/chat/:id/messages', zValidator('json', sendSchema), async (c) => {

@@ -12,12 +12,16 @@ const $delete = api.telegram.connections[':id'].$delete
 const $pause = api.telegram.connections[':id'].pause.$post
 const $resume = api.telegram.connections[':id'].resume.$post
 const $workspaceInUse = api.telegram.connections['workspace-in-use'].$get
+const $chats = api.telegram.chats.$get
 
 export type TelegramConnection = InferResponseType<typeof $list>[number]
 export type TelegramConnectionDetail = Exclude<
   InferResponseType<typeof $create>,
   { error: string }
 >
+export type TelegramChatsResponse = InferResponseType<typeof $chats>
+export type TelegramChatsGroup = TelegramChatsResponse[number]
+export type TelegramChatsEntry = TelegramChatsGroup['chats'][number]
 type CreateInput = InferRequestType<typeof $create>['json']
 type PatchInput = InferRequestType<typeof $patch>['json'] & { id: string }
 type WorkspaceInUseResponse = InferResponseType<typeof $workspaceInUse>
@@ -25,6 +29,16 @@ type WorkspaceInUseResponse = InferResponseType<typeof $workspaceInUse>
 export const useTelegramConnections = createQuery<TelegramConnection[]>({
   queryKey: ['telegram', 'connections'],
   fetcher: () => $list().then(parseResponse<TelegramConnection[]>),
+})
+
+// Drives the sidebar's External Chats → Telegram nest. Poll on a
+// short-ish interval so new inbound chats (from Telegram) show up
+// without a page reload — chat_events writes hit the API process
+// directly, but the renderer doesn't get notified yet.
+export const useTelegramChats = createQuery<TelegramChatsResponse>({
+  queryKey: ['telegram', 'chats'],
+  fetcher: () => $chats().then(parseResponse<TelegramChatsResponse>),
+  refetchInterval: 4000,
 })
 
 // Callers gate this at call-time with `{ enabled: path.length > 0 }`.
