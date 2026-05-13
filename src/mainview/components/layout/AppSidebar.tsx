@@ -26,7 +26,7 @@ import {
 } from '@/modules/api/chat.hooks'
 import { useInboxItems } from '@/modules/api/inbox.hooks'
 import { dayBucket } from '@/modules/utils/relativeTime'
-import { ExternalChatsGroup } from './ExternalChatsGroup'
+import { TelegramSidebarGroup } from './TelegramSidebarGroup'
 
 export function AppSidebar() {
   const { data: inboxItems = [] } = useInboxItems()
@@ -98,7 +98,7 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <ExternalChatsGroup />
+        <TelegramSidebarGroup />
 
         {grouped.map((bucket) => (
           <Fragment key={bucket.label}>
