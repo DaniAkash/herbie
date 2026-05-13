@@ -24,10 +24,7 @@ import {
   type TelegramChatsGroup,
   useTelegramChats,
 } from '@/modules/api/telegram.hooks'
-
-// localStorage key per connection; used only when a bot has more
-// than one chat (rare today since most bots are 1:1 DMs).
-const KEY_CONN = (id: string) => `sidebar:telegram:conn:${id}:open`
+import { STORAGE_KEYS } from '@/modules/storage/keys'
 
 export function TelegramSidebarGroup() {
   const { data, isLoading } = useTelegramChats()
@@ -88,7 +85,10 @@ function SingleChatBotRow({ group }: { group: TelegramChatsGroup }) {
 }
 
 function MultiChatBotRow({ group }: { group: TelegramChatsGroup }) {
-  const [open, setOpen] = usePersistedOpen(KEY_CONN(group.connection.id), true)
+  const [open, setOpen] = usePersistedOpen(
+    STORAGE_KEYS.telegramConnectionOpen(group.connection.id),
+    true,
+  )
   const totalUnread = group.chats.reduce((n, c) => n + c.unreadCount, 0)
   return (
     // base-ui Collapsible defaults to <div>; render={<SidebarMenuItem />}
