@@ -104,16 +104,20 @@ export const chatRoute = new Hono()
     //
     // The correlated `lastEventAt` subquery powers the sidebar's
     // unread dot: an event whose createdAt > lastSeenAt is new since
-    // the user last opened this conversation. SQLite handles this
-    // cheaply at our scale (<1000 conversations); revisit only if
-    // the list ever needs pagination.
+    // the user last opened this conversation. `seq` is monotonic per
+    // conversation, so picking the max-seq event via the
+    // (conversation_id, seq) PK index — then reading its created_at —
+    // is an O(log n) lookup, vs an O(n) scan if we MAX(created_at)
+    // directly.
     const rows = await getDb()
       .select({
         conversation: conversations,
         lastEventAt: sql<number | null>`(
-          SELECT MAX(${chatEvents.createdAt})
+          SELECT ${chatEvents.createdAt}
           FROM ${chatEvents}
           WHERE ${chatEvents.conversationId} = ${conversations.id}
+          ORDER BY ${chatEvents.seq} DESC
+          LIMIT 1
         )`,
       })
       .from(conversations)

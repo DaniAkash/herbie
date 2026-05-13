@@ -29,12 +29,27 @@ function invalidateConversationLists(): void {
   queryClient.invalidateQueries({ queryKey: ['telegram', 'chats'] })
 }
 
+// Detail queries for the open chat screen — useConversation in
+// screens/chat/chat.hooks.ts keys these as ['chat', 'conversation', { id }].
+// Renaming or otherwise mutating a conversation has to invalidate the
+// detail too, otherwise the header reads a stale title until the user
+// navigates away and back.
+//
+// Uses the prefix key (no id) so a single call refreshes every cached
+// conversation. Only the on-screen chat is rendered at a time, so the
+// background refetches stay cheap and the cache stays consistent for a
+// fast tab-back.
+function invalidateConversationDetails(): void {
+  queryClient.invalidateQueries({ queryKey: ['chat', 'conversation'] })
+}
+
 export const useCreateConversation = createMutation<
   CreateResponse,
   CreateInput
 >({
   mutationFn: (json) => $create({ json }).then(parseResponse<CreateResponse>),
   onSuccess: invalidateConversationLists,
+  onError: toastApiError('Could not create conversation'),
 })
 
 // Fires when a conversation opens — clears its unread badge in the
@@ -55,7 +70,10 @@ export const useRenameConversation = createMutation<
 >({
   mutationFn: ({ id, title }) =>
     $patch({ param: { id }, json: { title } }).then(parseResponse),
-  onSuccess: invalidateConversationLists,
+  onSuccess: () => {
+    invalidateConversationLists()
+    invalidateConversationDetails()
+  },
   onError: toastApiError('Could not rename conversation'),
 })
 
@@ -65,12 +83,23 @@ export const useToggleConversationPin = createMutation<
 >({
   mutationFn: ({ id, pinned }) =>
     $patch({ param: { id }, json: { pinned } }).then(parseResponse),
-  onSuccess: invalidateConversationLists,
+  onSuccess: () => {
+    invalidateConversationLists()
+    invalidateConversationDetails()
+  },
   onError: toastApiError('Could not update pin state'),
 })
 
 export const useDeleteConversation = createMutation<unknown, { id: string }>({
   mutationFn: ({ id }) => $delete({ param: { id } }).then(parseResponse),
-  onSuccess: invalidateConversationLists,
+  onSuccess: (_data, vars) => {
+    invalidateConversationLists()
+    // Drop the detail cache for the deleted id so a future visit to
+    // /chat/$id misses and surfaces the route's own "not found" UI
+    // rather than rendering against a stale snapshot.
+    queryClient.removeQueries({
+      queryKey: ['chat', 'conversation', { id: vars.id }],
+    })
+  },
   onError: toastApiError('Could not delete conversation'),
 })

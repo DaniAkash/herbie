@@ -26,9 +26,27 @@ export function useSidebarWidth(): {
     widthPxRef.current = widthPx
   }, [widthPx])
 
+  // Owns the in-flight drag's AbortController, if any. Unmounting
+  // while a drag is active aborts the controller, which atomically
+  // removes both window listeners — no risk of setState on an
+  // unmounted component or a leaked global listener.
+  const dragAbortRef = useRef<AbortController | null>(null)
+
+  useEffect(() => {
+    return () => {
+      dragAbortRef.current?.abort()
+      dragAbortRef.current = null
+    }
+  }, [])
+
   const onResizeStart = useCallback(
     (e: React.PointerEvent<Element>) => {
       e.preventDefault()
+      // If a previous drag's abort somehow didn't fire (defensive),
+      // cancel it before starting a new one.
+      dragAbortRef.current?.abort()
+      const controller = new AbortController()
+      dragAbortRef.current = controller
       const startX = e.clientX
       const startWidth = widthPx
 
@@ -40,8 +58,10 @@ export function useSidebarWidth(): {
         setWidthPx(next)
       }
       function onUp() {
-        window.removeEventListener('pointermove', onMove)
-        window.removeEventListener('pointerup', onUp)
+        controller.abort()
+        if (dragAbortRef.current === controller) {
+          dragAbortRef.current = null
+        }
         try {
           window.localStorage.setItem(STORAGE_KEY, String(widthPxRef.current))
         } catch {
@@ -49,8 +69,10 @@ export function useSidebarWidth(): {
           // resets to default on next launch.
         }
       }
-      window.addEventListener('pointermove', onMove)
-      window.addEventListener('pointerup', onUp)
+      window.addEventListener('pointermove', onMove, {
+        signal: controller.signal,
+      })
+      window.addEventListener('pointerup', onUp, { signal: controller.signal })
     },
     [widthPx],
   )
