@@ -190,10 +190,17 @@ function showMainWindow(): void {
 // menu-item clicks (action set by setMenu config). For navigation
 // targets we stash a pending intent that the renderer picks up via
 // GET /internal/tray-intent on focus / interval.
+//
+// Electrobun wraps the payload in an ElectrobunEvent: the actual
+// `{ id, action, data }` lives at `event.data`, not on the event
+// object itself. Reading `event.action` directly returns undefined
+// and every menu click silently falls through to the default.
 tray.on('tray-clicked', (event) => {
-  const evt = event as { action?: string; data?: { id?: string } | null }
-  const action = evt?.action ?? ''
-  const data = evt?.data ?? null
+  const evt = event as {
+    data?: { action?: string; data?: { id?: string } | null }
+  } | null
+  const action = evt?.data?.action ?? ''
+  const data = evt?.data?.data ?? null
 
   switch (action) {
     case 'quit':

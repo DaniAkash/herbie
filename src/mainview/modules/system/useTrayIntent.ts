@@ -7,9 +7,10 @@ import { API_BASE_URL } from '../api/client'
 // just before showing the main window, so by the time the renderer
 // is visible there's typically a pending intent waiting.
 //
-// Polling only runs while the window is visible — when hidden, the
-// user can't see the navigation anyway and we save the requests.
-const POLL_MS = 1000
+// 250ms cadence while visible — single localhost GET, totally fine.
+// Polling pauses entirely when the window is hidden (saves requests
+// and the navigation wouldn't be visible anyway).
+const POLL_MS = 250
 
 export function useTrayIntent(): void {
   const router = useRouter()
@@ -31,10 +32,12 @@ export function useTrayIntent(): void {
         if (!res.ok) return
         const intent = (await res.json()) as { to: string } | null
         if (!intent?.to) return
-        // `to` is a literal path like "/chat/abc" or "/inbox". TanStack
-        // accepts it as `Parameters<typeof navigate>[0]['to']` via the
-        // wildcard string overload.
-        routerRef.current.navigate({ to: intent.to as never })
+        // Intents are raw URL paths like "/chat/abc". router.navigate's
+        // type-narrowing won't accept those for parameterized routes
+        // (it wants `to: '/chat/$id', params: { id }`). history.push
+        // skips the type wall and lets the router re-resolve from the
+        // new URL, which matches the file-based route tree correctly.
+        routerRef.current.history.push(intent.to)
       } catch {
         // Network/parse errors are silent — the next poll retries.
       }
