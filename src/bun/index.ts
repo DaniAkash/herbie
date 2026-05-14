@@ -14,6 +14,9 @@ import app from './server'
 import { recoverInterruptedRuns } from './tasks/recovery'
 import { getTaskScheduler } from './tasks/scheduler'
 import { getTelegramManager } from './telegram/manager'
+import { initTrayBinding } from './tray/binding'
+import { setPendingIntent } from './tray/intent'
+import { refreshTray } from './tray/tray-menu'
 import { loadFrame, persistFrame, type WindowFrame } from './windowState'
 import {
   ensureDefaultWorkspace,
@@ -175,19 +178,71 @@ function createMainWindow(): BrowserWindow {
 
 mainWindow = createMainWindow()
 
-tray.on('tray-clicked', () => {
+function showMainWindow(): void {
   if (mainWindow) {
     mainWindow.show()
   } else {
     mainWindow = createMainWindow()
   }
+}
+
+// Single handler dispatches both bare-icon clicks (no action) and
+// menu-item clicks (action set by setMenu config). For navigation
+// targets we stash a pending intent that the renderer picks up via
+// GET /internal/tray-intent on focus / interval.
+tray.on('tray-clicked', (event) => {
+  const evt = event as { action?: string; data?: { id?: string } | null }
+  const action = evt?.action ?? ''
+  const data = evt?.data ?? null
+
+  switch (action) {
+    case 'quit':
+      Utils.quit()
+      return
+    case 'new-chat':
+      setPendingIntent('/chat/new')
+      break
+    case 'open-inbox':
+      setPendingIntent('/inbox')
+      break
+    case 'open-chats':
+      setPendingIntent('/')
+      break
+    case 'open-mobile-settings':
+      setPendingIntent('/settings/mobile')
+      break
+    case 'open-tasks':
+      setPendingIntent('/tasks')
+      break
+    case 'open-inbox-item':
+      if (data?.id) setPendingIntent(`/inbox/${data.id}`)
+      break
+    case 'open-conversation':
+      if (data?.id) setPendingIntent(`/chat/${data.id}`)
+      break
+    // 'open', '', or anything unknown — just show the window
+    default:
+      break
+  }
+  showMainWindow()
 })
 
-tray.setMenu([
-  { type: 'normal', label: 'Open Herbie', action: 'open' },
-  { type: 'divider' },
-  { type: 'normal', label: 'Quit Herbie', action: 'quit' },
-])
+// Build the initial menu + badge, then register a binding so the
+// Hono refresh middleware and the Telegram bridge can request
+// debounced rebuilds without threading the tray object around.
+await refreshTray(tray, db)
+initTrayBinding(tray, db)
+
+// 5s safety-net poll. Middleware + bridge refresh covers the common
+// paths; this catches state changes that bypass both (e.g. scheduled
+// task fires writing inbox rows directly from the run manager).
+const TRAY_REFRESH_INTERVAL_MS = 5000
+setInterval(() => {
+  void refreshTray(tray, db).catch((err: unknown) => {
+    // biome-ignore lint/suspicious/noConsole: tray refresh failures are dev-debug only
+    console.error('[tray] interval refresh failed:', err)
+  })
+}, TRAY_REFRESH_INTERVAL_MS)
 
 // Best-effort cleanup on quit. Electrobun's quit sequence emits this
 // synchronously and won't await async listeners, but acpx persists session

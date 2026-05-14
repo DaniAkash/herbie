@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { getTaskResultCapture } from '../tasks/task-result-capture'
+import { consumePendingIntent } from '../tray/intent'
 
 // Loopback-only endpoints for processes Herbie itself spawns.
 // `Bun.serve({ hostname: '127.0.0.1' })` in src/bun/index.ts keeps
@@ -14,9 +15,8 @@ import { getTaskResultCapture } from '../tasks/task-result-capture'
 // also prevents a malicious child from filling the row with garbage.
 const MAX_MARKDOWN_BYTES = 256_000
 
-export const internalRoute = new Hono().post(
-  '/internal/task-result/:token',
-  async (c) => {
+export const internalRoute = new Hono()
+  .post('/internal/task-result/:token', async (c) => {
     const token = c.req.param('token')
     const body = (await c.req.json().catch(() => null)) as {
       markdown?: unknown
@@ -35,5 +35,12 @@ export const internalRoute = new Hono().post(
       return c.json({ error: 'not found' }, 404)
     }
     return c.json({ ok: true })
-  },
-)
+  })
+  // Tray click → bun → renderer navigation hop. The renderer polls
+  // this while visible and navigates whenever it sees a non-null
+  // body. The intent is consumed (cleared) on read so the next poll
+  // is a no-op until another tray click writes a new one.
+  .get('/internal/tray-intent', (c) => {
+    const intent = consumePendingIntent()
+    return c.json(intent ?? null)
+  })

@@ -9,6 +9,7 @@ import { skillsRoute } from './routes/skills'
 import { systemRoute } from './routes/system'
 import { tasksRoute } from './routes/tasks'
 import { telegramRoute } from './routes/telegram'
+import { trayRefreshMiddleware } from './tray/tray-refresh-middleware'
 
 const app = new Hono()
 // The API binds to 127.0.0.1 only (see src/bun/index.ts), so it's
@@ -17,6 +18,9 @@ const app = new Hono()
 // packaged renderer, which loads from views:// and sends a different
 // Origin header (or `null`) that no fixed allowlist can cover cleanly.
 app.use('*', cors({ origin: '*' }))
+// Rebuilds the menubar tray after any mutating 2xx so it stays in
+// sync with chat / inbox / telegram changes — no per-route plumbing.
+app.use('*', trayRefreshMiddleware)
 
 const routes = app
   .get('/health', (c) => c.json({ status: 'ok' }))
