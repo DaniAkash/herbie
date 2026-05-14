@@ -14,6 +14,9 @@ import app from './server'
 import { recoverInterruptedRuns } from './tasks/recovery'
 import { getTaskScheduler } from './tasks/scheduler'
 import { getTelegramManager } from './telegram/manager'
+import { initTrayBinding } from './tray/binding'
+import { setPendingIntent } from './tray/intent'
+import { refreshTray } from './tray/tray-menu'
 import { loadFrame, persistFrame, type WindowFrame } from './windowState'
 import {
   ensureDefaultWorkspace,
@@ -175,19 +178,94 @@ function createMainWindow(): BrowserWindow {
 
 mainWindow = createMainWindow()
 
-tray.on('tray-clicked', () => {
+function showMainWindow(): void {
   if (mainWindow) {
     mainWindow.show()
   } else {
     mainWindow = createMainWindow()
   }
+}
+
+// tray-clicked dispatches all menu interactions. Electrobun wraps
+// the FFI payload in an ElectrobunEvent, so the real `{ id, action,
+// data }` lives at `event.data`.
+//
+// Submenu parent items (e.g. "More ▶") get an empty action string
+// from Electrobun's menu serializer, so a click on them shows up
+// here as `action === ''`. macOS expands the submenu natively — we
+// must NOT show the window in that case or the menu collapses and
+// the user has no way to drill in. So: never show the window on an
+// unknown / empty action. Each navigable action shows the window
+// explicitly after stashing its pending intent.
+tray.on('tray-clicked', (event) => {
+  const evt = event as {
+    data?: { action?: string; data?: { id?: string } | null }
+  } | null
+  const action = evt?.data?.action ?? ''
+  const data = evt?.data?.data ?? null
+
+  switch (action) {
+    case 'quit':
+      Utils.quit()
+      return
+    case 'open':
+      showMainWindow()
+      return
+    case 'new-chat':
+      setPendingIntent('/chat/new')
+      showMainWindow()
+      return
+    case 'open-inbox':
+      setPendingIntent('/inbox')
+      showMainWindow()
+      return
+    case 'open-chats':
+      setPendingIntent('/')
+      showMainWindow()
+      return
+    case 'open-mobile-settings':
+      setPendingIntent('/settings/mobile')
+      showMainWindow()
+      return
+    case 'open-tasks':
+      setPendingIntent('/tasks')
+      showMainWindow()
+      return
+    case 'open-inbox-item':
+      if (data?.id) {
+        setPendingIntent(`/inbox/${data.id}`)
+        showMainWindow()
+      }
+      return
+    case 'open-conversation':
+      if (data?.id) {
+        setPendingIntent(`/chat/${data.id}`)
+        showMainWindow()
+      }
+      return
+    default:
+      // Empty action = submenu parent; section headers (`enabled:
+      // false`) shouldn't fire at all but if they did, no-op too.
+      return
+  }
 })
 
-tray.setMenu([
-  { type: 'normal', label: 'Open Herbie', action: 'open' },
-  { type: 'divider' },
-  { type: 'normal', label: 'Quit Herbie', action: 'quit' },
-])
+// Build the initial menu + badge, then register a binding so the
+// Hono refresh middleware and the Telegram bridge can request
+// debounced rebuilds without threading the tray object around.
+await refreshTray(tray, db)
+initTrayBinding(tray, db)
+
+// 5s safety-net poll. Middleware + bridge refresh covers the common
+// paths; this catches state changes that bypass both (e.g. scheduled
+// task fires writing inbox rows directly from the run manager).
+const TRAY_REFRESH_INTERVAL_MS = 5000
+setInterval(() => {
+  void refreshTray(tray, db).catch((err: unknown) => {
+    // biome-ignore lint/suspicious/noConsole: tray refresh failures are dev-debug only
+    console.error('[tray] interval refresh failed:', err)
+  })
+}, TRAY_REFRESH_INTERVAL_MS)
 
 // Best-effort cleanup on quit. Electrobun's quit sequence emits this
 // synchronously and won't await async listeners, but acpx persists session

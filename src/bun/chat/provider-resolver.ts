@@ -13,63 +13,133 @@ import { type ChatTuple, tupleKey } from './tuple'
 export interface ProviderResolverDeps {
   db: DB
   conversationId: string
-  providers: Map<string, AcpxProvider>
   writeProtocolEvent: (event: ProtocolEvent) => Promise<void>
 }
 
-export async function getOrCreateProvider(
+/**
+ * Build a fresh AcpxProvider for a tuple. Does NOT cache; the caller
+ * owns provider lifetime. Does NOT bootstrap (call
+ * `bootstrapNewProvider` separately before the first turn).
+ *
+ * `sessionKeyOverride` is for the inbox-seeded case — those
+ * conversations carry their own rebuilt prompt and must not resume
+ * an acpx session record from another conversation that happens to
+ * share the same tuple. Default sessionKey is `tupleKey(tuple)` so
+ * each (agent, model, cwd, effort) combination gets its own on-disk
+ * acpx record and the file-store handles per-tuple resume
+ * transparently.
+ */
+export async function buildProvider(
   deps: ProviderResolverDeps,
   tuple: ChatTuple,
-  // Override the default tuple-derived sessionKey. Used when a chat
-  // was seeded from elsewhere (inbox open-in-chat) and must NOT
-  // resume an acpx session from another conversation that happens
-  // to share the same tuple — the seeded conversation has its own
-  // rebuilt prompt and would be silently stripped to a single user
-  // message under acpx's `mode: 'continuation'` if the sessionKey
-  // had been used before.
   sessionKeyOverride?: string,
 ): Promise<AcpxProvider> {
-  const key = sessionKeyOverride ?? tupleKey(tuple)
-  const cached = deps.providers.get(key)
-  if (cached) return cached
-
   const settings = await readSettings()
   const cwd = await resolveWorkspaceCwd(deps, tuple.workspacePath, settings)
   const mcpServers = settings.mcp.servers.map(({ id: _id, ...rest }) => rest)
-  const provider = buildAcpxProvider({
+  return buildAcpxProvider({
     conversationId: deps.conversationId,
     agentId: tuple.agentId,
     workspacePath: cwd,
-    sessionKey: key,
+    sessionKey: sessionKeyOverride ?? tupleKey(tuple),
     mcpServers,
   })
+}
 
-  // Spawn the ACP server + open the session before applying config —
-  // setConfigOption is an in-session IPC call. Effort changes apply to
-  // the *next* turn, which is exactly what we're about to issue. A
-  // failure here (unknown agent, auth, config key the runtime doesn't
-  // accept) propagates to appendUserMessage, which writes turn.error
-  // and unsticks the conversation.
+/**
+ * Run the post-build setup steps that need a live ACP session:
+ * `prepare()` (spawn child + open session), then `setConfigOption`
+ * for model and the agent's reasoning key. Each config call is
+ * wrapped in try/catch with a non-fatal warn — a missing or
+ * unsupported key shouldn't kill the first turn; the agent runs on
+ * its default.
+ *
+ * Called once per provider lifetime: after `buildProvider` produces
+ * a fresh provider and before the first `streamText` against it.
+ */
+export async function bootstrapNewProvider(
+  db: DB,
+  provider: AcpxProvider,
+  tuple: ChatTuple,
+): Promise<void> {
+  // prepare() spawns the ACP child + opens the session. Has to land
+  // before setConfigOption (which is an in-session IPC call).
+  // Failures here propagate to the caller; they're fatal — no agent
+  // means no turn.
   await provider.prepare()
+
   if (tuple.modelId) {
-    await provider.setConfigOption('model', tuple.modelId)
-  }
-  if (tuple.reasoningEffort) {
-    // Only apply reasoning when we know the agent advertises a key for
-    // it. No fallback to 'reasoning_effort' — earlier builds did that
-    // and tripped on agents that document but don't actually accept
-    // the option (e.g. claude). The picker hides when the cap is
-    // missing, so reaching this branch with a missing cap means a
-    // stale conversation row; skip silently.
-    const cap = await readAgentCapability(deps.db, tuple.agentId)
-    const reasoningKey = cap?.reasoning?.key
-    if (reasoningKey) {
-      await provider.setConfigOption(reasoningKey, tuple.reasoningEffort)
+    try {
+      await provider.setConfigOption('model', tuple.modelId)
+    } catch (err) {
+      // biome-ignore lint/suspicious/noConsole: non-fatal — agent stays on its default model
+      console.warn('[provider-resolver] setConfigOption(model) failed:', err)
     }
   }
 
-  deps.providers.set(key, provider)
-  return provider
+  if (tuple.reasoningEffort) {
+    // Only apply reasoning when the agent advertises a key for it.
+    // The picker hides the control when the cap is missing, so a
+    // reasoning value paired with a missing cap means a stale
+    // conversation row — skip silently.
+    const cap = await readAgentCapability(db, tuple.agentId)
+    const reasoningKey = cap?.reasoning?.key
+    if (reasoningKey) {
+      try {
+        await provider.setConfigOption(reasoningKey, tuple.reasoningEffort)
+      } catch (err) {
+        // biome-ignore lint/suspicious/noConsole: non-fatal — agent stays on its default effort
+        console.warn(
+          `[provider-resolver] setConfigOption(${reasoningKey}) failed:`,
+          err,
+        )
+      }
+    }
+  }
+}
+
+/**
+ * Push only the changed config fields onto a live provider. Caller
+ * has already verified `providerKeyEqual(oldTuple, newTuple)` is
+ * true, so this is safe — same agent process, same workspace, same
+ * in-flight session memory.
+ *
+ * Model and reasoning effort are the only config-deltable fields.
+ */
+export async function applyConfigDelta(
+  db: DB,
+  provider: AcpxProvider,
+  oldTuple: ChatTuple,
+  newTuple: ChatTuple,
+): Promise<void> {
+  if (newTuple.modelId && newTuple.modelId !== oldTuple.modelId) {
+    try {
+      await provider.setConfigOption('model', newTuple.modelId)
+    } catch (err) {
+      // biome-ignore lint/suspicious/noConsole: non-fatal — see bootstrapNewProvider
+      console.warn('[provider-resolver] in-place model change failed:', err)
+    }
+  }
+  if (
+    newTuple.reasoningEffort &&
+    newTuple.reasoningEffort !== oldTuple.reasoningEffort
+  ) {
+    // Same-agent guarantee from providerKeyEqual — capability lookup
+    // is identical for old and new tuples.
+    const cap = await readAgentCapability(db, newTuple.agentId)
+    const reasoningKey = cap?.reasoning?.key
+    if (reasoningKey) {
+      try {
+        await provider.setConfigOption(reasoningKey, newTuple.reasoningEffort)
+      } catch (err) {
+        // biome-ignore lint/suspicious/noConsole: non-fatal — see bootstrapNewProvider
+        console.warn(
+          `[provider-resolver] in-place ${reasoningKey} change failed:`,
+          err,
+        )
+      }
+    }
+  }
 }
 
 // Resolves the requested workspace path to an existing directory. If the

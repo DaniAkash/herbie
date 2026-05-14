@@ -9,6 +9,7 @@ import { TurnInProgressError } from '../chat/ChatSession'
 import { getSessionManager } from '../chat/sessionManager'
 import type { ChatTuple } from '../chat/tuple'
 import { getDb } from '../db-singleton'
+import { getTrayBinding } from '../tray/binding'
 import { streamTurnToThread } from './forwarder'
 
 // chat-sdk's handler signatures give us Message<unknown>; the adapter
@@ -40,9 +41,16 @@ export async function handleIncomingTelegramMessage(
   }
 
   const conversationId = await resolveConversationId(connection, message, text)
+  // Refresh the tray as soon as the conversation row exists so its
+  // Telegram section reorders / shows the new bot before the agent
+  // even starts streaming. (The Hono middleware can't see this path
+  // — chat-sdk's handlers run outside the request cycle.)
+  getTrayBinding().refresh()
   const requestId = await startTurn(connection, conversationId, text, thread)
   if (!requestId) return
   await streamTurnToThread(conversationId, requestId, thread)
+  // Second refresh after the turn settles so unread counts update.
+  getTrayBinding().refresh()
 }
 
 async function startTurn(
