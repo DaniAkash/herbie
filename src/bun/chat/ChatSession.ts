@@ -16,15 +16,14 @@ import {
 import { extractErrorDetails } from './error-details'
 import { EventSink } from './event-sink'
 import { getEventBus } from './eventBus'
-import type { PersistedEvent, TurnFinishReason } from './events.types'
-import { getOrCreateProvider } from './provider-resolver'
+import type {
+  PersistedEvent,
+  ProtocolEvent,
+  TurnFinishReason,
+} from './events.types'
 import { SegmentBuffer } from './streamPart'
-import {
-  type ChatTuple,
-  rebuildMessagesFromLog,
-  tupleKey,
-  tuplesEqual,
-} from './tuple'
+import type { ChatTuple } from './tuple'
+import { routeTurn, type TurnRouteState } from './turn-router'
 
 export type { ChatTuple }
 
@@ -51,10 +50,16 @@ function tupleFromConversation(conv: Conversation): ChatTuple {
   }
 }
 
+/**
+ * Owns one chat conversation's runtime state: the live acpx provider,
+ * the in-flight turn, and the event sink. Tuple-change routing
+ * (build/dispose provider, replay transcript, in-place config) lives
+ * in `routeTurn` (see turn-router.ts) — this class drives turn
+ * lifecycle (start/run/cancel/dispose).
+ */
 export class ChatSession {
-  private readonly providers = new Map<string, AcpxProvider>()
+  private readonly routeState: TurnRouteState
   private activeTurn: ActiveTurn | null = null
-  private lastTuple: ChatTuple | null
   private readonly seededFromInbox: boolean
   private readonly events: EventSink
 
@@ -64,12 +69,16 @@ export class ChatSession {
     nextSeq: number,
   ) {
     // Inbox-seeded convo (events present + no acpx session yet) —
-    // need our own sessionKey + force rebuild on first turn.
+    // needs its own sessionKey and a forced first-turn replay. For
+    // non-seeded convs we seed `activeTuple` from the row so a future
+    // pre-built-provider path can take session/load on resume.
     const seededFromInbox = nextSeq > 0 && conversation.acpxRecordId == null
     this.seededFromInbox = seededFromInbox
-    this.lastTuple = seededFromInbox
-      ? null
-      : tupleFromConversation(conversation)
+    this.routeState = {
+      provider: null,
+      providerBootstrapped: false,
+      activeTuple: seededFromInbox ? null : tupleFromConversation(conversation),
+    }
     this.events = new EventSink(
       db,
       conversation.id,
@@ -131,12 +140,29 @@ export class ChatSession {
       },
     })
 
-    // Provider spin-up + transcript rebuild can throw on any number of
-    // reasons (agent not installed, auth missing, ACP runtime rejects a
-    // config option, etc). Without a guard here, turn.start lives on
-    // forever in the event log and the renderer is stuck on "streaming".
+    // routeTurn + the stream start can both throw — agent not
+    // installed, acpx rejects a config option, etc. Without a guard
+    // here turn.start lives on forever in the event log and the
+    // renderer is stuck on "streaming".
     try {
-      await this.startTurn(text, tuple, requestId, controller)
+      const messages = await routeTurn(
+        {
+          db: this.db,
+          conversationId: this.conversation.id,
+          seededFromInbox: this.seededFromInbox,
+          resolverDeps: {
+            db: this.db,
+            conversationId: this.conversation.id,
+            writeProtocolEvent: (e: ProtocolEvent) =>
+              this.events.writeProtocolEvent(e),
+          },
+          state: this.routeState,
+        },
+        tuple,
+        text,
+        requestId,
+      )
+      await this.startTurn(messages, tuple, requestId, controller)
       return { requestId }
     } catch (err) {
       await this.failTurnStart(requestId, err)
@@ -145,39 +171,13 @@ export class ChatSession {
   }
 
   private async startTurn(
-    text: string,
+    messages: ModelMessage[],
     tuple: ChatTuple,
     requestId: string,
     controller: AbortController,
   ): Promise<void> {
-    const tupleChanged = !tuplesEqual(tuple, this.lastTuple)
-    const sessionKeyOverride = this.seededFromInbox
-      ? `seeded::${this.conversation.id}::${tupleKey(tuple)}`
-      : undefined
-    const provider = await getOrCreateProvider(
-      {
-        db: this.db,
-        conversationId: this.conversation.id,
-        providers: this.providers,
-        writeProtocolEvent: (e) => this.events.writeProtocolEvent(e),
-      },
-      tuple,
-      sessionKeyOverride,
-    )
-
-    // Switch path rebuilds full transcript (excluding this turn's
-    // own turn.start so we don't double-ship the user message).
-    const messages: ModelMessage[] = tupleChanged
-      ? [
-          ...(await rebuildMessagesFromLog(
-            this.db,
-            this.conversation.id,
-            requestId,
-          )),
-          { role: 'user', content: text },
-        ]
-      : [{ role: 'user', content: text }]
-
+    // routeTurn guarantees a live provider before returning.
+    const provider = this.routeState.provider as AcpxProvider
     this.activeTurn = {
       requestId,
       controller,
@@ -194,7 +194,6 @@ export class ChatSession {
     })
 
     await this.persistTuple(tuple)
-    this.lastTuple = tuple
 
     void this.runTurn(result, requestId, provider)
   }
@@ -232,9 +231,16 @@ export class ChatSession {
         this.activeTurn.controller.abort()
       } catch {}
     }
-    const all = [...this.providers.values()]
-    this.providers.clear()
-    await Promise.allSettled(all.map((p) => p.close('session disposed')))
+    const provider = this.routeState.provider
+    this.routeState.provider = null
+    this.routeState.providerBootstrapped = false
+    if (provider) {
+      try {
+        await provider.close('session disposed')
+      } catch {
+        // best-effort
+      }
+    }
   }
 
   private async runTurn(

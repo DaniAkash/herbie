@@ -24,6 +24,20 @@ export function tuplesEqual(a: ChatTuple | null, b: ChatTuple | null): boolean {
   )
 }
 
+// True when two tuples share the fields that mechanically force a new
+// acpx child process. `agentId` and `workspacePath` are the only ones —
+// `modelId` and `reasoningEffort` are live RPCs (`setConfigOption`) on
+// an open session, so they can change in place. Used by ChatSession to
+// pick between provider rebuild (Path A) and in-place config delta
+// (Path C).
+export function providerKeyEqual(
+  a: ChatTuple | null,
+  b: ChatTuple | null,
+): boolean {
+  if (!a || !b) return a === b
+  return a.agentId === b.agentId && a.workspacePath === b.workspacePath
+}
+
 // Reads chat_events and projects them into a ModelMessage[] for the
 // tuple-changed rebuild path. Tools and reasoning blocks aren't
 // replayed — the new agent sees user/assistant text only (acceptable
