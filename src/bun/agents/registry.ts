@@ -1,11 +1,16 @@
 import { createAgentRegistry } from 'acpx/runtime'
 
-// acpx's built-in registry + a small static override for agents that
-// acpx 0.6.x doesn't ship. hermes still needs the local override; once
-// upstream picks it up we can drop this.
-const STATIC_OVERRIDES: Record<string, string> = { hermes: 'hermes acp' }
+// Shared with detect.ts and acpxProvider.ts so detection, validation,
+// probing, and chat startup all agree on which agent ids are valid.
+// hermes still needs the local override; once acpx ships it upstream
+// the entry can be dropped from this single map.
+export const AGENT_REGISTRY_OVERRIDES: Record<string, string> = {
+  hermes: 'hermes acp',
+}
 
-const builtinRegistry = createAgentRegistry({ overrides: STATIC_OVERRIDES })
+const builtinRegistry = createAgentRegistry({
+  overrides: AGENT_REGISTRY_OVERRIDES,
+})
 
 /**
  * Resolve a built-in agent id to the command-line a child process
@@ -26,4 +31,13 @@ export function resolveAgentCommand(agentId: string): string {
  */
 export function listAllAgentIds(): string[] {
   return [...builtinRegistry.list()]
+}
+
+// Returns null when the id is known; otherwise a human-readable
+// reason suitable for a 400 response body. Centralised so every
+// route that accepts an agentId from the wire applies the same
+// allowlist check.
+export function validateAgentId(agentId: string): string | null {
+  if (listAllAgentIds().includes(agentId)) return null
+  return `Unknown agent id: ${agentId}`
 }

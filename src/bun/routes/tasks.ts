@@ -6,6 +6,7 @@ import { nanoid } from 'nanoid'
 import type { z } from 'zod'
 import { taskRuns } from '../../db/schema/task-runs.sql'
 import { tasks } from '../../db/schema/tasks.sql'
+import { validateAgentId } from '../agents/registry'
 import { getDb } from '../db-singleton'
 import {
   loadAllRunEvents,
@@ -51,6 +52,8 @@ export const tasksRoute = new Hono()
   })
   .post('/tasks', zValidator('json', createSchema), async (c) => {
     const body = c.req.valid('json')
+    const agentError = validateAgentId(body.agentId)
+    if (agentError) return c.json({ error: agentError }, 400)
     const now = new Date()
     const row = {
       id: nanoid(),
@@ -81,6 +84,10 @@ export const tasksRoute = new Hono()
   .patch('/tasks/:id', zValidator('json', updateSchema), async (c) => {
     const id = c.req.param('id')
     const body = c.req.valid('json')
+    if (body.agentId !== undefined) {
+      const agentError = validateAgentId(body.agentId)
+      if (agentError) return c.json({ error: agentError }, 400)
+    }
     const current = await getDb()
       .select()
       .from(tasks)
@@ -133,6 +140,10 @@ export const tasksRoute = new Hono()
   .post('/tasks/:id/test', zValidator('json', testSchema), async (c) => {
     const id = c.req.param('id')
     const body = c.req.valid('json')
+    if (body.agentId !== undefined) {
+      const agentError = validateAgentId(body.agentId)
+      if (agentError) return c.json({ error: agentError }, 400)
+    }
     const task = await getDb()
       .select()
       .from(tasks)

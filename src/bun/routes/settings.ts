@@ -8,6 +8,7 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import type * as schema from '../../db/schema/schema'
 import { settings as settingsTable } from '../../db/schema/settings.sql'
+import { validateAgentId } from '../agents/registry'
 import { getDb } from '../db-singleton'
 import { setLoginItem } from '../loginItems'
 import {
@@ -224,6 +225,11 @@ export const settingsRoute = new Hono()
   })
   .patch('/settings', zValidator('json', patchSchema), async (c) => {
     const patch = c.req.valid('json')
+
+    if (patch.agents?.defaultAgent !== undefined) {
+      const agentError = validateAgentId(patch.agents.defaultAgent)
+      if (agentError) return c.json({ error: agentError }, 400)
+    }
 
     // Read+merge+write inside a single transaction so concurrent PATCHes to
     // the same domain can't interleave and lose updates (last-write-wins).

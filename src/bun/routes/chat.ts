@@ -6,7 +6,7 @@ import { nanoid } from 'nanoid'
 import { z } from 'zod'
 import { chatEvents } from '../../db/schema/chat-events.sql'
 import { conversations } from '../../db/schema/conversations.sql'
-import { listAllAgentIds } from '../agents/registry'
+import { validateAgentId } from '../agents/registry'
 import { type ChatTuple, TurnInProgressError } from '../chat/ChatSession'
 import { getSessionManager } from '../chat/sessionManager'
 import { getDb } from '../db-singleton'
@@ -14,14 +14,10 @@ import { mirrorAppTurnToTelegram } from '../telegram/outbound'
 import { loadEvents, parseAfter, runChatStream } from './chat.stream'
 
 // agentId is free-form at the schema level; runtime validation against
-// the live registry happens inside each handler so Phase 2's custom
-// agents are accepted without revisiting these validators.
+// the live registry happens inside each handler via the shared
+// validateAgentId helper so Phase 2's custom agents are accepted
+// without revisiting these validators.
 const agentIdField = z.string().min(1)
-
-function validateAgentId(agentId: string): string | null {
-  if (listAllAgentIds().includes(agentId)) return null
-  return `Unknown agent id: ${agentId}`
-}
 
 type ConversationRow = typeof conversations.$inferSelect
 

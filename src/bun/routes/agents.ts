@@ -2,6 +2,7 @@ import { homedir } from 'node:os'
 import { Hono } from 'hono'
 import { getOrDiscoverCapabilities } from '../agents/agent-capabilities'
 import { detectAcpAgents } from '../agents/detect'
+import { validateAgentId } from '../agents/registry'
 import { readSettings } from './settings'
 
 export const agentsRoute = new Hono()
@@ -11,6 +12,11 @@ export const agentsRoute = new Hono()
   })
   .get('/agents/:id/capabilities', async (c) => {
     const id = c.req.param('id')
+    // `:id` is client-controlled, so an unknown id needs to surface
+    // as a 4xx — not as the 500 that the registry's resolve-throw
+    // would otherwise produce.
+    const agentError = validateAgentId(id)
+    if (agentError) return c.json({ error: agentError }, 400)
     // Probe runs in the user's default workspace so the agent doesn't
     // accidentally start exploring an unrelated cwd.
     const settings = await readSettings()
