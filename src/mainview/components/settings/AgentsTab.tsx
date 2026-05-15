@@ -7,31 +7,17 @@ import { type AgentDetection, useAgents } from '@/modules/api/agents.hooks'
 import { useDefaultAgent } from '@/modules/api/settings.hooks'
 import { openExternal } from '@/modules/system/openExternal'
 
-// The four agents that ship as built-ins. Used to scope the
-// default-agent toggle group — custom agents (Phase 2) show up in the
-// "Agents" list below but not as default-agent candidates until we
-// understand how a user wants to pick between many.
-const HERBIE_PRIMARY_AGENTS: ReadonlySet<string> = new Set([
-  'claude',
-  'codex',
-  'gemini',
-  'hermes',
-])
-
-function isPrimaryAgent(agentId: string): boolean {
-  return HERBIE_PRIMARY_AGENTS.has(agentId)
-}
-
 export function AgentsTab() {
   const { defaultAgent, setDefaultAgent } = useDefaultAgent()
   const { data, isLoading } = useAgents()
 
+  // Mirror the composer AgentPicker's grouping: anything not in
+  // `not-installed` is usable today (the npx-available ones just fetch
+  // on first use). The picker's filter is `installState !== 'not-installed'`,
+  // so the settings page splits the same way.
   const rows = data ?? []
-  const primaryRows = rows.filter((row) => isPrimaryAgent(row.agentId))
-  const installed = primaryRows.filter((r) => r.installState === 'installed')
-  const npxAvailable = primaryRows.filter(
-    (r) => r.installState === 'npx-available',
-  )
+  const installed = rows.filter((r) => r.installState === 'installed')
+  const npxAvailable = rows.filter((r) => r.installState === 'npx-available')
   const notInstalled = rows.filter((r) => r.installState === 'not-installed')
 
   const pickerRows: AgentDetection[] = [...installed, ...npxAvailable]
