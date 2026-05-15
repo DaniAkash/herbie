@@ -70,6 +70,12 @@ export async function bootstrapNewProvider(
 
   if (tuple.modelId) {
     try {
+      // TODO(acpx#30): silently no-ops on gemini-cli. The adapter doesn't
+      // implement `session/set_config_option`, so the call throws and the
+      // catch below absorbs it — the picker reflects the chosen model but
+      // gemini stays on its default. Switch to `provider.setModel(...)`
+      // once acpx-ai-provider exposes the dedicated `session/set_model`
+      // path. https://github.com/DaniAkash/acpx/issues/30
       await provider.setConfigOption('model', tuple.modelId)
     } catch (err) {
       // biome-ignore lint/suspicious/noConsole: non-fatal — agent stays on its default model
