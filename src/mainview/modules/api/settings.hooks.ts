@@ -113,6 +113,55 @@ export function useWorkspaces(): {
   return { defaultPath, recent, isLoading, addRecent, setDefault }
 }
 
+export type CustomAgent = SettingsResponse['agents']['customAgents'][number]
+export type CustomAgentDraft = Omit<CustomAgent, 'createdAt'>
+
+// Custom agents are stored under `agents.customAgents`. Each row is a
+// user-named ACP command — the wire `id` is part of the draft (not
+// generated server-side) because that id ends up persisted on chat /
+// task / telegram rows; we want the user to choose it explicitly so
+// it stays readable in the UI and matches whatever they call the
+// agent in their head.
+export function useCustomAgents(): {
+  agents: CustomAgent[]
+  isLoading: boolean
+  add: (draft: CustomAgentDraft) => void
+  update: (id: string, draft: CustomAgentDraft) => void
+  remove: (id: string) => void
+} {
+  const { data, isLoading } = useSettings()
+  const { mutate } = useUpdateSettings()
+  const agents = data?.agents.customAgents ?? []
+
+  const add = useCallback(
+    (draft: CustomAgentDraft) => {
+      const next = [...agents, { ...draft, createdAt: Date.now() }]
+      mutate({ agents: { customAgents: next } })
+    },
+    [mutate, agents],
+  )
+
+  const update = useCallback(
+    (id: string, draft: CustomAgentDraft) => {
+      const next = agents.map((a) =>
+        a.id === id ? { ...draft, createdAt: a.createdAt } : a,
+      )
+      mutate({ agents: { customAgents: next } })
+    },
+    [mutate, agents],
+  )
+
+  const remove = useCallback(
+    (id: string) => {
+      const next = agents.filter((a) => a.id !== id)
+      mutate({ agents: { customAgents: next } })
+    },
+    [mutate, agents],
+  )
+
+  return { agents, isLoading, add, update, remove }
+}
+
 export type McpServer = SettingsResponse['mcp']['servers'][number]
 // Distributive Omit so the discriminator survives across the union.
 // `Omit<Union, K>` collapses to common-keys-only — this preserves both variants.

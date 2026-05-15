@@ -15,6 +15,7 @@ import {
   type AgentCapability,
   agentCapabilitySchema,
 } from './settings.agent-capability.schema'
+import { customAgentSchema } from './settings.custom-agent.schema'
 import { mcpSchema } from './settings.mcp.schema'
 
 // Adding a new setting:
@@ -31,9 +32,10 @@ const generalSchema = z.object({
 
 // defaultAgent is free-form so user-registered custom agents can be
 // selected without churning the schema. PATCH handlers validate
-// against the live agent registry at write time (Phase 2 wiring).
+// against the live agent registry at write time.
 const agentsSchema = z.object({
   defaultAgent: z.string().min(1),
+  customAgents: z.array(customAgentSchema).default([]),
 })
 
 const appearanceSchema = z.object({
@@ -81,7 +83,7 @@ const DEFAULT_WORKSPACE_PATH = path.join(homedir(), 'herbie-workspace')
 
 const SETTINGS_DEFAULTS: Settings = {
   general: { launchAtLogin: false, minimizeToMenubarOnClose: true },
-  agents: { defaultAgent: 'claude' },
+  agents: { defaultAgent: 'claude', customAgents: [] },
   appearance: { theme: 'system' },
   composer: {
     workspaces: { default: DEFAULT_WORKSPACE_PATH, recent: [] },
@@ -227,7 +229,7 @@ export const settingsRoute = new Hono()
     const patch = c.req.valid('json')
 
     if (patch.agents?.defaultAgent !== undefined) {
-      const agentError = validateAgentId(patch.agents.defaultAgent)
+      const agentError = await validateAgentId(patch.agents.defaultAgent)
       if (agentError) return c.json({ error: agentError }, 400)
     }
 

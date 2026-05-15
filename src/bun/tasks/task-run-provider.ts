@@ -38,7 +38,7 @@ export async function spinUpTaskRunProvider(
   const capture = getTaskResultCapture().registerRun(args.runId)
   const mcpServers = await buildTaskRunMcpServers(capture.token, API_BASE_URL)
 
-  const provider = buildAcpxProvider({
+  const provider = await buildAcpxProvider({
     conversationId: args.runId,
     agentId: args.tuple.agentId,
     workspacePath: args.tuple.workspacePath ?? undefined,

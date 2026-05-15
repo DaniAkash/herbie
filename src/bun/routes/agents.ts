@@ -15,7 +15,7 @@ export const agentsRoute = new Hono()
     // `:id` is client-controlled, so an unknown id needs to surface
     // as a 4xx — not as the 500 that the registry's resolve-throw
     // would otherwise produce.
-    const agentError = validateAgentId(id)
+    const agentError = await validateAgentId(id)
     if (agentError) return c.json({ error: agentError }, 400)
     // Probe runs in the user's default workspace so the agent doesn't
     // accidentally start exploring an unrelated cwd.

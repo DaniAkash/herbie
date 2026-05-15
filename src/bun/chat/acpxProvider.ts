@@ -6,6 +6,7 @@ import {
   createAcpxProvider,
 } from 'acpx-ai-provider'
 import { AGENT_REGISTRY_OVERRIDES } from '../agents/registry'
+import { readSettings } from '../routes/settings'
 
 export const ACPX_STATE_DIR = path.join(homedir(), '.herbie', 'acpx-state')
 
@@ -40,9 +41,19 @@ export interface BuildAcpxProviderOptions {
   mcpServers?: McpServerSpec[]
 }
 
-export function buildAcpxProvider(
+export async function buildAcpxProvider(
   opts: BuildAcpxProviderOptions,
-): AcpxProvider {
+): Promise<AcpxProvider> {
+  // Merge the built-in overrides (hermes today) with the user's custom
+  // agents from settings. Customs win on id collision — same precedence
+  // as detect.ts and registry.resolveAgentCommand, so probing, listing,
+  // and chat startup all agree on what `agentId` resolves to.
+  const settings = await readSettings()
+  const overrides: Record<string, string> = { ...AGENT_REGISTRY_OVERRIDES }
+  for (const c of settings.agents.customAgents) {
+    overrides[c.id] = c.command
+  }
+
   return createAcpxProvider({
     agent: opts.agentId,
     cwd: opts.workspacePath ?? homedir(),
@@ -50,7 +61,7 @@ export function buildAcpxProvider(
     sessionMode: 'persistent',
     stateDir: ACPX_STATE_DIR,
     resumeSessionId: opts.resumeSessionId ?? undefined,
-    agentRegistryOverrides: AGENT_REGISTRY_OVERRIDES,
+    agentRegistryOverrides: overrides,
     // TODO(permissions): blanket-approve every tool call until the in-app
     // permission UX is wired. Revisit before any non-personal use.
     permissionMode: 'approve-all',

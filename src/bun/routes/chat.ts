@@ -79,7 +79,7 @@ const patchSchema = z
 export const chatRoute = new Hono()
   .post('/chat', zValidator('json', createSchema), async (c) => {
     const body = c.req.valid('json')
-    const agentError = validateAgentId(body.agentId)
+    const agentError = await validateAgentId(body.agentId)
     if (agentError) return c.json({ error: agentError }, 400)
     const now = new Date()
     const row = {
@@ -218,7 +218,7 @@ export const chatRoute = new Hono()
     const id = c.req.param('id')
     const body = c.req.valid('json')
     if (body.agentId !== undefined) {
-      const agentError = validateAgentId(body.agentId)
+      const agentError = await validateAgentId(body.agentId)
       if (agentError) return c.json({ error: agentError }, 400)
     }
     try {

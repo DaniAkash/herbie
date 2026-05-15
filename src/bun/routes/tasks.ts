@@ -52,7 +52,7 @@ export const tasksRoute = new Hono()
   })
   .post('/tasks', zValidator('json', createSchema), async (c) => {
     const body = c.req.valid('json')
-    const agentError = validateAgentId(body.agentId)
+    const agentError = await validateAgentId(body.agentId)
     if (agentError) return c.json({ error: agentError }, 400)
     const now = new Date()
     const row = {
@@ -85,7 +85,7 @@ export const tasksRoute = new Hono()
     const id = c.req.param('id')
     const body = c.req.valid('json')
     if (body.agentId !== undefined) {
-      const agentError = validateAgentId(body.agentId)
+      const agentError = await validateAgentId(body.agentId)
       if (agentError) return c.json({ error: agentError }, 400)
     }
     const current = await getDb()
@@ -141,7 +141,7 @@ export const tasksRoute = new Hono()
     const id = c.req.param('id')
     const body = c.req.valid('json')
     if (body.agentId !== undefined) {
-      const agentError = validateAgentId(body.agentId)
+      const agentError = await validateAgentId(body.agentId)
       if (agentError) return c.json({ error: agentError }, 400)
     }
     const task = await getDb()

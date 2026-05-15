@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process'
 import { createAgentRegistry } from 'acpx/runtime'
+import { readSettings } from '../routes/settings'
 import { type AcpAgentDisplayMeta, getDisplayMeta } from './agent-display'
 import { probeNpxCache } from './npx-cache'
 import { AGENT_REGISTRY_OVERRIDES } from './registry'
@@ -45,16 +46,37 @@ export interface DetectAgentsOptions {
 export async function detectAcpAgents(
   options: DetectAgentsOptions = {},
 ): Promise<AcpAgentDetection[]> {
-  const ids = registry.list()
   const binProbe = options.binProbeOverride ?? probeBinary
   const npxProbe = options.npxProbeOverride ?? probeNpxCache
   const timeout = options.timeoutMs ?? PROBE_TIMEOUT_MS
 
-  const results = await Promise.all(
-    ids.map((agentId) => probeAgent(agentId, binProbe, npxProbe, timeout)),
+  const settings = await readSettings()
+  const customAgents = settings.agents.customAgents
+  const customIds = new Set(customAgents.map((c) => c.id))
+
+  // Customs are treated as installed by construction (the user gave us a
+  // command string, so they vouch for it). Customs shadow built-ins on
+  // id collision — listAllAgentIds() in registry.ts has the same
+  // precedence so detection and validation agree.
+  const customRows: AcpAgentDetection[] = customAgents.map((c) => ({
+    agentId: c.id,
+    displayName: c.displayName,
+    installState: 'installed',
+    version: null,
+    installUrl: '',
+    custom: true,
+    acpReady: true,
+    npxBased: false,
+  }))
+
+  const builtinIds = registry.list().filter((id) => !customIds.has(id))
+  const builtinRows = await Promise.all(
+    builtinIds.map((agentId) =>
+      probeAgent(agentId, binProbe, npxProbe, timeout),
+    ),
   )
 
-  return results.sort((a, b) => {
+  return [...customRows, ...builtinRows].sort((a, b) => {
     const s = STATE_ORDER[a.installState] - STATE_ORDER[b.installState]
     if (s !== 0) return s
     return a.displayName.localeCompare(b.displayName)

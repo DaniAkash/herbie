@@ -37,7 +37,7 @@ export async function buildProvider(
   const settings = await readSettings()
   const cwd = await resolveWorkspaceCwd(deps, tuple.workspacePath, settings)
   const mcpServers = settings.mcp.servers.map(({ id: _id, ...rest }) => rest)
-  return buildAcpxProvider({
+  return await buildAcpxProvider({
     conversationId: deps.conversationId,
     agentId: tuple.agentId,
     workspacePath: cwd,
