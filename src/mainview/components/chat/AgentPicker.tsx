@@ -26,6 +26,11 @@ export interface AgentPickerProps {
 export function AgentPicker({ value, onChange }: AgentPickerProps) {
   const { data: detections = [] } = useAgents()
 
+  // Hide not-installed agents — the full list lives in Settings →
+  // Agents. Showing them here just makes the menu tall without
+  // adding usable choices.
+  const usable = detections.filter((d) => d.installState !== 'not-installed')
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger render={<Button variant="ghost" size="sm" />}>
@@ -39,11 +44,10 @@ export function AgentPicker({ value, onChange }: AgentPickerProps) {
             Agent
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
-          {detections.map((d) => (
+          {usable.map((d) => (
             <DropdownMenuItem
               key={d.agentId}
               onClick={() => onChange(d.agentId)}
-              disabled={d.installState === 'not-installed'}
               className="flex items-center gap-2 py-2"
             >
               <span className="flex-1 font-medium text-sm">
@@ -59,17 +63,16 @@ export function AgentPicker({ value, onChange }: AgentPickerProps) {
                   npx
                 </Badge>
               )}
-              {d.installState === 'not-installed' && (
-                <Badge variant="outline" className="text-[9px]">
-                  install
-                </Badge>
-              )}
               {value === d.agentId && (
                 <CheckIcon className="size-4 text-primary" />
               )}
             </DropdownMenuItem>
           ))}
         </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <div className="px-2 py-1.5 text-[11px] text-muted-foreground">
+          Add more agents in Settings → Agents.
+        </div>
       </DropdownMenuContent>
     </DropdownMenu>
   )
