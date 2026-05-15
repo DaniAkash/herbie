@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/empty'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
+import { useAgentDisplayName } from '@/modules/api/agents.hooks'
 import {
   type TelegramConnection,
   useDeleteTelegramConnection,
@@ -36,10 +37,9 @@ import {
   useResumeTelegramConnection,
   useTelegramConnections,
 } from '@/modules/api/telegram.hooks'
-import type { AgentId } from '@/modules/data/herbie-data.types'
 import { EditConnectionForm } from './MobileTab.edit-form'
 import { AddConnectionForm } from './MobileTab.forms'
-import { AGENT_LABELS, DetailRow } from './mobile-tab.constants'
+import { DetailRow } from './mobile-tab.constants'
 
 export function MobileTab() {
   const { data, isLoading } = useTelegramConnections()
@@ -110,6 +110,7 @@ function ConnectionCard({ connection }: { connection: TelegramConnection }) {
   const pause = usePauseTelegramConnection()
   const resume = useResumeTelegramConnection()
   const remove = useDeleteTelegramConnection()
+  const agentLabel = useAgentDisplayName(connection.agentId)
 
   const statusColor =
     connection.status === 'active'
@@ -195,12 +196,7 @@ function ConnectionCard({ connection }: { connection: TelegramConnection }) {
       </div>
 
       <div className="grid grid-cols-2 gap-3 text-[11px]">
-        <DetailRow
-          label="Agent"
-          value={
-            AGENT_LABELS[connection.agentId as AgentId] ?? connection.agentId
-          }
-        />
+        <DetailRow label="Agent" value={agentLabel} />
         <DetailRow
           label="Model"
           value={connection.modelId ?? 'agent default'}

@@ -5,22 +5,21 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { type AgentDetection, useAgents } from '@/modules/api/agents.hooks'
 import { useDefaultAgent } from '@/modules/api/settings.hooks'
-import type { AgentId } from '@/modules/data/herbie-data.types'
 import { openExternal } from '@/modules/system/openExternal'
 
-const AGENT_LABELS: Record<AgentId, string> = {
-  claude: 'Claude Code',
-  codex: 'Codex CLI',
-  gemini: 'Gemini CLI',
-  hermes: 'Hermes Agent',
-}
+// The four agents that ship as built-ins. Used to scope the
+// default-agent toggle group — custom agents (Phase 2) show up in the
+// "Agents" list below but not as default-agent candidates until we
+// understand how a user wants to pick between many.
+const HERBIE_PRIMARY_AGENTS: ReadonlySet<string> = new Set([
+  'claude',
+  'codex',
+  'gemini',
+  'hermes',
+])
 
-const HERBIE_PRIMARY_AGENTS: ReadonlySet<AgentId> = new Set(
-  Object.keys(AGENT_LABELS) as AgentId[],
-)
-
-function isPrimaryAgent(agentId: string): agentId is AgentId {
-  return HERBIE_PRIMARY_AGENTS.has(agentId as AgentId)
+function isPrimaryAgent(agentId: string): boolean {
+  return HERBIE_PRIMARY_AGENTS.has(agentId)
 }
 
 export function AgentsTab() {
@@ -35,33 +34,29 @@ export function AgentsTab() {
   )
   const notInstalled = rows.filter((r) => r.installState === 'not-installed')
 
-  const pickerAgents: AgentId[] = [...installed, ...npxAvailable]
-    .map((r) => r.agentId)
-    .filter(isPrimaryAgent)
+  const pickerRows: AgentDetection[] = [...installed, ...npxAvailable]
 
   return (
     <div className="flex flex-col gap-8">
       <section className="flex flex-col gap-3">
         <h2 className="font-medium text-sm">Default agent for new chats</h2>
-        {pickerAgents.length === 0 ? (
+        {pickerRows.length === 0 ? (
           <p className="text-muted-foreground text-xs">
             Install one of the supported agents below to set a default.
           </p>
         ) : (
           <ToggleGroup
             value={[defaultAgent]}
-            onValueChange={(v: string[]) =>
-              v[0] && setDefaultAgent(v[0] as AgentId)
-            }
+            onValueChange={(v: string[]) => v[0] && setDefaultAgent(v[0])}
             variant="outline"
           >
-            {pickerAgents.map((id) => (
+            {pickerRows.map((row) => (
               <ToggleGroupItem
-                key={id}
-                value={id}
-                aria-label={AGENT_LABELS[id]}
+                key={row.agentId}
+                value={row.agentId}
+                aria-label={row.displayName}
               >
-                {AGENT_LABELS[id]}
+                {row.displayName}
               </ToggleGroupItem>
             ))}
           </ToggleGroup>

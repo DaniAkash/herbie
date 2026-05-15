@@ -13,31 +13,24 @@ import {
 import { useAgents } from '@/modules/api/agents.hooks'
 import type { AgentId } from '@/modules/data/herbie-data.types'
 
-const AGENT_LABELS: Record<AgentId, string> = {
-  claude: 'Claude',
-  codex: 'Codex',
-  gemini: 'Gemini',
-  hermes: 'Hermes',
-}
-
-const AGENT_IDS: AgentId[] = ['claude', 'codex', 'gemini', 'hermes']
-
 export interface AgentPickerProps {
   value: AgentId
   onChange: (agent: AgentId) => void
 }
 
+// All labels come from detect.ts now. Built-in agents carry their
+// display names via the registry's overlay; custom agents (Phase 2)
+// carry their user-chosen displayName. Stale rows for an
+// uninstalled-and-detected-not-installed agent still show the label
+// from the registry overlay.
 export function AgentPicker({ value, onChange }: AgentPickerProps) {
-  const { data: detections } = useAgents()
-  const detectionMap = new Map(
-    (detections ?? []).map((d) => [d.agentId, d] as const),
-  )
+  const { data: detections = [] } = useAgents()
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger render={<Button variant="ghost" size="sm" />}>
         <SparklesIcon data-icon="inline-start" />
-        <span>{AGENT_LABELS[value]}</span>
+        <span>{labelFor(value, detections)}</span>
         <ChevronDownIcon data-icon="inline-end" className="opacity-60" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-72">
@@ -46,34 +39,45 @@ export function AgentPicker({ value, onChange }: AgentPickerProps) {
             Agent
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
-          {AGENT_IDS.map((id) => {
-            const detection = detectionMap.get(id)
-            const installState = detection?.installState ?? 'not-installed'
-            return (
-              <DropdownMenuItem
-                key={id}
-                onClick={() => onChange(id)}
-                className="flex items-center gap-2 py-2"
-              >
-                <span className="flex-1 font-medium text-sm">
-                  {AGENT_LABELS[id]}
-                </span>
-                {installState === 'npx-available' && (
-                  <Badge variant="outline" className="text-[9px]">
-                    npx
-                  </Badge>
-                )}
-                {installState === 'not-installed' && (
-                  <Badge variant="outline" className="text-[9px]">
-                    install
-                  </Badge>
-                )}
-                {value === id && <CheckIcon className="size-4 text-primary" />}
-              </DropdownMenuItem>
-            )
-          })}
+          {detections.map((d) => (
+            <DropdownMenuItem
+              key={d.agentId}
+              onClick={() => onChange(d.agentId)}
+              disabled={d.installState === 'not-installed'}
+              className="flex items-center gap-2 py-2"
+            >
+              <span className="flex-1 font-medium text-sm">
+                {d.displayName}
+              </span>
+              {d.custom && (
+                <Badge variant="outline" className="text-[9px]">
+                  custom
+                </Badge>
+              )}
+              {d.installState === 'npx-available' && (
+                <Badge variant="outline" className="text-[9px]">
+                  npx
+                </Badge>
+              )}
+              {d.installState === 'not-installed' && (
+                <Badge variant="outline" className="text-[9px]">
+                  install
+                </Badge>
+              )}
+              {value === d.agentId && (
+                <CheckIcon className="size-4 text-primary" />
+              )}
+            </DropdownMenuItem>
+          ))}
         </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   )
+}
+
+function labelFor(
+  id: AgentId,
+  detections: ReadonlyArray<{ agentId: string; displayName: string }>,
+): string {
+  return detections.find((d) => d.agentId === id)?.displayName ?? id
 }

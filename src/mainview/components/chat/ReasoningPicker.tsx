@@ -30,11 +30,16 @@ export function ReasoningPicker({
   const reasoning = data?.reasoning
   if (!reasoning) return null
 
+  // When the user hasn't picked, show the agent's own default if the
+  // probe surfaced one — otherwise fall back to the literal word
+  // 'default' so the chip never reads empty.
+  const triggerLabel = value ?? reasoning.defaultValue ?? 'default'
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger render={<Button variant="ghost" size="sm" />}>
         <BrainIcon data-icon="inline-start" />
-        <span className="text-xs capitalize">{value ?? 'default'}</span>
+        <span className="text-xs capitalize">{triggerLabel}</span>
         <ChevronDownIcon data-icon="inline-end" className="opacity-60" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-56">
@@ -48,7 +53,9 @@ export function ReasoningPicker({
             className="flex items-center gap-2"
           >
             <span className="flex-1 text-muted-foreground italic">
-              agent default
+              {reasoning.defaultValue
+                ? `agent default — ${reasoning.defaultValue}`
+                : 'agent default'}
             </span>
             {value === null && <CheckIcon className="size-4 text-primary" />}
           </DropdownMenuItem>

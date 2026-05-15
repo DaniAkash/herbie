@@ -2,7 +2,10 @@ import { Cron } from 'croner'
 import { z } from 'zod'
 import { TASK_STATUSES } from '../../db/schema/tasks.sql'
 
-export const AGENT_IDS = ['claude', 'codex', 'gemini', 'hermes'] as const
+// agentId is free-form at the schema level — runtime validation against
+// the live registry happens inside the route handlers so user-registered
+// custom agents (Phase 2) flow through naturally.
+export const agentIdField = z.string().min(1)
 
 // ScheduleConfig — kept as a discriminated union mirroring the
 // renderer's shape. Stored as JSON on the row; validated here.
@@ -57,7 +60,7 @@ export const createSchema = z
   .object({
     name: z.string().min(1).max(120),
     prompt: z.string().min(1),
-    agentId: z.enum(AGENT_IDS),
+    agentId: agentIdField,
     schedule: scheduleSchema,
     outputs: outputSchema.optional(),
     ...tupleFields,
@@ -68,7 +71,7 @@ export const updateSchema = z
   .object({
     name: z.string().min(1).max(120).optional(),
     prompt: z.string().min(1).optional(),
-    agentId: z.enum(AGENT_IDS).optional(),
+    agentId: agentIdField.optional(),
     schedule: scheduleSchema.optional(),
     outputs: outputSchema.optional(),
     status: z.enum(TASK_STATUSES).optional(),
@@ -81,7 +84,7 @@ export const testSchema = z
     // All four are optional overrides; if any are omitted, the run
     // falls back to the persisted task row.
     prompt: z.string().min(1).optional(),
-    agentId: z.enum(AGENT_IDS).optional(),
+    agentId: agentIdField.optional(),
     ...tupleFields,
   })
   .strict()

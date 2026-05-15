@@ -1,14 +1,4 @@
 import { cn } from '@/lib/utils'
-import type { AgentId } from '@/modules/data/herbie-data.types'
-
-export const AGENT_LABELS: Record<AgentId, string> = {
-  claude: 'Claude',
-  codex: 'Codex',
-  gemini: 'Gemini',
-  hermes: 'Hermes',
-}
-
-export const AGENT_IDS: AgentId[] = ['claude', 'codex', 'gemini', 'hermes']
 
 // Shared little 2-column row used in both the connection card and
 // the read-only "pinned at creation" block inside the edit form.

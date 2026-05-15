@@ -33,3 +33,12 @@ export const useAgentCapabilities = createQuery<
     $caps({ param: { id } }).then(parseResponse<CapabilitiesResponse>),
   staleTime: Number.POSITIVE_INFINITY,
 })
+
+// Resolve a single agent's display name from the detect cache. Falls back
+// to the raw id (so we still render something for ids that haven't shown
+// up in /agents yet — e.g. an id pinned at telegram-connection creation
+// time whose detection row was dropped because the binary is now missing).
+export function useAgentDisplayName(agentId: string): string {
+  const { data } = useAgents()
+  return data?.find((d) => d.agentId === agentId)?.displayName ?? agentId
+}

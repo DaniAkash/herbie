@@ -6,13 +6,22 @@ import { nanoid } from 'nanoid'
 import { z } from 'zod'
 import { chatEvents } from '../../db/schema/chat-events.sql'
 import { conversations } from '../../db/schema/conversations.sql'
+import { listAllAgentIds } from '../agents/registry'
 import { type ChatTuple, TurnInProgressError } from '../chat/ChatSession'
 import { getSessionManager } from '../chat/sessionManager'
 import { getDb } from '../db-singleton'
 import { mirrorAppTurnToTelegram } from '../telegram/outbound'
 import { loadEvents, parseAfter, runChatStream } from './chat.stream'
 
-const AGENT_IDS = ['claude', 'codex', 'gemini', 'hermes'] as const
+// agentId is free-form at the schema level; runtime validation against
+// the live registry happens inside each handler so Phase 2's custom
+// agents are accepted without revisiting these validators.
+const agentIdField = z.string().min(1)
+
+function validateAgentId(agentId: string): string | null {
+  if (listAllAgentIds().includes(agentId)) return null
+  return `Unknown agent id: ${agentId}`
+}
 
 type ConversationRow = typeof conversations.$inferSelect
 
@@ -40,7 +49,7 @@ const tupleFields = {
 
 const createSchema = z
   .object({
-    agentId: z.enum(AGENT_IDS),
+    agentId: agentIdField,
     title: z.string().min(1).max(200).optional(),
     ...tupleFields,
   })
@@ -49,7 +58,7 @@ const createSchema = z
 const sendSchema = z
   .object({
     text: z.string().min(1),
-    agentId: z.enum(AGENT_IDS).optional(),
+    agentId: agentIdField.optional(),
     ...tupleFields,
   })
   .strict()
@@ -74,6 +83,8 @@ const patchSchema = z
 export const chatRoute = new Hono()
   .post('/chat', zValidator('json', createSchema), async (c) => {
     const body = c.req.valid('json')
+    const agentError = validateAgentId(body.agentId)
+    if (agentError) return c.json({ error: agentError }, 400)
     const now = new Date()
     const row = {
       id: nanoid(),
@@ -210,6 +221,10 @@ export const chatRoute = new Hono()
   .post('/chat/:id/messages', zValidator('json', sendSchema), async (c) => {
     const id = c.req.param('id')
     const body = c.req.valid('json')
+    if (body.agentId !== undefined) {
+      const agentError = validateAgentId(body.agentId)
+      if (agentError) return c.json({ error: agentError }, 400)
+    }
     try {
       // Resolve the tuple from the request, falling back to the
       // conversation row's last-used tuple. Any omitted field stays at the

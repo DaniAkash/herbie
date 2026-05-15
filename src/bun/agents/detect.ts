@@ -13,6 +13,13 @@ export interface AcpAgentDetection {
   installUrl: string
   acpReady: boolean
   npxBased: boolean
+  /**
+   * True when this agent was registered by the user (Phase 2's custom
+   * agents flow). Phase 1 always emits `false`; the field exists so
+   * the renderer's badge logic can be wired up once now and the
+   * follow-up PR is UI-only.
+   */
+  custom: boolean
 }
 
 const PROBE_TIMEOUT_MS = 3_000
@@ -109,6 +116,7 @@ function buildResult(
     installState,
     version,
     installUrl: overlay.installUrl,
+    custom: false,
     acpReady: installState !== 'not-installed',
     npxBased,
   }

@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { AGENT_IDS } from './tasks.schemas'
+import { agentIdField } from './tasks.schemas'
 
 // The 4 tuple fields are pinned at creation — see resolved decision 3
 // in the plan. Edits use a separate schema that omits all of them.
@@ -11,7 +11,7 @@ export const createConnectionSchema = z
       .min(20)
       .max(80)
       .regex(/^\d+:[A-Za-z0-9_-]+$/, 'Tokens look like 123456:ABC-DEF…'),
-    agentId: z.enum(AGENT_IDS),
+    agentId: agentIdField,
     modelId: z.string().min(1).nullish(),
     workspacePath: z.string().min(1),
     reasoningEffort: z.string().min(1).nullish(),
