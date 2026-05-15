@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process'
 import { createAgentRegistry } from 'acpx/runtime'
 import { type AcpAgentDisplayMeta, getDisplayMeta } from './agent-display'
 import { probeNpxCache } from './npx-cache'
+import { AGENT_REGISTRY_OVERRIDES } from './registry'
 
 export type AcpInstallState = 'installed' | 'npx-available' | 'not-installed'
 
@@ -30,9 +31,7 @@ const STATE_ORDER: Record<AcpInstallState, number> = {
   'not-installed': 2,
 }
 
-const registry = createAgentRegistry({
-  overrides: { hermes: 'hermes acp' },
-})
+const registry = createAgentRegistry({ overrides: AGENT_REGISTRY_OVERRIDES })
 
 export interface DetectAgentsOptions {
   binProbeOverride?: (
