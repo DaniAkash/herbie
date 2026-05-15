@@ -6,6 +6,7 @@ import { api } from '@/modules/api/client'
 import { parseResponse } from '@/modules/api/parseResponse'
 import { queryClient } from '@/modules/api/queryClient'
 import { openChatStream } from '@/modules/chat/chat-stream'
+import { STORAGE_KEYS } from '@/modules/storage/keys'
 
 const $get = api.chat[':id'].$get
 const $send = api.chat[':id'].messages.$post
@@ -55,17 +56,15 @@ export const useCancelTurn = createMutation<
     ),
 })
 
-const cursorKey = (id: string) => `herbie.chat.${id}.lastSeq`
-
 function readCursor(id: string): number {
-  const raw = window.localStorage.getItem(cursorKey(id))
+  const raw = window.localStorage.getItem(STORAGE_KEYS.chatCursor(id))
   if (!raw) return -1
   const n = Number.parseInt(raw, 10)
   return Number.isFinite(n) ? n : -1
 }
 
 function writeCursor(id: string, seq: number): void {
-  window.localStorage.setItem(cursorKey(id), String(seq))
+  window.localStorage.setItem(STORAGE_KEYS.chatCursor(id), String(seq))
 }
 
 export function useChatLiveStream(conversationId: string | null): void {

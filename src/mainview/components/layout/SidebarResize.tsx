@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
+import { STORAGE_KEYS } from '@/modules/storage/keys'
 
 const MIN_WIDTH = 220
 const MAX_WIDTH = 480
 const DEFAULT_WIDTH = 256 // 16rem — matches the shadcn primitive default
-const STORAGE_KEY = 'herbie:sidebar-width'
 
 function readStoredWidth(): number {
   if (typeof window === 'undefined') return DEFAULT_WIDTH
-  const raw = window.localStorage.getItem(STORAGE_KEY)
+  const raw = window.localStorage.getItem(STORAGE_KEYS.sidebarWidth)
   const parsed = raw ? Number.parseInt(raw, 10) : Number.NaN
   if (!Number.isFinite(parsed)) return DEFAULT_WIDTH
   return Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, parsed))
@@ -63,7 +63,10 @@ export function useSidebarWidth(): {
           dragAbortRef.current = null
         }
         try {
-          window.localStorage.setItem(STORAGE_KEY, String(widthPxRef.current))
+          window.localStorage.setItem(
+            STORAGE_KEYS.sidebarWidth,
+            String(widthPxRef.current),
+          )
         } catch {
           // Quota or private-mode failures aren't fatal — width
           // resets to default on next launch.
