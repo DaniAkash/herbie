@@ -5,12 +5,9 @@ import {
   type AcpxProvider,
   createAcpxProvider,
 } from 'acpx-ai-provider'
+import { AGENT_REGISTRY_OVERRIDES } from '../agents/registry'
 
 export const ACPX_STATE_DIR = path.join(homedir(), '.herbie', 'acpx-state')
-
-// Mirror the override in src/bun/agents/detect.ts so a session can spin up
-// hermes — acpx 0.6.x doesn't ship hermes in built-ins yet.
-const REGISTRY_OVERRIDES: Record<string, string> = { hermes: 'hermes acp' }
 
 // What we store in settings — arrays of {name, value} match ACP's wire
 // format. The provider's public API uses Record<string, string> for env /
@@ -53,7 +50,7 @@ export function buildAcpxProvider(
     sessionMode: 'persistent',
     stateDir: ACPX_STATE_DIR,
     resumeSessionId: opts.resumeSessionId ?? undefined,
-    agentRegistryOverrides: REGISTRY_OVERRIDES,
+    agentRegistryOverrides: AGENT_REGISTRY_OVERRIDES,
     // TODO(permissions): blanket-approve every tool call until the in-app
     // permission UX is wired. Revisit before any non-personal use.
     permissionMode: 'approve-all',

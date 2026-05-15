@@ -8,8 +8,13 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import type * as schema from '../../db/schema/schema'
 import { settings as settingsTable } from '../../db/schema/settings.sql'
+import { validateAgentId } from '../agents/registry'
 import { getDb } from '../db-singleton'
 import { setLoginItem } from '../loginItems'
+import {
+  type AgentCapability,
+  agentCapabilitySchema,
+} from './settings.agent-capability.schema'
 import { mcpSchema } from './settings.mcp.schema'
 
 // Adding a new setting:
@@ -17,7 +22,6 @@ import { mcpSchema } from './settings.mcp.schema'
 //   - new domain:      add a top-level key here + entry in DOMAINS + SETTINGS_DEFAULTS. No migration.
 // Storage is one row per top-level domain in the `settings` KV table.
 
-const AGENT_IDS = ['claude', 'codex', 'gemini', 'hermes'] as const
 const THEME_MODES = ['light', 'dark', 'system'] as const
 
 const generalSchema = z.object({
@@ -25,25 +29,15 @@ const generalSchema = z.object({
   minimizeToMenubarOnClose: z.boolean(),
 })
 
+// defaultAgent is free-form so user-registered custom agents can be
+// selected without churning the schema. PATCH handlers validate
+// against the live agent registry at write time (Phase 2 wiring).
 const agentsSchema = z.object({
-  defaultAgent: z.enum(AGENT_IDS),
+  defaultAgent: z.string().min(1),
 })
 
 const appearanceSchema = z.object({
   theme: z.enum(THEME_MODES),
-})
-
-const reasoningCapabilitySchema = z.object({
-  key: z.string().min(1),
-  values: z.array(z.string().min(1)).min(1),
-})
-
-const agentCapabilitySchema = z.object({
-  models: z.array(z.string().min(1)),
-  reasoning: reasoningCapabilitySchema.optional(),
-  // ms timestamp of when this entry was discovered — lets us refresh stale
-  // caches without needing a separate column.
-  discoveredAt: z.number().int().nonnegative(),
 })
 
 const composerSchema = z.object({
@@ -66,7 +60,8 @@ const DOMAINS = ['general', 'agents', 'appearance', 'composer', 'mcp'] as const
 
 type Settings = z.infer<typeof settingsSchema>
 type Domain = keyof Settings
-export type AgentCapability = z.infer<typeof agentCapabilitySchema>
+
+export type { AgentCapability } from './settings.agent-capability.schema'
 
 // Accepts either the top-level db or a transaction handle — both expose
 // the same SQLite query surface we use here (select / insert / update).
@@ -230,6 +225,11 @@ export const settingsRoute = new Hono()
   })
   .patch('/settings', zValidator('json', patchSchema), async (c) => {
     const patch = c.req.valid('json')
+
+    if (patch.agents?.defaultAgent !== undefined) {
+      const agentError = validateAgentId(patch.agents.defaultAgent)
+      if (agentError) return c.json({ error: agentError }, 400)
+    }
 
     // Read+merge+write inside a single transaction so concurrent PATCHes to
     // the same domain can't interleave and lose updates (last-write-wins).

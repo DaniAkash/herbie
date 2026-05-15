@@ -15,7 +15,10 @@ export type ConversationsResponse = InferResponseType<typeof $list>
 export type ConversationSummary = ConversationsResponse[number]
 
 type CreateInput = InferRequestType<typeof $create>['json']
-type CreateResponse = InferResponseType<typeof $create>
+// Narrow to the 2xx success shape — the error variant is thrown by
+// parseResponse before the typed return ever materialises, so callers
+// only see the row.
+type CreateResponse = Extract<InferResponseType<typeof $create>, { id: string }>
 
 export const useConversations = createQuery<ConversationsResponse>({
   queryKey: ['chat', 'list'],

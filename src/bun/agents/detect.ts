@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process'
 import { createAgentRegistry } from 'acpx/runtime'
 import { type AcpAgentDisplayMeta, getDisplayMeta } from './agent-display'
 import { probeNpxCache } from './npx-cache'
+import { AGENT_REGISTRY_OVERRIDES } from './registry'
 
 export type AcpInstallState = 'installed' | 'npx-available' | 'not-installed'
 
@@ -13,6 +14,13 @@ export interface AcpAgentDetection {
   installUrl: string
   acpReady: boolean
   npxBased: boolean
+  /**
+   * True when this agent was registered by the user (Phase 2's custom
+   * agents flow). Phase 1 always emits `false`; the field exists so
+   * the renderer's badge logic can be wired up once now and the
+   * follow-up PR is UI-only.
+   */
+  custom: boolean
 }
 
 const PROBE_TIMEOUT_MS = 3_000
@@ -23,9 +31,7 @@ const STATE_ORDER: Record<AcpInstallState, number> = {
   'not-installed': 2,
 }
 
-const registry = createAgentRegistry({
-  overrides: { hermes: 'hermes acp' },
-})
+const registry = createAgentRegistry({ overrides: AGENT_REGISTRY_OVERRIDES })
 
 export interface DetectAgentsOptions {
   binProbeOverride?: (
@@ -109,6 +115,7 @@ function buildResult(
     installState,
     version,
     installUrl: overlay.installUrl,
+    custom: false,
     acpReady: installState !== 'not-installed',
     npxBased,
   }

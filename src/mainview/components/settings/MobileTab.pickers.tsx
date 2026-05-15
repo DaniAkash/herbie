@@ -23,7 +23,6 @@ import { useAgentCapabilities, useAgents } from '@/modules/api/agents.hooks'
 import { useWorkspaces } from '@/modules/api/settings.hooks'
 import type { AgentId } from '@/modules/data/herbie-data.types'
 import { pickDirectory } from '@/modules/system/pickDirectory'
-import { AGENT_IDS, AGENT_LABELS } from './mobile-tab.constants'
 
 // Picker dropdowns scoped to the Mobile settings tab. Kept separate
 // from the chat composer pickers because those carry
@@ -37,10 +36,10 @@ export function AgentSelect({
   value: AgentId
   onChange: (next: AgentId) => void
 }) {
-  const { data: detections } = useAgents()
-  const detectionMap = useMemo(
-    () => new Map((detections ?? []).map((d) => [d.agentId, d] as const)),
-    [detections],
+  const { data: detections = [] } = useAgents()
+  const selectedLabel = useMemo(
+    () => detections.find((d) => d.agentId === value)?.displayName ?? value,
+    [detections, value],
   )
 
   return (
@@ -56,7 +55,7 @@ export function AgentSelect({
       >
         <span className="flex items-center gap-2">
           <SparklesIcon className="size-3.5" />
-          {AGENT_LABELS[value]}
+          {selectedLabel}
         </span>
         <ChevronDownIcon className="size-3.5 opacity-60" />
       </DropdownMenuTrigger>
@@ -64,26 +63,33 @@ export function AgentSelect({
         <DropdownMenuGroup>
           <DropdownMenuLabel>Agent</DropdownMenuLabel>
           <DropdownMenuSeparator />
-          {AGENT_IDS.map((id) => {
-            const installState =
-              detectionMap.get(id)?.installState ?? 'not-installed'
-            return (
-              <DropdownMenuItem key={id} onClick={() => onChange(id)}>
-                <span className="flex-1">{AGENT_LABELS[id]}</span>
-                {installState === 'npx-available' && (
-                  <Badge variant="outline" className="text-[9px]">
-                    npx
-                  </Badge>
-                )}
-                {installState === 'not-installed' && (
-                  <Badge variant="outline" className="text-[9px]">
-                    install
-                  </Badge>
-                )}
-                {value === id && <CheckIcon className="size-4 text-primary" />}
-              </DropdownMenuItem>
-            )
-          })}
+          {detections.map((d) => (
+            <DropdownMenuItem
+              key={d.agentId}
+              onClick={() => onChange(d.agentId)}
+              disabled={d.installState === 'not-installed'}
+            >
+              <span className="flex-1">{d.displayName}</span>
+              {d.custom && (
+                <Badge variant="outline" className="text-[9px]">
+                  custom
+                </Badge>
+              )}
+              {d.installState === 'npx-available' && (
+                <Badge variant="outline" className="text-[9px]">
+                  npx
+                </Badge>
+              )}
+              {d.installState === 'not-installed' && (
+                <Badge variant="outline" className="text-[9px]">
+                  install
+                </Badge>
+              )}
+              {value === d.agentId && (
+                <CheckIcon className="size-4 text-primary" />
+              )}
+            </DropdownMenuItem>
+          ))}
         </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -137,9 +143,9 @@ export function ModelSelect({
           </DropdownMenuItem>
           {models.length > 0 && <DropdownMenuSeparator />}
           {models.map((m) => (
-            <DropdownMenuItem key={m} onClick={() => onChange(m)}>
-              <span className="flex-1 font-mono text-xs">{m}</span>
-              {value === m && <CheckIcon className="size-4 text-primary" />}
+            <DropdownMenuItem key={m.id} onClick={() => onChange(m.id)}>
+              <span className="flex-1 font-mono text-xs">{m.name ?? m.id}</span>
+              {value === m.id && <CheckIcon className="size-4 text-primary" />}
             </DropdownMenuItem>
           ))}
         </DropdownMenuGroup>
@@ -234,6 +240,12 @@ export function ReasoningSelect({
 }) {
   const { data } = useAgentCapabilities({ variables: { id: agentId } })
   const reasoning = data?.reasoning
+
+  // See ReasoningPicker — codex bakes effort into the model id and
+  // re-exposes it here, so hide the duplicate surface for the same
+  // reasons the composer picker does.
+  if (agentId === 'codex') return null
+
   const disabled = !reasoning
 
   return (

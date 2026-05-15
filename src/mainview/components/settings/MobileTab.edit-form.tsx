@@ -9,12 +9,12 @@ import {
 } from '@/components/ui/dialog'
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import { useAgentDisplayName } from '@/modules/api/agents.hooks'
 import {
   type TelegramConnection,
   useUpdateTelegramConnection,
 } from '@/modules/api/telegram.hooks'
-import type { AgentId } from '@/modules/data/herbie-data.types'
-import { AGENT_LABELS, DetailRow } from './mobile-tab.constants'
+import { DetailRow } from './mobile-tab.constants'
 
 export function EditConnectionForm({
   connection,
@@ -27,6 +27,7 @@ export function EditConnectionForm({
   const [name, setName] = useState(connection.name)
   const [token, setToken] = useState('')
   const [showToken, setShowToken] = useState(false)
+  const agentLabel = useAgentDisplayName(connection.agentId)
 
   // Reset draft fields if the user opens a different connection
   // without unmounting (Dialog stays mounted while the menu reopens).
@@ -100,13 +101,7 @@ export function EditConnectionForm({
             Pinned at creation
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <DetailRow
-              label="Agent"
-              value={
-                AGENT_LABELS[connection.agentId as AgentId] ??
-                connection.agentId
-              }
-            />
+            <DetailRow label="Agent" value={agentLabel} />
             <DetailRow
               label="Model"
               value={connection.modelId ?? 'agent default'}

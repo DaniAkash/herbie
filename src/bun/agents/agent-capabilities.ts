@@ -1,38 +1,24 @@
-import { createFileSessionStore } from 'acpx/runtime'
-import type { AcpxProvider } from 'acpx-ai-provider'
-import { ACPX_STATE_DIR, buildAcpxProvider } from '../chat/acpxProvider'
+import { type AgentProbeResult, probeAgent } from 'acp-probe'
 import { getDb } from '../db-singleton'
 import {
   type AgentCapability,
   patchAgentCapabilities,
   readAgentCapability,
 } from '../routes/settings'
+import { resolveAgentCommand } from './registry'
 
-// Agents with a documented reasoning_effort spectrum that the ACP server
-// actually accepts via `session/set_config_option`. We previously included
-// claude here based on the acpx-ai-provider README, but the live claude
-// ACP server rejects the option with `Unknown config option:
-// reasoning_effort`. Until openclaw/herbie#12 maps the real per-agent
-// surface, only codex is opted in. Other agents fall back to runtime
-// discovery — which gives us the key but no value list, so the picker
-// just shows {low, medium, high}.
-const REASONING_DEFAULTS: Record<string, AgentCapability['reasoning']> = {
-  codex: {
-    key: 'reasoning_effort',
-    values: ['low', 'medium', 'high', 'xhigh'],
-  },
-}
-
-const RECOGNIZED_REASONING_KEYS = new Set(['reasoning_effort', 'thought_level'])
-
-const sessionStore = createFileSessionStore({ stateDir: ACPX_STATE_DIR })
+// Cached capabilities are considered stale when older than this window
+// OR when their stored shape predates a field we now need. The schema
+// version is implicit — capabilityIsFresh() looks for fields added by
+// the acp-probe migration and re-probes if any are missing.
+const FRESHNESS_MS = 24 * 60 * 60 * 1000
 
 export async function getOrDiscoverCapabilities(
   agentId: string,
   cwd: string,
 ): Promise<AgentCapability> {
   const cached = await readAgentCapability(getDb(), agentId)
-  if (cached) return cached
+  if (cached && capabilityIsFresh(cached)) return cached
 
   const fresh = await discoverCapabilities(agentId, cwd)
   await patchAgentCapabilities(getDb(), { [agentId]: fresh })
@@ -43,49 +29,62 @@ async function discoverCapabilities(
   agentId: string,
   cwd: string,
 ): Promise<AgentCapability> {
-  // A short-lived persistent session is the cheapest way to harvest the
-  // session record (which carries `available_models`) and the runtime's
-  // capability set. Reusing it across probes via a fixed sessionKey means
-  // we don't pay the agent-spawn cost twice.
-  const probe = buildAcpxProvider({
-    conversationId: `__capability-probe::${agentId}`,
-    agentId,
-    workspacePath: cwd,
-    sessionKey: `__capability-probe::${agentId}`,
+  // Resolve to the actual command first so a built-in agent and a
+  // custom one (Phase 2) go through the same `probeAgent({ command })`
+  // entry point. Keeps the probe side ignorant of where the mapping
+  // lives.
+  const command = resolveAgentCommand(agentId)
+  const result = await probeAgent({
+    command,
+    cwd,
+    // Surface authMethods but don't gate the probe — gemini and
+    // others advertise auth methods but `session/new` works without
+    // them. If the agent actually needs creds, the probe returns
+    // `error.code = 'auth_required'` and we throw below.
+    authPolicy: 'skip',
+    timeoutMs: 30_000,
   })
-  let provider: AcpxProvider | null = probe
-  try {
-    const handle = await probe.prepare()
 
-    let models: string[] = []
-    if (handle.acpxRecordId) {
-      const record = await sessionStore.load(handle.acpxRecordId)
-      models = record?.acpx?.available_models ?? []
-    }
-
-    let reasoning = REASONING_DEFAULTS[agentId]
-    if (!reasoning) {
-      const caps = await probe.runtime.getCapabilities?.({ handle })
-      const key = caps?.configOptionKeys?.find((k) =>
-        RECOGNIZED_REASONING_KEYS.has(k),
-      )
-      if (key) reasoning = { key, values: ['low', 'medium', 'high'] }
-    }
-
-    return {
-      models,
-      reasoning,
-      discoveredAt: Date.now(),
-    }
-  } finally {
-    try {
-      await provider?.close('capability probe complete')
-    } catch {
-      // Probe close failures are harmless — the persistent record stays
-      // on disk and gets picked up by the next normal session.
-    }
-    provider = null
+  if (result.error) {
+    throw new Error(
+      `acp-probe failed for ${agentId}: ${result.error.code} — ${result.error.message}`,
+    )
   }
+
+  return resultToCapability(result)
+}
+
+function resultToCapability(r: AgentProbeResult): AgentCapability {
+  return {
+    models: r.models.map((m) => ({
+      id: m.id,
+      name: m.name ?? null,
+      description: m.description ?? null,
+    })),
+    reasoning: r.reasoning
+      ? {
+          key: r.reasoning.configId,
+          values: r.reasoning.values,
+          defaultValue: r.reasoning.defaultValue ?? null,
+        }
+      : null,
+    promptCapabilities: {
+      image: r.capabilities.promptCapabilities.image,
+      audio: r.capabilities.promptCapabilities.audio,
+      embeddedContext: r.capabilities.promptCapabilities.embeddedContext,
+    },
+    agentName: r.agentInfo?.name ?? null,
+    discoveredAt: Date.now(),
+  }
+}
+
+// Re-probe rows that predate the acp-probe migration (missing the new
+// `promptCapabilities` field) or that have aged past the freshness
+// window. Capabilities don't change without an agent upgrade; a day is
+// plenty for cache.
+function capabilityIsFresh(c: AgentCapability): boolean {
+  if (c.promptCapabilities === undefined) return false
+  return Date.now() - c.discoveredAt < FRESHNESS_MS
 }
 
 export type { AgentCapability }

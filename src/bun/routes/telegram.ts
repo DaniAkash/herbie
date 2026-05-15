@@ -9,6 +9,7 @@ import {
   type TelegramConnection,
   telegramConnections,
 } from '../../db/schema/telegram-connections.sql'
+import { validateAgentId } from '../agents/registry'
 import { getDb } from '../db-singleton'
 import { encryptSecret } from '../security/secrets'
 import { type ValidatedBot, validateBotToken } from '../telegram/api'
@@ -18,8 +19,7 @@ import {
   updateConnectionSchema,
 } from './telegram.schemas'
 
-// What we return to the renderer. botTokenEncrypted is intentionally
-// omitted — the renderer never sees raw or encrypted token material.
+// botTokenEncrypted is intentionally omitted from the wire shape.
 function serializeConnection(row: TelegramConnection) {
   return {
     id: row.id,
@@ -134,6 +134,8 @@ export const telegramRoute = new Hono()
     zValidator('json', createConnectionSchema),
     async (c) => {
       const body = c.req.valid('json')
+      const agentError = validateAgentId(body.agentId)
+      if (agentError) return c.json({ error: agentError }, 400)
       let botInfo: ValidatedBot
       try {
         botInfo = await validateBotToken(body.botToken)

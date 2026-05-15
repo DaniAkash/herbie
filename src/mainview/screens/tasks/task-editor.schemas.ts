@@ -5,8 +5,10 @@ import { z } from 'zod'
 // sync by hand — when the API schema grows, this one grows with it.
 // We can't import the server schema directly because it lives in the
 // Bun-only side of the codebase.
-
-export const AGENT_IDS = ['claude', 'codex', 'gemini', 'hermes'] as const
+//
+// agentId is free-form here too. The task form should disable the
+// Save button when the picker's value isn't in the live useAgents()
+// list; the schema's only job is to ensure the field isn't empty.
 
 export const scheduleSchema = z.discriminatedUnion('kind', [
   z.object({
@@ -57,7 +59,7 @@ export const taskFormSchema = z.object({
     .min(1, 'Name is required')
     .max(120, 'Name must be 120 characters or fewer'),
   prompt: z.string().trim().min(1, 'Prompt is required'),
-  agentId: z.enum(AGENT_IDS, { message: 'Pick an agent' }),
+  agentId: z.string().min(1, 'Pick an agent'),
   modelId: z.string().min(1).nullable(),
   workspacePath: z.string().min(1).nullable(),
   reasoningEffort: z.string().min(1).nullable(),

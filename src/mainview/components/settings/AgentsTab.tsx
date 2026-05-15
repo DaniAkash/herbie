@@ -5,63 +5,44 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { type AgentDetection, useAgents } from '@/modules/api/agents.hooks'
 import { useDefaultAgent } from '@/modules/api/settings.hooks'
-import type { AgentId } from '@/modules/data/herbie-data.types'
 import { openExternal } from '@/modules/system/openExternal'
-
-const AGENT_LABELS: Record<AgentId, string> = {
-  claude: 'Claude Code',
-  codex: 'Codex CLI',
-  gemini: 'Gemini CLI',
-  hermes: 'Hermes Agent',
-}
-
-const HERBIE_PRIMARY_AGENTS: ReadonlySet<AgentId> = new Set(
-  Object.keys(AGENT_LABELS) as AgentId[],
-)
-
-function isPrimaryAgent(agentId: string): agentId is AgentId {
-  return HERBIE_PRIMARY_AGENTS.has(agentId as AgentId)
-}
 
 export function AgentsTab() {
   const { defaultAgent, setDefaultAgent } = useDefaultAgent()
   const { data, isLoading } = useAgents()
 
+  // Mirror the composer AgentPicker's grouping: anything not in
+  // `not-installed` is usable today (the npx-available ones just fetch
+  // on first use). The picker's filter is `installState !== 'not-installed'`,
+  // so the settings page splits the same way.
   const rows = data ?? []
-  const primaryRows = rows.filter((row) => isPrimaryAgent(row.agentId))
-  const installed = primaryRows.filter((r) => r.installState === 'installed')
-  const npxAvailable = primaryRows.filter(
-    (r) => r.installState === 'npx-available',
-  )
+  const installed = rows.filter((r) => r.installState === 'installed')
+  const npxAvailable = rows.filter((r) => r.installState === 'npx-available')
   const notInstalled = rows.filter((r) => r.installState === 'not-installed')
 
-  const pickerAgents: AgentId[] = [...installed, ...npxAvailable]
-    .map((r) => r.agentId)
-    .filter(isPrimaryAgent)
+  const pickerRows: AgentDetection[] = [...installed, ...npxAvailable]
 
   return (
     <div className="flex flex-col gap-8">
       <section className="flex flex-col gap-3">
         <h2 className="font-medium text-sm">Default agent for new chats</h2>
-        {pickerAgents.length === 0 ? (
+        {pickerRows.length === 0 ? (
           <p className="text-muted-foreground text-xs">
             Install one of the supported agents below to set a default.
           </p>
         ) : (
           <ToggleGroup
             value={[defaultAgent]}
-            onValueChange={(v: string[]) =>
-              v[0] && setDefaultAgent(v[0] as AgentId)
-            }
+            onValueChange={(v: string[]) => v[0] && setDefaultAgent(v[0])}
             variant="outline"
           >
-            {pickerAgents.map((id) => (
+            {pickerRows.map((row) => (
               <ToggleGroupItem
-                key={id}
-                value={id}
-                aria-label={AGENT_LABELS[id]}
+                key={row.agentId}
+                value={row.agentId}
+                aria-label={row.displayName}
               >
-                {AGENT_LABELS[id]}
+                {row.displayName}
               </ToggleGroupItem>
             ))}
           </ToggleGroup>
