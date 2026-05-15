@@ -39,7 +39,7 @@ export function ModelPicker({ agentId, value, onChange }: ModelPickerProps) {
           <ChevronDownIcon data-icon="inline-end" className="opacity-60" />
         )}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-72">
+      <DropdownMenuContent align="start" className="max-h-96 w-72">
         <DropdownMenuGroup>
           <DropdownMenuLabel className="text-[10px] text-muted-foreground uppercase tracking-wider">
             Model
