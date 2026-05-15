@@ -240,6 +240,12 @@ export function ReasoningSelect({
 }) {
   const { data } = useAgentCapabilities({ variables: { id: agentId } })
   const reasoning = data?.reasoning
+
+  // See ReasoningPicker — codex bakes effort into the model id and
+  // re-exposes it here, so hide the duplicate surface for the same
+  // reasons the composer picker does.
+  if (agentId === 'codex') return null
+
   const disabled = !reasoning
 
   return (
