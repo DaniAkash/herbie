@@ -154,7 +154,12 @@ export const attachmentsRoute = new Hono()
     return new Response(blob, {
       headers: {
         'content-type': row.mimeType,
-        'content-disposition': `inline; filename="${row.filename}"`,
+        // RFC 5987 percent-encoded filename — Bun rejects raw header
+        // values containing `:` or other CTL/separator chars, which
+        // means uploads like "Screenshot 2026-05-18 at 3.43.51 PM.png"
+        // would 500 here with a quoted filename. The filename* form
+        // is unambiguous, UTF-8-safe, and supported everywhere.
+        'content-disposition': `inline; filename*=UTF-8''${encodeURIComponent(row.filename)}`,
         'content-length': String(row.sizeBytes),
       },
     })
