@@ -78,6 +78,11 @@ export function AgentsTab() {
 
       <CustomAgentsSection
         agents={customAgents.agents}
+        // Gate writes on the initial settings fetch — without this a
+        // user could click Add the instant the section paints and the
+        // mutation would PATCH `customAgents: [draft]` based on an
+        // empty `agents` array, wiping any persisted customs.
+        isLoading={customAgents.isLoading}
         onAdd={(draft) => {
           customAgents.add(draft)
           toast.success(`Added ${draft.displayName}`)
@@ -123,11 +128,13 @@ export function AgentsTab() {
 
 function CustomAgentsSection({
   agents,
+  isLoading,
   onAdd,
   onUpdate,
   onRemove,
 }: {
   agents: CustomAgent[]
+  isLoading: boolean
   onAdd: (draft: CustomAgentDraft) => void
   onUpdate: (id: string, draft: CustomAgentDraft) => void
   onRemove: (agent: CustomAgent) => void
@@ -145,7 +152,7 @@ function CustomAgentsSection({
           </p>
         </div>
         <Dialog open={addOpen} onOpenChange={setAddOpen}>
-          <DialogTrigger render={<Button size="sm" />}>
+          <DialogTrigger disabled={isLoading} render={<Button size="sm" />}>
             <PlusIcon data-icon="inline-start" />
             Add agent
           </DialogTrigger>
@@ -235,7 +242,6 @@ function CustomAgentRow({
               id: agent.id,
               displayName: agent.displayName,
               command: agent.command,
-              env: agent.env,
             }}
             onSubmit={(draft) => {
               onUpdate(draft)

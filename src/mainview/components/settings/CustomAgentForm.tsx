@@ -34,7 +34,11 @@ const formSchema = z.object({
       /^[a-z0-9][a-z0-9\-_.]*$/i,
       'Letters/digits/-/_/. only, must start with a letter or digit',
     ),
-  displayName: z.string().trim().min(1, 'Required').max(64, 'Max 64 characters'),
+  displayName: z
+    .string()
+    .trim()
+    .min(1, 'Required')
+    .max(64, 'Max 64 characters'),
   command: z
     .string()
     .trim()
@@ -76,7 +80,6 @@ export function CustomAgentForm({
       id: values.id.trim(),
       displayName: values.displayName.trim(),
       command: values.command.trim(),
-      env: initial?.env,
     })
   }
 
@@ -89,8 +92,8 @@ export function CustomAgentForm({
         <DialogTitle>{isEditing ? 'Edit agent' : 'Add agent'}</DialogTitle>
         <DialogDescription>
           Point Herbie at any ACP-compatible CLI. The command runs as a
-          subprocess on every new conversation — env vars set in your shell
-          are inherited.
+          subprocess on every new conversation — env vars set in your shell are
+          inherited.
         </DialogDescription>
       </DialogHeader>
 
@@ -102,14 +105,16 @@ export function CustomAgentForm({
             placeholder="my-agent"
             autoComplete="off"
             spellCheck={false}
-            disabled={isEditing}
+            // readOnly, not disabled — disabled fields are excluded
+            // from form submission in react-hook-form, which would
+            // strip the id on edit and break the zod resolver.
+            readOnly={isEditing}
             {...form.register('id')}
             aria-invalid={idError ? true : undefined}
           />
           <FieldDescription>
-            Wire identifier — appears in the agent picker and is pinned on
-            every chat/task created with this agent. Can't be changed once
-            set.
+            Wire identifier — appears in the agent picker and is pinned on every
+            chat/task created with this agent. Can't be changed once set.
           </FieldDescription>
           {idError && <FieldError>{idError.message}</FieldError>}
         </Field>

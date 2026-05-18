@@ -27,6 +27,10 @@ export const useUpdateSettings = createMutation<
     $patch({ json }).then(parseResponse<UpdateSettingsResponse>),
   onSuccess: () => {
     queryClient.invalidateQueries({ queryKey: useSettings.getKey() })
+    // /agents is derived from settings (custom agents merge into the
+    // detection rows) and has its own 60s stale window. Invalidate it
+    // here so the AgentPicker reflects custom-agent edits immediately.
+    queryClient.invalidateQueries({ queryKey: ['agents'] })
   },
 })
 

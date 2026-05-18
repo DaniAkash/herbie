@@ -8,20 +8,19 @@ import { z } from 'zod'
 export const customAgentSchema = z.object({
   id: z
     .string()
+    .trim()
     .min(1)
     .max(64)
     .regex(
       /^[a-z0-9][a-z0-9\-_.]*$/i,
       'Letters/digits/-/_/. only, must start with a letter or digit',
     ),
-  displayName: z.string().min(1).max(64),
-  command: z.string().min(1).max(2000),
-  // Optional env merged into the spawned process. Stored as a list of
-  // {name, value} pairs to match how MCP server env is shaped — keeps
-  // form wiring consistent across the Settings tabs.
-  env: z
-    .array(z.object({ name: z.string().min(1), value: z.string() }))
-    .optional(),
+  // `.trim()` is applied before `.min(1)` so a direct PATCH can't sneak
+  // in a whitespace-only display name or command that would later fail
+  // at spawn. The client form trims too — this is the defence-in-depth
+  // copy for API hits that bypass the form.
+  displayName: z.string().trim().min(1).max(64),
+  command: z.string().trim().min(1).max(2000),
   createdAt: z.number().int().nonnegative(),
 })
 
