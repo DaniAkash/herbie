@@ -1,13 +1,9 @@
 import {
   ArrowUpIcon,
   ClockIcon,
-  FileIcon,
-  ImageIcon,
-  Music2Icon,
   PaperclipIcon,
   StopCircleIcon,
   TriangleAlertIcon,
-  XIcon,
 } from 'lucide-react'
 import {
   type ChangeEvent,
@@ -30,17 +26,17 @@ import {
   useUploadAttachment,
 } from '@/modules/api/attachments.hooks'
 import { AgentPicker } from './AgentPicker'
+import { AttachmentChip } from './AttachmentChip'
+import {
+  type ComposerSubmitAttachments,
+  pendingFromFile,
+  type StagedAttachment,
+  stagedKey,
+} from './Composer.staging'
 import { type ComposerTuple, tuplesEqual } from './composer.types'
 import { ModelPicker } from './ModelPicker'
 import { ReasoningPicker } from './ReasoningPicker'
 import { WorkspacePicker } from './WorkspacePicker'
-
-interface StagedAttachment {
-  id: string
-  filename: string
-  mimeType: string
-  blobUrl: string
-}
 
 export interface ComposerProps {
   tuple: ComposerTuple
@@ -51,12 +47,13 @@ export interface ComposerProps {
    *  only matters once the first turn is committed. */
   hasPriorTurns?: boolean
   isStreaming?: boolean
-  /** When set, the paperclip is wired and uploads attach to this
-   *  conversation. New-chat composers leave it undefined; attachments
-   *  for the first turn are a follow-up. */
+  /** When set, attachment uploads bind directly to this conversation
+   *  (existing chat). When undefined, files are buffered client-side
+   *  and the parent orchestrates create-conv → upload → send on the
+   *  first submit (new chat). */
   conversationId?: string
   onTupleChange: (next: ComposerTuple) => void
-  onSubmit: (text: string, attachmentIds: string[]) => void
+  onSubmit: (text: string, attachments: ComposerSubmitAttachments) => void
   onCancel?: () => void
   onSchedule?: (text: string) => void
   placeholder?: string
@@ -83,28 +80,34 @@ export function Composer({
   const trimmed = text.trim()
 
   // Drives the paperclip's visibility — gated on the active agent's
-  // probe-discovered prompt caps. New-chat composers (no conversationId
-  // yet) keep the button hidden; uploads for the first turn are a
-  // follow-up.
+  // probe-discovered prompt caps. Works on both new-chat and existing-
+  // chat composers; the upload path differs (see handleFiles).
   const { data: caps } = useAgentCapabilities({
     variables: { id: tuple.agentId },
   })
   const canAttach =
-    conversationId !== undefined &&
-    (caps?.promptCapabilities?.image ||
-      caps?.promptCapabilities?.audio ||
-      caps?.promptCapabilities?.embeddedContext)
+    caps?.promptCapabilities?.image ||
+    caps?.promptCapabilities?.audio ||
+    caps?.promptCapabilities?.embeddedContext
 
   const upload = useUploadAttachment()
   const remove = useDeleteAttachment()
 
   function send() {
     if (!trimmed) return
-    onSubmit(
-      trimmed,
-      staged.map((a) => a.id),
-    )
+    const uploadedIds: string[] = []
+    const pendingFiles: File[] = []
+    for (const item of staged) {
+      if (item.kind === 'uploaded') uploadedIds.push(item.id)
+      else pendingFiles.push(item.file)
+    }
+    onSubmit(trimmed, { uploadedIds, pendingFiles })
     setText('')
+    // Revoke any object URLs we minted for pending chips so the
+    // tab doesn't leak blob handles.
+    for (const item of staged) {
+      if (item.kind === 'pending') URL.revokeObjectURL(item.blobUrl)
+    }
     setStaged([])
     setWarningDismissed(false)
   }
@@ -139,32 +142,60 @@ export function Composer({
 
   async function handleFiles(e: ChangeEvent<HTMLInputElement>) {
     const files = e.target.files
-    if (!files || !conversationId) return
-    for (const file of Array.from(files)) {
-      try {
-        const uploaded = await upload.mutateAsync({ conversationId, file })
-        setStaged((prev) => [
-          ...prev,
-          {
-            id: uploaded.id,
-            filename: uploaded.filename,
-            mimeType: uploaded.mimeType,
-            blobUrl: uploaded.url,
-          },
-        ])
-      } catch (err) {
-        toast.error('Upload failed', { description: String(err) })
+    if (!files) return
+    const list = Array.from(files)
+    if (conversationId) {
+      // Existing chat — upload right away so the chip is durable
+      // (refresh-safe) and the per-conv quota check runs before the
+      // user types more.
+      for (const file of list) {
+        await stageUploadedFile(conversationId, file)
       }
+    } else {
+      // New chat — no conversation row yet to scope the upload to.
+      // Buffer in memory; the parent orchestrates create-conv →
+      // upload → send on submit.
+      setStaged((prev) => [
+        ...prev,
+        ...list.map((file, i) => pendingFromFile(file, prev.length + i)),
+      ])
     }
     // Reset so the same file can be re-picked after a remove.
     e.target.value = ''
   }
 
-  function handleRemoveStaged(id: string) {
-    setStaged((prev) => prev.filter((a) => a.id !== id))
-    // Fire-and-forget — if the server delete fails the row just sits
-    // there until the conv-delete cleanup picks it up.
-    void remove.mutateAsync(id).catch(() => undefined)
+  async function stageUploadedFile(convId: string, file: File): Promise<void> {
+    try {
+      const uploaded = await upload.mutateAsync({
+        conversationId: convId,
+        file,
+      })
+      setStaged((prev) => [
+        ...prev,
+        {
+          kind: 'uploaded',
+          id: uploaded.id,
+          filename: uploaded.filename,
+          mimeType: uploaded.mimeType,
+          blobUrl: uploaded.url,
+        },
+      ])
+    } catch (err) {
+      toast.error('Upload failed', { description: String(err) })
+    }
+  }
+
+  function handleRemoveStaged(key: string) {
+    const target = staged.find((item) => stagedKey(item) === key)
+    if (!target) return
+    if (target.kind === 'pending') {
+      URL.revokeObjectURL(target.blobUrl)
+    } else {
+      // Fire-and-forget — if the server delete fails the row just sits
+      // there until the conv-delete cleanup picks it up.
+      void remove.mutateAsync(target.id).catch(() => undefined)
+    }
+    setStaged((prev) => prev.filter((item) => stagedKey(item) !== key))
   }
 
   const tupleChanged = !tuplesEqual(tuple, initialTuple)
@@ -182,13 +213,18 @@ export function Composer({
         )}
         {staged.length > 0 && (
           <div className="mb-2 flex flex-wrap gap-2">
-            {staged.map((item) => (
-              <AttachmentChip
-                key={item.id}
-                item={item}
-                onRemove={() => handleRemoveStaged(item.id)}
-              />
-            ))}
+            {staged.map((item) => {
+              const key = item.kind === 'uploaded' ? item.id : item.localId
+              return (
+                <AttachmentChip
+                  key={key}
+                  filename={item.filename}
+                  mimeType={item.mimeType}
+                  blobUrl={item.blobUrl}
+                  onRemove={() => handleRemoveStaged(key)}
+                />
+              )
+            })}
           </div>
         )}
         <InputGroup>
@@ -280,45 +316,6 @@ export function Composer({
         </p>
       </div>
     </form>
-  )
-}
-
-function AttachmentChip({
-  item,
-  onRemove,
-}: {
-  item: StagedAttachment
-  onRemove: () => void
-}) {
-  const isImage = item.mimeType.startsWith('image/')
-  const isAudio = item.mimeType.startsWith('audio/')
-  return (
-    <div className="flex items-center gap-2 rounded-md border bg-muted/40 py-1 pr-1 pl-2 text-xs">
-      {isImage ? (
-        <img
-          src={item.blobUrl}
-          alt={item.filename}
-          className="size-6 rounded object-cover"
-        />
-      ) : isAudio ? (
-        <Music2Icon className="size-3.5 text-muted-foreground" />
-      ) : item.mimeType === 'application/octet-stream' ? (
-        <FileIcon className="size-3.5 text-muted-foreground" />
-      ) : (
-        <ImageIcon className="size-3.5 text-muted-foreground" />
-      )}
-      <span className="max-w-[180px] truncate font-medium">
-        {item.filename}
-      </span>
-      <button
-        type="button"
-        onClick={onRemove}
-        aria-label={`Remove ${item.filename}`}
-        className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-      >
-        <XIcon className="size-3" />
-      </button>
-    </div>
   )
 }
 
