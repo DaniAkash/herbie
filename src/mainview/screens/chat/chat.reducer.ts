@@ -111,13 +111,21 @@ export function applyEvent(ctx: ReducerCtx, ev: PersistedEventDTO): void {
 }
 
 function handleTurnStart(ctx: ReducerCtx, ev: PersistedEventDTO): void {
-  const p = ev.payload as { requestId: string; userMessage: string }
+  const p = ev.payload as {
+    requestId: string
+    userMessage: string
+    attachmentIds?: string[]
+  }
   ctx.messages.push({
     id: `u-${ev.seq}`,
     role: 'user',
     parts: [
       { kind: 'text', id: `u-${ev.seq}`, text: p.userMessage, isOpen: false },
     ],
+    attachmentIds:
+      p.attachmentIds && p.attachmentIds.length > 0
+        ? p.attachmentIds
+        : undefined,
     createdAt: ev.createdAt,
     isStreaming: false,
     isCancelled: false,

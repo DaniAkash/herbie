@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { agentsRoute } from './routes/agents'
+import { attachmentsRoute } from './routes/attachments'
 import { chatRoute } from './routes/chat'
 import { inboxRoute } from './routes/inbox'
 import { internalRoute } from './routes/internal'
@@ -28,6 +29,7 @@ const routes = app
   .route('/', agentsRoute)
   .route('/', systemRoute)
   .route('/', chatRoute)
+  .route('/', attachmentsRoute)
   .route('/', tasksRoute)
   .route('/', inboxRoute)
   .route('/', internalRoute)

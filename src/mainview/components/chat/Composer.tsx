@@ -1,10 +1,22 @@
 import {
   ArrowUpIcon,
   ClockIcon,
+  FileIcon,
+  ImageIcon,
+  Music2Icon,
+  PaperclipIcon,
   StopCircleIcon,
   TriangleAlertIcon,
+  XIcon,
 } from 'lucide-react'
-import { type FormEvent, type KeyboardEvent, useState } from 'react'
+import {
+  type ChangeEvent,
+  type FormEvent,
+  type KeyboardEvent,
+  useRef,
+  useState,
+} from 'react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
   InputGroup,
@@ -12,11 +24,23 @@ import {
   InputGroupButton,
   InputGroupTextarea,
 } from '@/components/ui/input-group'
+import { useAgentCapabilities } from '@/modules/api/agents.hooks'
+import {
+  useDeleteAttachment,
+  useUploadAttachment,
+} from '@/modules/api/attachments.hooks'
 import { AgentPicker } from './AgentPicker'
 import { type ComposerTuple, tuplesEqual } from './composer.types'
 import { ModelPicker } from './ModelPicker'
 import { ReasoningPicker } from './ReasoningPicker'
 import { WorkspacePicker } from './WorkspacePicker'
+
+interface StagedAttachment {
+  id: string
+  filename: string
+  mimeType: string
+  blobUrl: string
+}
 
 export interface ComposerProps {
   tuple: ComposerTuple
@@ -27,8 +51,12 @@ export interface ComposerProps {
    *  only matters once the first turn is committed. */
   hasPriorTurns?: boolean
   isStreaming?: boolean
+  /** When set, the paperclip is wired and uploads attach to this
+   *  conversation. New-chat composers leave it undefined; attachments
+   *  for the first turn are a follow-up. */
+  conversationId?: string
   onTupleChange: (next: ComposerTuple) => void
-  onSubmit: (text: string) => void
+  onSubmit: (text: string, attachmentIds: string[]) => void
   onCancel?: () => void
   onSchedule?: (text: string) => void
   placeholder?: string
@@ -40,6 +68,7 @@ export function Composer({
   initialTuple,
   hasPriorTurns,
   isStreaming = false,
+  conversationId,
   onTupleChange,
   onSubmit,
   onCancel,
@@ -49,12 +78,34 @@ export function Composer({
 }: ComposerProps) {
   const [text, setText] = useState('')
   const [warningDismissed, setWarningDismissed] = useState(false)
+  const [staged, setStaged] = useState<StagedAttachment[]>([])
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const trimmed = text.trim()
+
+  // Drives the paperclip's visibility — gated on the active agent's
+  // probe-discovered prompt caps. New-chat composers (no conversationId
+  // yet) keep the button hidden; uploads for the first turn are a
+  // follow-up.
+  const { data: caps } = useAgentCapabilities({
+    variables: { id: tuple.agentId },
+  })
+  const canAttach =
+    conversationId !== undefined &&
+    (caps?.promptCapabilities?.image ||
+      caps?.promptCapabilities?.audio ||
+      caps?.promptCapabilities?.embeddedContext)
+
+  const upload = useUploadAttachment()
+  const remove = useDeleteAttachment()
 
   function send() {
     if (!trimmed) return
-    onSubmit(trimmed)
+    onSubmit(
+      trimmed,
+      staged.map((a) => a.id),
+    )
     setText('')
+    setStaged([])
     setWarningDismissed(false)
   }
 
@@ -86,6 +137,36 @@ export function Composer({
     onTupleChange({ ...tuple, ...patch })
   }
 
+  async function handleFiles(e: ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files
+    if (!files || !conversationId) return
+    for (const file of Array.from(files)) {
+      try {
+        const uploaded = await upload.mutateAsync({ conversationId, file })
+        setStaged((prev) => [
+          ...prev,
+          {
+            id: uploaded.id,
+            filename: uploaded.filename,
+            mimeType: uploaded.mimeType,
+            blobUrl: uploaded.url,
+          },
+        ])
+      } catch (err) {
+        toast.error('Upload failed', { description: String(err) })
+      }
+    }
+    // Reset so the same file can be re-picked after a remove.
+    e.target.value = ''
+  }
+
+  function handleRemoveStaged(id: string) {
+    setStaged((prev) => prev.filter((a) => a.id !== id))
+    // Fire-and-forget — if the server delete fails the row just sits
+    // there until the conv-delete cleanup picks it up.
+    void remove.mutateAsync(id).catch(() => undefined)
+  }
+
   const tupleChanged = !tuplesEqual(tuple, initialTuple)
   const showSwitchWarning =
     hasPriorTurns && tupleChanged && !warningDismissed && !isStreaming
@@ -98,6 +179,17 @@ export function Composer({
       <div className="mx-auto max-w-3xl">
         {showSwitchWarning && (
           <SwitchWarning onDismiss={() => setWarningDismissed(true)} />
+        )}
+        {staged.length > 0 && (
+          <div className="mb-2 flex flex-wrap gap-2">
+            {staged.map((item) => (
+              <AttachmentChip
+                key={item.id}
+                item={item}
+                onRemove={() => handleRemoveStaged(item.id)}
+              />
+            ))}
+          </div>
         )}
         <InputGroup>
           <InputGroupTextarea
@@ -132,6 +224,19 @@ export function Composer({
               value={tuple.reasoningEffort}
               onChange={(reasoningEffort) => patchTuple({ reasoningEffort })}
             />
+            {canAttach && (
+              <InputGroupButton
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isStreaming || upload.isPending}
+                title="Attach a file"
+              >
+                <PaperclipIcon data-icon="inline-start" />
+                Attach
+              </InputGroupButton>
+            )}
             <div className="flex-1" />
             {onSchedule && (
               <InputGroupButton
@@ -156,6 +261,13 @@ export function Composer({
             </Button>
           </InputGroupAddon>
         </InputGroup>
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          className="hidden"
+          onChange={handleFiles}
+        />
         <p className="mt-2 px-1 text-[11px] text-muted-foreground">
           <kbd className="rounded border bg-muted px-1 py-0.5 font-mono text-[10px]">
             ↵
@@ -168,6 +280,45 @@ export function Composer({
         </p>
       </div>
     </form>
+  )
+}
+
+function AttachmentChip({
+  item,
+  onRemove,
+}: {
+  item: StagedAttachment
+  onRemove: () => void
+}) {
+  const isImage = item.mimeType.startsWith('image/')
+  const isAudio = item.mimeType.startsWith('audio/')
+  return (
+    <div className="flex items-center gap-2 rounded-md border bg-muted/40 py-1 pr-1 pl-2 text-xs">
+      {isImage ? (
+        <img
+          src={item.blobUrl}
+          alt={item.filename}
+          className="size-6 rounded object-cover"
+        />
+      ) : isAudio ? (
+        <Music2Icon className="size-3.5 text-muted-foreground" />
+      ) : item.mimeType === 'application/octet-stream' ? (
+        <FileIcon className="size-3.5 text-muted-foreground" />
+      ) : (
+        <ImageIcon className="size-3.5 text-muted-foreground" />
+      )}
+      <span className="max-w-[180px] truncate font-medium">
+        {item.filename}
+      </span>
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label={`Remove ${item.filename}`}
+        className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+      >
+        <XIcon className="size-3" />
+      </button>
+    </div>
   )
 }
 

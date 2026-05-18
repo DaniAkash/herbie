@@ -1,6 +1,7 @@
 import type { AcpxProvider } from 'acpx-ai-provider'
 import type { ModelMessage } from 'ai'
 import type { DB } from '../../db'
+import type { Attachment } from '../../db/schema/attachments.sql'
 import {
   applyConfigDelta,
   bootstrapNewProvider,
@@ -14,6 +15,7 @@ import {
   tupleKey,
   tuplesEqual,
 } from './tuple'
+import { buildUserMessage } from './user-message'
 
 /**
  * Mutable record holding the per-session state `routeTurn` reads and
@@ -77,6 +79,7 @@ export async function routeTurn(
   tuple: ChatTuple,
   text: string,
   excludeRequestId: string,
+  attachments: Attachment[] = [],
 ): Promise<ModelMessage[]> {
   const { state } = ctx
   const sessionKeyOverride = ctx.seededFromInbox
@@ -85,6 +88,8 @@ export async function routeTurn(
 
   const providerKept =
     state.provider !== null && providerKeyEqual(tuple, state.activeTuple)
+
+  const userMessage = await buildUserMessage(text, attachments)
 
   if (!providerKept) {
     // Path A: provider rebuild + transcript replay.
@@ -110,7 +115,7 @@ export async function routeTurn(
       ctx.conversationId,
       excludeRequestId,
     )
-    return [...past, { role: 'user', content: text }]
+    return [...past, userMessage]
   }
 
   // providerKept implies state.provider is non-null.
@@ -122,7 +127,7 @@ export async function routeTurn(
     await bootstrapNewProvider(ctx.db, provider, tuple)
     state.providerBootstrapped = true
     state.activeTuple = tuple
-    return [{ role: 'user', content: text }]
+    return [userMessage]
   }
 
   if (!tuplesEqual(tuple, state.activeTuple)) {
@@ -135,9 +140,9 @@ export async function routeTurn(
       tuple,
     )
     state.activeTuple = tuple
-    return [{ role: 'user', content: text }]
+    return [userMessage]
   }
 
   // Path D: same tuple as the last turn — pure continuation.
-  return [{ role: 'user', content: text }]
+  return [userMessage]
 }

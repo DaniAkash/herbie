@@ -7,10 +7,12 @@ import { z } from 'zod'
 import { chatEvents } from '../../db/schema/chat-events.sql'
 import { conversations } from '../../db/schema/conversations.sql'
 import { validateAgentId } from '../agents/registry'
-import { type ChatTuple, TurnInProgressError } from '../chat/ChatSession'
+import { TurnInProgressError } from '../chat/ChatSession'
 import { getSessionManager } from '../chat/sessionManager'
 import { getDb } from '../db-singleton'
 import { mirrorAppTurnToTelegram } from '../telegram/outbound'
+import { removeConversationAttachments } from './attachments'
+import { loadConvAttachments, mergeSendTuple } from './chat.send-helpers'
 import { loadEvents, parseAfter, runChatStream } from './chat.stream'
 
 // agentId is free-form at the schema level; runtime validation against
@@ -55,6 +57,10 @@ const sendSchema = z
   .object({
     text: z.string().min(1),
     agentId: agentIdField.optional(),
+    // Already-uploaded attachment ids from POST /attachments. The
+    // handler revalidates that each id belongs to this conversation
+    // before threading them into the turn.
+    attachmentIds: z.array(z.string().min(1)).default([]),
     ...tupleFields,
   })
   .strict()
@@ -104,18 +110,9 @@ export const chatRoute = new Hono()
     return c.json({ ...serializeConversation(row), unread: false })
   })
   .get('/chat', async (c) => {
-    // Sidebar listing: only show in-app conversations that haven't
-    // been archived. Telegram-origin threads render under their own
-    // group via TelegramSidebarGroup; surfacing them here would
-    // mix them with TODAY/YESTERDAY buckets.
-    //
-    // The correlated `lastEventAt` subquery powers the sidebar's
-    // unread dot: an event whose createdAt > lastSeenAt is new since
-    // the user last opened this conversation. `seq` is monotonic per
-    // conversation, so picking the max-seq event via the
-    // (conversation_id, seq) PK index — then reading its created_at —
-    // is an O(log n) lookup, vs an O(n) scan if we MAX(created_at)
-    // directly.
+    // Sidebar listing: in-app conversations only, exclude archived.
+    // The lastEventAt subquery powers the unread dot — read via the
+    // (conversation_id, seq) PK index instead of MAX(created_at).
     const rows = await getDb()
       .select({
         conversation: conversations,
@@ -168,6 +165,10 @@ export const chatRoute = new Hono()
   .delete('/chat/:id', async (c) => {
     const id = c.req.param('id')
     await getSessionManager().dispose(id)
+    // Attachment rows go via the FK CASCADE; the bytes on disk don't,
+    // so unlink the per-conversation directory explicitly before
+    // dropping the conv row.
+    await removeConversationAttachments(id)
     await getDb().delete(conversations).where(eq(conversations.id, id)).run()
     return c.json({ ok: true })
   })
@@ -232,25 +233,19 @@ export const chatRoute = new Hono()
         .get()
       if (!conv) return c.json({ error: 'conversation not found' }, 404)
 
-      // `undefined` = field omitted in the request → keep the persisted
-      // value. `null` = user explicitly cleared back to "agent default"
-      // via the picker; preserve it. `??` would collapse both into the
-      // persisted value and leave the user unable to clear a selection.
-      const tuple: ChatTuple = {
-        agentId: body.agentId ?? conv.agentId,
-        modelId: body.modelId === undefined ? conv.modelId : body.modelId,
-        workspacePath:
-          body.workspacePath === undefined
-            ? conv.workspacePath
-            : body.workspacePath,
-        reasoningEffort:
-          body.reasoningEffort === undefined
-            ? conv.reasoningEffort
-            : body.reasoningEffort,
+      const tuple = mergeSendTuple(body, conv)
+
+      const attachmentRows = await loadConvAttachments(id, body.attachmentIds)
+      if (attachmentRows === null) {
+        return c.json({ error: 'one or more attachment ids are invalid' }, 400)
       }
 
       const session = await getSessionManager().getOrCreate(id)
-      const result = await session.appendUserMessage(body.text, tuple)
+      const result = await session.appendUserMessage(
+        body.text,
+        tuple,
+        attachmentRows,
+      )
 
       // If this conversation is mapped to a Telegram chat, mirror the
       // user message + agent reply back so the Telegram side stays in

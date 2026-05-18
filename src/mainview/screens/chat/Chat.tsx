@@ -100,7 +100,7 @@ function NewChat() {
       <Composer
         tuple={tuple}
         onTupleChange={setPickedTuple}
-        onSubmit={handleSubmit}
+        onSubmit={(text) => handleSubmit(text)}
         onSchedule={handleSchedule}
         autoFocus
         placeholder="Ask anything…"
@@ -170,7 +170,7 @@ function ExistingChatBody({
   })
   const [tuple, setTuple] = useState<ComposerTuple>(initialTupleRef.current)
 
-  function handleSubmit(text: string) {
+  function handleSubmit(text: string, attachmentIds: string[]) {
     void data.sendMessage({
       id: conversationId,
       text,
@@ -178,6 +178,7 @@ function ExistingChatBody({
       modelId: tuple.modelId,
       workspacePath: tuple.workspacePath,
       reasoningEffort: tuple.reasoningEffort,
+      attachmentIds,
     })
   }
 
@@ -221,6 +222,7 @@ function ExistingChatBody({
         initialTuple={initialTupleRef.current}
         hasPriorTurns={data.messages.length > 0}
         isStreaming={data.isStreaming}
+        conversationId={conversationId}
         onTupleChange={setTuple}
         onSubmit={handleSubmit}
         onCancel={handleCancel}

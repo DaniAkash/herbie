@@ -41,6 +41,11 @@ export interface ChatMessage {
   parts: MessagePart[]
   agent?: string
   fromTaskId?: string
+  // Attachment ids the user posted with this message; the renderer
+  // fetches metadata + the blob via /attachments/:id and
+  // /attachments/:id/blob. Empty / undefined on every assistant
+  // message and on user turns sent without uploads.
+  attachmentIds?: string[]
   createdAt: number
   isStreaming: boolean
   isCancelled: boolean

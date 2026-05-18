@@ -1,7 +1,9 @@
 import type { ModelMessage } from 'ai'
-import { asc, eq } from 'drizzle-orm'
+import { asc, eq, inArray } from 'drizzle-orm'
 import type { DB } from '../../db'
+import { attachments } from '../../db/schema/attachments.sql'
 import { chatEvents } from '../../db/schema/chat-events.sql'
+import { buildUserMessage } from './user-message'
 
 export interface ChatTuple {
   agentId: string
@@ -48,6 +50,11 @@ export function providerKeyEqual(
 // (status/UI bookkeeping) and still build a prompt that doesn't
 // duplicate the new user message — the caller appends it once at the
 // tail after this returns.
+interface ParsedRow {
+  type: string
+  parsed: unknown
+}
+
 export async function rebuildMessagesFromLog(
   db: DB,
   conversationId: string,
@@ -60,31 +67,84 @@ export async function rebuildMessagesFromLog(
     .orderBy(asc(chatEvents.seq))
     .all()
 
-  const messages: ModelMessage[] = []
+  // Two-pass: parse + collect attachment ids first, batch-fetch the
+  // attachment rows, then project. Avoids N round-trips when a
+  // conversation has many attachments.
+  const parsedRows = parseLogRows(rows)
+  const attachmentById = await loadAttachmentsForLog(db, parsedRows)
+  return projectParsedRows(parsedRows, attachmentById, excludeRequestId)
+}
+
+function parseLogRows(
+  rows: Array<{ type: string; payload: string }>,
+): ParsedRow[] {
+  const out: ParsedRow[] = []
   for (const row of rows) {
-    const message = projectRow(row.type, row.payload, excludeRequestId)
-    if (message) messages.push(message)
+    if (row.type !== 'turn.start' && row.type !== 'assistant.text') continue
+    try {
+      out.push({ type: row.type, parsed: JSON.parse(row.payload) })
+    } catch {
+      // corrupt row — skip
+    }
+  }
+  return out
+}
+
+async function loadAttachmentsForLog(
+  db: DB,
+  parsedRows: ParsedRow[],
+): Promise<Map<string, typeof attachments.$inferSelect>> {
+  const ids = new Set<string>()
+  for (const { type, parsed } of parsedRows) {
+    if (type !== 'turn.start') continue
+    const p = parsed as { attachmentIds?: string[] }
+    for (const id of p.attachmentIds ?? []) ids.add(id)
+  }
+  if (ids.size === 0) return new Map()
+  const rows = await db
+    .select()
+    .from(attachments)
+    .where(inArray(attachments.id, [...ids]))
+    .all()
+  return new Map(rows.map((a) => [a.id, a]))
+}
+
+async function projectParsedRows(
+  parsedRows: ParsedRow[],
+  attachmentById: Map<string, typeof attachments.$inferSelect>,
+  excludeRequestId: string | undefined,
+): Promise<ModelMessage[]> {
+  const messages: ModelMessage[] = []
+  for (const { type, parsed } of parsedRows) {
+    if (type === 'turn.start') {
+      const message = await projectTurnStart(
+        parsed,
+        attachmentById,
+        excludeRequestId,
+      )
+      if (message) messages.push(message)
+      continue
+    }
+    const text = (parsed as { text?: string })?.text
+    if (text) messages.push({ role: 'assistant', content: text })
   }
   return messages
 }
 
-function projectRow(
-  type: string,
-  payload: string,
+async function projectTurnStart(
+  parsed: unknown,
+  attachmentById: Map<string, typeof attachments.$inferSelect>,
   excludeRequestId: string | undefined,
-): ModelMessage | null {
-  if (type !== 'turn.start' && type !== 'assistant.text') return null
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(payload)
-  } catch {
-    return null
+): Promise<ModelMessage | null> {
+  const p = parsed as {
+    userMessage?: string
+    requestId?: string
+    attachmentIds?: string[]
   }
-  if (type === 'turn.start') {
-    const p = parsed as { userMessage?: string; requestId?: string }
-    if (excludeRequestId && p.requestId === excludeRequestId) return null
-    return p.userMessage ? { role: 'user', content: p.userMessage } : null
-  }
-  const text = (parsed as { text?: string })?.text
-  return text ? { role: 'assistant', content: text } : null
+  if (excludeRequestId && p.requestId === excludeRequestId) return null
+  if (!p.userMessage) return null
+  const atts = (p.attachmentIds ?? [])
+    .map((id) => attachmentById.get(id))
+    .filter((a) => a !== undefined)
+  return buildUserMessage(p.userMessage, atts)
 }
