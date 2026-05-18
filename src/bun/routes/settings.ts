@@ -8,34 +8,25 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import type * as schema from '../../db/schema/schema'
 import { settings as settingsTable } from '../../db/schema/settings.sql'
-import { validateAgentId } from '../agents/registry'
+import { listAllAgentIds } from '../agents/registry'
 import { getDb } from '../db-singleton'
 import { setLoginItem } from '../loginItems'
 import {
   type AgentCapability,
   agentCapabilitySchema,
 } from './settings.agent-capability.schema'
-import { customAgentSchema } from './settings.custom-agent.schema'
+import { agentsSchema } from './settings.custom-agent.schema'
 import { mcpSchema } from './settings.mcp.schema'
 
-// Adding a new setting:
-//   - existing domain: add the field below + a default in SETTINGS_DEFAULTS. No migration.
-//   - new domain:      add a top-level key here + entry in DOMAINS + SETTINGS_DEFAULTS. No migration.
-// Storage is one row per top-level domain in the `settings` KV table.
+// Adding a new setting: extend the relevant domain schema, ship a
+// default in SETTINGS_DEFAULTS, no migration. New domain: add to
+// DOMAINS too. Storage is one KV row per top-level domain.
 
 const THEME_MODES = ['light', 'dark', 'system'] as const
 
 const generalSchema = z.object({
   launchAtLogin: z.boolean(),
   minimizeToMenubarOnClose: z.boolean(),
-})
-
-// defaultAgent is free-form so user-registered custom agents can be
-// selected without churning the schema. PATCH handlers validate
-// against the live agent registry at write time.
-const agentsSchema = z.object({
-  defaultAgent: z.string().min(1),
-  customAgents: z.array(customAgentSchema).default([]),
 })
 
 const appearanceSchema = z.object({
@@ -92,14 +83,10 @@ const SETTINGS_DEFAULTS: Settings = {
   mcp: { servers: [] },
 }
 
-// Schemas for PATCH bodies: validation only, no defaults — defaults belong to
-// SETTINGS_DEFAULTS. (Earlier versions used `generalSchema.partial()` with
-// inner `.default()` calls, but `.partial()` doesn't strip defaults, so a
-// PATCH of one field would inflate to the full domain with all defaults.)
-//
-// `composer.workspaces` is itself partial: callers can PATCH just
-// `{recent: [...]}` without having to ship the current `default` (which
-// might still be loading on the client). The handler merges field-wise.
+// PATCH-body schemas: validation only, no defaults — defaults belong to
+// SETTINGS_DEFAULTS, otherwise `.partial()` would silently inflate a
+// single-field PATCH to the full domain. Same constraint binds the
+// inner customAgents field (no `.default([])`) — see custom-agent.schema.
 const composerPatchSchema = z.object({
   workspaces: z
     .object({
@@ -186,9 +173,7 @@ export async function patchAgentCapabilities(
   })
 }
 
-// Drops an agent's cached capability so the next picker open re-runs
-// discovery. Used by the bootstrap migration when shipped defaults
-// changed (e.g. claude's bogus reasoning entry from an earlier build).
+// Drops an agent's cached capability so the next read re-probes.
 export async function clearAgentCapability(
   db: ReturnType<typeof getDb>,
   agentId: string,
@@ -229,8 +214,30 @@ export const settingsRoute = new Hono()
     const patch = c.req.valid('json')
 
     if (patch.agents?.defaultAgent !== undefined) {
-      const agentError = await validateAgentId(patch.agents.defaultAgent)
-      if (agentError) return c.json({ error: agentError }, 400)
+      // Validate against the post-merge allowlist so a single PATCH can
+      // both register a new custom agent and select it as the default.
+      const baseIds = await listAllAgentIds()
+      const patchCustomIds = patch.agents.customAgents?.map((c) => c.id) ?? []
+      const futureIds = new Set([...baseIds, ...patchCustomIds])
+      if (!futureIds.has(patch.agents.defaultAgent)) {
+        return c.json(
+          { error: `Unknown agent id: ${patch.agents.defaultAgent}` },
+          400,
+        )
+      }
+    }
+
+    // Any change to customAgents may have invalidated previously-cached
+    // capabilities (edited command, shadow/unshadow of a built-in). Drop
+    // the cache for every affected id; re-probe on next read.
+    if (patch.agents?.customAgents !== undefined) {
+      const previous = await readAll(getDb())
+      const previousIds = previous.agents.customAgents.map((c) => c.id)
+      const nextIds = patch.agents.customAgents.map((c) => c.id)
+      const affected = new Set([...previousIds, ...nextIds])
+      for (const id of affected) {
+        await clearAgentCapability(getDb(), id)
+      }
     }
 
     // Read+merge+write inside a single transaction so concurrent PATCHes to

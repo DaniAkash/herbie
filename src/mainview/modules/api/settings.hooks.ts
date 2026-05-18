@@ -154,9 +154,20 @@ export function useCustomAgents(): {
   const remove = useCallback(
     (id: string) => {
       const next = agents.filter((a) => a.id !== id)
-      mutate({ agents: { customAgents: next } })
+      // If the removed agent was the saved default, reset to the
+      // SETTINGS_DEFAULTS choice so new chats / tasks don't 400 on an
+      // unknown id. 'claude' is the server-side bootstrap default; if
+      // it isn't installed the user can pick another from the toggle
+      // group above. Folded into the same PATCH so both updates land
+      // in a single transaction.
+      const currentDefault = data?.agents.defaultAgent
+      const agentsPatch =
+        currentDefault === id
+          ? { customAgents: next, defaultAgent: 'claude' }
+          : { customAgents: next }
+      mutate({ agents: agentsPatch })
     },
-    [mutate, agents],
+    [mutate, agents, data],
   )
 
   return { agents, isLoading, add, update, remove }
