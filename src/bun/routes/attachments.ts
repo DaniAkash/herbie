@@ -22,16 +22,17 @@ export interface AttachmentPromptCaps {
   embeddedContext: boolean
 }
 
+// Images-only for now — audio + embedded text/PDF rendering and
+// tokenisation aren't wired up on the renderer or in the prompt path,
+// and shipping them half-built is worse than not shipping them.
+// Revisit once we add per-mime UI affordances.
 export function mimeAllowed(
   mime: string,
   caps: AttachmentPromptCaps | undefined,
 ): boolean {
   if (!caps) return false
-  if (mime.startsWith('image/')) return caps.image
-  if (mime.startsWith('audio/')) return caps.audio
-  // Text-like (json, code, markdown, pdf, …) gates on embeddedContext.
-  if (caps.embeddedContext) return true
-  return false
+  if (!mime.startsWith('image/')) return false
+  return caps.image
 }
 
 // Drops the per-conversation attachments directory. Called from the

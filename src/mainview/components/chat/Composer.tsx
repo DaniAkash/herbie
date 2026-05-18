@@ -86,10 +86,10 @@ export function Composer({
   const { data: caps } = useAgentCapabilities({
     variables: { id: tuple.agentId },
   })
-  const canAttach =
-    caps?.promptCapabilities?.image ||
-    caps?.promptCapabilities?.audio ||
-    caps?.promptCapabilities?.embeddedContext
+  // Images-only for now. The backend `mimeAllowed` mirrors this; the
+  // file input's `accept` attribute narrows the picker so the user
+  // can't even stage a non-image.
+  const canAttach = caps?.promptCapabilities?.image ?? false
 
   const upload = useUploadAttachment()
   const remove = useDeleteAttachment()
@@ -305,6 +305,7 @@ export function Composer({
           ref={fileInputRef}
           type="file"
           multiple
+          accept="image/*"
           className="hidden"
           onChange={handleFiles}
         />
