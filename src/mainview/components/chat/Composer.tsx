@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/input-group'
 import { useAgentCapabilities } from '@/modules/api/agents.hooks'
 import {
+  attachmentBlobUrl,
   useDeleteAttachment,
   useUploadAttachment,
 } from '@/modules/api/attachments.hooks'
@@ -177,7 +178,10 @@ export function Composer({
           id: uploaded.id,
           filename: uploaded.filename,
           mimeType: uploaded.mimeType,
-          blobUrl: uploaded.url,
+          // uploaded.url is the relative `/attachments/<id>/blob` path; the
+          // composer chip renders this as <img src=...> so it needs an
+          // absolute URL pointing at the bun API host.
+          blobUrl: attachmentBlobUrl(uploaded.id),
         },
       ])
     } catch (err) {

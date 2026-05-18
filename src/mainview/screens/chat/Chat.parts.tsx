@@ -21,7 +21,10 @@ import {
   ToolOutput,
 } from '@/components/ai-elements/tool'
 import { Badge } from '@/components/ui/badge'
-import { useAttachment } from '@/modules/api/attachments.hooks'
+import {
+  attachmentBlobUrl,
+  useAttachment,
+} from '@/modules/api/attachments.hooks'
 import type { AgentId } from '@/modules/data/herbie-data.types'
 import { clockTime } from '@/modules/utils/relativeTime'
 import type {
@@ -157,12 +160,14 @@ function UserAttachmentChip({ attachmentId }: { attachmentId: string }) {
   const { data } = useAttachment({ variables: { id: attachmentId } })
   if (!data) return null
   const isImage = data.mimeType.startsWith('image/')
-  // Image attachments inline as a thumbnail; everything else renders as a
-  // filename pill. The blob URL points at the bun server's stream route.
+  // Backend serializes a relative URL (`/attachments/<id>/blob`) which only
+  // resolves correctly inside Bun-side fetches. The renderer lives on a
+  // different host (views:// in prod, vite dev server otherwise), so the
+  // <img> src must be absolutised against API_BASE_URL via this helper.
   if (isImage) {
     return (
       <img
-        src={data.url}
+        src={attachmentBlobUrl(attachmentId)}
         alt={data.filename}
         className="max-h-40 max-w-xs rounded-md border object-cover"
       />
