@@ -1,37 +1,27 @@
-import { FileIcon, ImageIcon, Music2Icon, XIcon } from 'lucide-react'
+import { XIcon } from 'lucide-react'
 
 // Small pill rendered above the composer textarea for each staged
-// attachment (uploaded or still-pending-upload). Drives just the
-// visual + the remove affordance — staging / unstaging lives in the
-// Composer.
+// attachment (uploaded or still-pending-upload). Attachments are
+// images-only today — the backend `mimeAllowed` rejects everything
+// else and the file input narrows the picker — so the chip just
+// renders a thumbnail. Audio / generic-file branches can return when
+// those mime gates do.
 export function AttachmentChip({
   filename,
-  mimeType,
   blobUrl,
   onRemove,
 }: {
   filename: string
-  mimeType: string
   blobUrl: string
   onRemove: () => void
 }) {
-  const isImage = mimeType.startsWith('image/')
-  const isAudio = mimeType.startsWith('audio/')
   return (
     <div className="flex items-center gap-2 rounded-md border bg-muted/40 py-1 pr-1 pl-2 text-xs">
-      {isImage ? (
-        <img
-          src={blobUrl}
-          alt={filename}
-          className="size-6 rounded object-cover"
-        />
-      ) : isAudio ? (
-        <Music2Icon className="size-3.5 text-muted-foreground" />
-      ) : mimeType === 'application/octet-stream' ? (
-        <FileIcon className="size-3.5 text-muted-foreground" />
-      ) : (
-        <ImageIcon className="size-3.5 text-muted-foreground" />
-      )}
+      <img
+        src={blobUrl}
+        alt={filename}
+        className="size-6 rounded object-cover"
+      />
       <span className="max-w-[180px] truncate font-medium">{filename}</span>
       <button
         type="button"

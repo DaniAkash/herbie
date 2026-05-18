@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises'
-import type { ModelMessage } from 'ai'
+import type { ModelMessage, UserContent } from 'ai'
 import type { Attachment } from '../../db/schema/attachments.sql'
 
 /**
@@ -20,11 +20,7 @@ export async function buildUserMessage(
   if (attachments.length === 0) {
     return { role: 'user', content: text }
   }
-  const parts: Array<
-    | { type: 'image'; image: Uint8Array; mediaType: string }
-    | { type: 'file'; data: Uint8Array; mediaType: string; filename: string }
-    | { type: 'text'; text: string }
-  > = []
+  const parts: UserContent = []
   for (const a of attachments) {
     const bytes = await readFile(a.storedPath)
     if (a.mimeType.startsWith('image/')) {
@@ -39,8 +35,5 @@ export async function buildUserMessage(
     }
   }
   parts.push({ type: 'text', text })
-  // The AI SDK accepts this union via `ModelMessage`'s user variant;
-  // cast through unknown so we don't have to import the internal
-  // UserContent union type.
-  return { role: 'user', content: parts as unknown as string }
+  return { role: 'user', content: parts }
 }

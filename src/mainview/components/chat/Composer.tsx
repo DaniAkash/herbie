@@ -223,7 +223,6 @@ export function Composer({
                 <AttachmentChip
                   key={key}
                   filename={item.filename}
-                  mimeType={item.mimeType}
                   blobUrl={item.blobUrl}
                   onRemove={() => handleRemoveStaged(key)}
                 />
