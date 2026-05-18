@@ -27,6 +27,10 @@ export const useUpdateSettings = createMutation<
     $patch({ json }).then(parseResponse<UpdateSettingsResponse>),
   onSuccess: () => {
     queryClient.invalidateQueries({ queryKey: useSettings.getKey() })
+    // /agents is derived from settings (custom agents merge into the
+    // detection rows) and has its own 60s stale window. Invalidate it
+    // here so the AgentPicker reflects custom-agent edits immediately.
+    queryClient.invalidateQueries({ queryKey: ['agents'] })
   },
 })
 
@@ -111,6 +115,66 @@ export function useWorkspaces(): {
   )
 
   return { defaultPath, recent, isLoading, addRecent, setDefault }
+}
+
+export type CustomAgent = SettingsResponse['agents']['customAgents'][number]
+export type CustomAgentDraft = Omit<CustomAgent, 'createdAt'>
+
+// Custom agents are stored under `agents.customAgents`. Each row is a
+// user-named ACP command — the wire `id` is part of the draft (not
+// generated server-side) because that id ends up persisted on chat /
+// task / telegram rows; we want the user to choose it explicitly so
+// it stays readable in the UI and matches whatever they call the
+// agent in their head.
+export function useCustomAgents(): {
+  agents: CustomAgent[]
+  isLoading: boolean
+  add: (draft: CustomAgentDraft) => void
+  update: (id: string, draft: CustomAgentDraft) => void
+  remove: (id: string) => void
+} {
+  const { data, isLoading } = useSettings()
+  const { mutate } = useUpdateSettings()
+  const agents = data?.agents.customAgents ?? []
+
+  const add = useCallback(
+    (draft: CustomAgentDraft) => {
+      const next = [...agents, { ...draft, createdAt: Date.now() }]
+      mutate({ agents: { customAgents: next } })
+    },
+    [mutate, agents],
+  )
+
+  const update = useCallback(
+    (id: string, draft: CustomAgentDraft) => {
+      const next = agents.map((a) =>
+        a.id === id ? { ...draft, createdAt: a.createdAt } : a,
+      )
+      mutate({ agents: { customAgents: next } })
+    },
+    [mutate, agents],
+  )
+
+  const remove = useCallback(
+    (id: string) => {
+      const next = agents.filter((a) => a.id !== id)
+      // If the removed agent was the saved default, reset to the
+      // SETTINGS_DEFAULTS choice so new chats / tasks don't 400 on an
+      // unknown id. 'claude' is the server-side bootstrap default; if
+      // it isn't installed the user can pick another from the toggle
+      // group above. Folded into the same PATCH so both updates land
+      // in a single transaction.
+      const currentDefault = data?.agents.defaultAgent
+      const agentsPatch =
+        currentDefault === id
+          ? { customAgents: next, defaultAgent: 'claude' }
+          : { customAgents: next }
+      mutate({ agents: agentsPatch })
+    },
+    [mutate, agents, data],
+  )
+
+  return { agents, isLoading, add, update, remove }
 }
 
 export type McpServer = SettingsResponse['mcp']['servers'][number]

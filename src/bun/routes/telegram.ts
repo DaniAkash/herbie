@@ -134,7 +134,7 @@ export const telegramRoute = new Hono()
     zValidator('json', createConnectionSchema),
     async (c) => {
       const body = c.req.valid('json')
-      const agentError = validateAgentId(body.agentId)
+      const agentError = await validateAgentId(body.agentId)
       if (agentError) return c.json({ error: agentError }, 400)
       let botInfo: ValidatedBot
       try {

@@ -33,7 +33,7 @@ async function discoverCapabilities(
   // custom one (Phase 2) go through the same `probeAgent({ command })`
   // entry point. Keeps the probe side ignorant of where the mapping
   // lives.
-  const command = resolveAgentCommand(agentId)
+  const command = await resolveAgentCommand(agentId)
   const result = await probeAgent({
     command,
     cwd,
