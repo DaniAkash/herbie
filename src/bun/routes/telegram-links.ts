@@ -7,6 +7,7 @@ import { conversations } from '../../db/schema/conversations.sql'
 import { pendingTelegramLinks } from '../../db/schema/pending-telegram-links.sql'
 import { telegramConnections } from '../../db/schema/telegram-connections.sql'
 import { getDb } from '../db-singleton'
+import { reassignSpecialPurposeBot } from '../telegram/reassign'
 
 // Tokens live for 30 minutes. Long enough that a user can switch
 // devices / unlock a phone, short enough that a stale token tapped
@@ -17,6 +18,38 @@ const LINK_TTL_MS = 30 * 60 * 1000
 const createLinkSchema = z.object({
   conversationId: z.string().min(1),
 })
+
+const reassignSchema = z.object({
+  conversationId: z.string().min(1),
+})
+
+// Maps a reassignSpecialPurposeBot error code to (status, message).
+function reassignErrorResponse(code: string): {
+  status: 400 | 404 | 409
+  message: string
+} {
+  switch (code) {
+    case 'connection_not_found':
+      return { status: 404, message: 'connection not found' }
+    case 'conversation_not_found':
+      return { status: 404, message: 'conversation not found' }
+    case 'not_special_purpose':
+      return {
+        status: 400,
+        message:
+          'only special-purpose bots can be reassigned; remote-control bots manage their pool via /switch',
+      }
+    case 'conversation_archived':
+      return { status: 400, message: 'cannot link an archived conversation' }
+    case 'no_change':
+      return {
+        status: 409,
+        message: 'bot is already linked to this conversation',
+      }
+    default:
+      return { status: 400, message: code }
+  }
+}
 
 // "Send to Telegram" endpoints. The desktop popup mints a token via
 // POST, renders the deep link / QR code, and polls GET while waiting
@@ -80,6 +113,33 @@ export const telegramLinksRoute = new Hono()
         deepLinkUrl,
         botUsername,
         expiresAt: expiresAt.getTime(),
+      })
+    },
+  )
+  // Reassign a special-purpose bot to a different conversation.
+  // Distinct from the link flow because the bot already has a known
+  // Telegram chat — no /start handshake needed. Posts the
+  // "this bot has been reassigned" notice to every Telegram chat the
+  // bot lives in.
+  .post(
+    '/telegram/connections/:id/reassign',
+    zValidator('json', reassignSchema),
+    async (c) => {
+      const connectionId = c.req.param('id')
+      const { conversationId } = c.req.valid('json')
+      const result = await reassignSpecialPurposeBot(
+        connectionId,
+        conversationId,
+      )
+      if (!result.ok) {
+        const { status, message } = reassignErrorResponse(result.code)
+        return c.json({ error: message }, status)
+      }
+      return c.json({
+        ok: true,
+        previousConversationTitle: result.previousConversationTitle,
+        newConversationTitle: result.newConversationTitle,
+        chatsNotified: result.chatsNotified,
       })
     },
   )
