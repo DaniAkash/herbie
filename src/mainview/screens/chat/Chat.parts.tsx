@@ -21,6 +21,10 @@ import {
   ToolOutput,
 } from '@/components/ai-elements/tool'
 import { Badge } from '@/components/ui/badge'
+import {
+  attachmentBlobUrl,
+  useAttachment,
+} from '@/modules/api/attachments.hooks'
 import type { AgentId } from '@/modules/data/herbie-data.types'
 import { clockTime } from '@/modules/utils/relativeTime'
 import type {
@@ -57,11 +61,20 @@ export function ChatMessageRow({
       .join('\n')
     return (
       <Message from="user">
-        <MessageContent>
-          <span className="whitespace-pre-wrap text-sm leading-relaxed">
-            {text}
-          </span>
-        </MessageContent>
+        <div className="flex flex-col items-end gap-2">
+          {message.attachmentIds && message.attachmentIds.length > 0 && (
+            <div className="flex flex-wrap justify-end gap-2">
+              {message.attachmentIds.map((id) => (
+                <UserAttachmentChip key={id} attachmentId={id} />
+              ))}
+            </div>
+          )}
+          <MessageContent>
+            <span className="whitespace-pre-wrap text-sm leading-relaxed">
+              {text}
+            </span>
+          </MessageContent>
+        </div>
         <span className="px-2 text-[10px] text-muted-foreground/60 tabular-nums">
           {clockTime(message.createdAt)}
         </span>
@@ -141,6 +154,41 @@ function TextPartView({ part }: { part: TextPart }) {
       <MessageResponse>{part.text}</MessageResponse>
     </MessageContent>
   )
+}
+
+function UserAttachmentChip({ attachmentId }: { attachmentId: string }) {
+  const { data } = useAttachment({ variables: { id: attachmentId } })
+  if (!data) return null
+  const isImage = data.mimeType.startsWith('image/')
+  // Backend serializes a relative URL (`/attachments/<id>/blob`) which only
+  // resolves correctly inside Bun-side fetches. The renderer lives on a
+  // different host (views:// in prod, vite dev server otherwise), so the
+  // <img> src must be absolutised against API_BASE_URL via this helper.
+  if (isImage) {
+    return (
+      <img
+        src={attachmentBlobUrl(attachmentId)}
+        alt={data.filename}
+        className="max-h-40 max-w-xs rounded-md border object-cover"
+      />
+    )
+  }
+  return (
+    <div className="flex items-center gap-2 rounded-md border bg-muted/40 px-2 py-1 text-xs">
+      <span className="max-w-[200px] truncate font-medium">
+        {data.filename}
+      </span>
+      <span className="text-muted-foreground tabular-nums">
+        {formatBytes(data.sizeBytes)}
+      </span>
+    </div>
+  )
+}
+
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n}B`
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)}KB`
+  return `${(n / (1024 * 1024)).toFixed(1)}MB`
 }
 
 function ReasoningPartView({

@@ -1,10 +1,18 @@
 import {
   ArrowUpIcon,
   ClockIcon,
+  PaperclipIcon,
   StopCircleIcon,
   TriangleAlertIcon,
 } from 'lucide-react'
-import { type FormEvent, type KeyboardEvent, useState } from 'react'
+import {
+  type ChangeEvent,
+  type FormEvent,
+  type KeyboardEvent,
+  useRef,
+  useState,
+} from 'react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
   InputGroup,
@@ -12,7 +20,20 @@ import {
   InputGroupButton,
   InputGroupTextarea,
 } from '@/components/ui/input-group'
+import { useAgentCapabilities } from '@/modules/api/agents.hooks'
+import {
+  attachmentBlobUrl,
+  useDeleteAttachment,
+  useUploadAttachment,
+} from '@/modules/api/attachments.hooks'
 import { AgentPicker } from './AgentPicker'
+import { AttachmentChip } from './AttachmentChip'
+import {
+  type ComposerSubmitAttachments,
+  pendingFromFile,
+  type StagedAttachment,
+  stagedKey,
+} from './Composer.staging'
 import { type ComposerTuple, tuplesEqual } from './composer.types'
 import { ModelPicker } from './ModelPicker'
 import { ReasoningPicker } from './ReasoningPicker'
@@ -27,8 +48,13 @@ export interface ComposerProps {
    *  only matters once the first turn is committed. */
   hasPriorTurns?: boolean
   isStreaming?: boolean
+  /** When set, attachment uploads bind directly to this conversation
+   *  (existing chat). When undefined, files are buffered client-side
+   *  and the parent orchestrates create-conv → upload → send on the
+   *  first submit (new chat). */
+  conversationId?: string
   onTupleChange: (next: ComposerTuple) => void
-  onSubmit: (text: string) => void
+  onSubmit: (text: string, attachments: ComposerSubmitAttachments) => void
   onCancel?: () => void
   onSchedule?: (text: string) => void
   placeholder?: string
@@ -40,6 +66,7 @@ export function Composer({
   initialTuple,
   hasPriorTurns,
   isStreaming = false,
+  conversationId,
   onTupleChange,
   onSubmit,
   onCancel,
@@ -49,12 +76,40 @@ export function Composer({
 }: ComposerProps) {
   const [text, setText] = useState('')
   const [warningDismissed, setWarningDismissed] = useState(false)
+  const [staged, setStaged] = useState<StagedAttachment[]>([])
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const trimmed = text.trim()
+
+  // Drives the paperclip's visibility — gated on the active agent's
+  // probe-discovered prompt caps. Works on both new-chat and existing-
+  // chat composers; the upload path differs (see handleFiles).
+  const { data: caps } = useAgentCapabilities({
+    variables: { id: tuple.agentId },
+  })
+  // Images-only for now. The backend `mimeAllowed` mirrors this; the
+  // file input's `accept` attribute narrows the picker so the user
+  // can't even stage a non-image.
+  const canAttach = caps?.promptCapabilities?.image ?? false
+
+  const upload = useUploadAttachment()
+  const remove = useDeleteAttachment()
 
   function send() {
     if (!trimmed) return
-    onSubmit(trimmed)
+    const uploadedIds: string[] = []
+    const pendingFiles: File[] = []
+    for (const item of staged) {
+      if (item.kind === 'uploaded') uploadedIds.push(item.id)
+      else pendingFiles.push(item.file)
+    }
+    onSubmit(trimmed, { uploadedIds, pendingFiles })
     setText('')
+    // Revoke any object URLs we minted for pending chips so the
+    // tab doesn't leak blob handles.
+    for (const item of staged) {
+      if (item.kind === 'pending') URL.revokeObjectURL(item.blobUrl)
+    }
+    setStaged([])
     setWarningDismissed(false)
   }
 
@@ -86,6 +141,67 @@ export function Composer({
     onTupleChange({ ...tuple, ...patch })
   }
 
+  async function handleFiles(e: ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files
+    if (!files) return
+    const list = Array.from(files)
+    if (conversationId) {
+      // Existing chat — upload right away so the chip is durable
+      // (refresh-safe) and the per-conv quota check runs before the
+      // user types more.
+      for (const file of list) {
+        await stageUploadedFile(conversationId, file)
+      }
+    } else {
+      // New chat — no conversation row yet to scope the upload to.
+      // Buffer in memory; the parent orchestrates create-conv →
+      // upload → send on submit.
+      setStaged((prev) => [
+        ...prev,
+        ...list.map((file, i) => pendingFromFile(file, prev.length + i)),
+      ])
+    }
+    // Reset so the same file can be re-picked after a remove.
+    e.target.value = ''
+  }
+
+  async function stageUploadedFile(convId: string, file: File): Promise<void> {
+    try {
+      const uploaded = await upload.mutateAsync({
+        conversationId: convId,
+        file,
+      })
+      setStaged((prev) => [
+        ...prev,
+        {
+          kind: 'uploaded',
+          id: uploaded.id,
+          filename: uploaded.filename,
+          mimeType: uploaded.mimeType,
+          // uploaded.url is the relative `/attachments/<id>/blob` path; the
+          // composer chip renders this as <img src=...> so it needs an
+          // absolute URL pointing at the bun API host.
+          blobUrl: attachmentBlobUrl(uploaded.id),
+        },
+      ])
+    } catch (err) {
+      toast.error('Upload failed', { description: String(err) })
+    }
+  }
+
+  function handleRemoveStaged(key: string) {
+    const target = staged.find((item) => stagedKey(item) === key)
+    if (!target) return
+    if (target.kind === 'pending') {
+      URL.revokeObjectURL(target.blobUrl)
+    } else {
+      // Fire-and-forget — if the server delete fails the row just sits
+      // there until the conv-delete cleanup picks it up.
+      void remove.mutateAsync(target.id).catch(() => undefined)
+    }
+    setStaged((prev) => prev.filter((item) => stagedKey(item) !== key))
+  }
+
   const tupleChanged = !tuplesEqual(tuple, initialTuple)
   const showSwitchWarning =
     hasPriorTurns && tupleChanged && !warningDismissed && !isStreaming
@@ -98,6 +214,21 @@ export function Composer({
       <div className="mx-auto max-w-3xl">
         {showSwitchWarning && (
           <SwitchWarning onDismiss={() => setWarningDismissed(true)} />
+        )}
+        {staged.length > 0 && (
+          <div className="mb-2 flex flex-wrap gap-2">
+            {staged.map((item) => {
+              const key = item.kind === 'uploaded' ? item.id : item.localId
+              return (
+                <AttachmentChip
+                  key={key}
+                  filename={item.filename}
+                  blobUrl={item.blobUrl}
+                  onRemove={() => handleRemoveStaged(key)}
+                />
+              )
+            })}
+          </div>
         )}
         <InputGroup>
           <InputGroupTextarea
@@ -132,6 +263,19 @@ export function Composer({
               value={tuple.reasoningEffort}
               onChange={(reasoningEffort) => patchTuple({ reasoningEffort })}
             />
+            {canAttach && (
+              <InputGroupButton
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isStreaming || upload.isPending}
+                title="Attach a file"
+              >
+                <PaperclipIcon data-icon="inline-start" />
+                Attach
+              </InputGroupButton>
+            )}
             <div className="flex-1" />
             {onSchedule && (
               <InputGroupButton
@@ -156,6 +300,14 @@ export function Composer({
             </Button>
           </InputGroupAddon>
         </InputGroup>
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept="image/*"
+          className="hidden"
+          onChange={handleFiles}
+        />
         <p className="mt-2 px-1 text-[11px] text-muted-foreground">
           <kbd className="rounded border bg-muted px-1 py-0.5 font-mono text-[10px]">
             ↵

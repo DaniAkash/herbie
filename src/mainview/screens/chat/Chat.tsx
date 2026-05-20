@@ -1,16 +1,19 @@
 import { useNavigate } from '@tanstack/react-router'
 import { SparklesIcon } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { toast } from 'sonner'
 import {
   Conversation,
   ConversationContent,
   ConversationScrollButton,
 } from '@/components/ai-elements/conversation'
 import { Composer } from '@/components/chat/Composer'
+import type { ComposerSubmitAttachments } from '@/components/chat/Composer.staging'
 import type { ComposerTuple } from '@/components/chat/composer.types'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useUploadAttachment } from '@/modules/api/attachments.hooks'
 import {
   useCreateConversation,
   useMarkConversationSeen,
@@ -47,8 +50,17 @@ function NewChat() {
 
   const createMutation = useCreateConversation()
   const sendMutation = useSendMessage()
+  const uploadMutation = useUploadAttachment()
 
-  async function handleSubmit(text: string) {
+  async function handleSubmit(
+    text: string,
+    attachments: ComposerSubmitAttachments,
+  ) {
+    // The new-chat surface doesn't have a conversation id yet, so any
+    // attachments the user picked are buffered in the Composer as File
+    // objects. Mint the conversation first, then upload the pending
+    // files under its id, then send everything together so the agent
+    // sees the user message + attachments as one turn.
     const conv = await createMutation.mutateAsync({
       agentId: tuple.agentId,
       title: text.slice(0, 60),
@@ -56,6 +68,23 @@ function NewChat() {
       workspacePath: tuple.workspacePath,
       reasoningEffort: tuple.reasoningEffort,
     })
+    let uploadedIds = attachments.uploadedIds
+    if (attachments.pendingFiles.length > 0) {
+      try {
+        const uploaded = await Promise.all(
+          attachments.pendingFiles.map((file) =>
+            uploadMutation.mutateAsync({ conversationId: conv.id, file }),
+          ),
+        )
+        uploadedIds = [...uploadedIds, ...uploaded.map((u) => u.id)]
+      } catch (err) {
+        toast.error('Upload failed', { description: String(err) })
+        // The conversation row is already created — surface it so the
+        // user can retry without losing their typed prompt.
+        navigate({ to: '/chat/$id', params: { id: conv.id } })
+        return
+      }
+    }
     await sendMutation.mutateAsync({
       id: conv.id,
       text,
@@ -63,6 +92,7 @@ function NewChat() {
       modelId: tuple.modelId,
       workspacePath: tuple.workspacePath,
       reasoningEffort: tuple.reasoningEffort,
+      attachmentIds: uploadedIds,
     })
     navigate({ to: '/chat/$id', params: { id: conv.id } })
   }
@@ -170,7 +200,10 @@ function ExistingChatBody({
   })
   const [tuple, setTuple] = useState<ComposerTuple>(initialTupleRef.current)
 
-  function handleSubmit(text: string) {
+  function handleSubmit(text: string, attachments: ComposerSubmitAttachments) {
+    // Existing chats always have a conversationId, so the Composer's
+    // paperclip uploads each file directly and there are no
+    // pendingFiles to fold in here.
     void data.sendMessage({
       id: conversationId,
       text,
@@ -178,6 +211,7 @@ function ExistingChatBody({
       modelId: tuple.modelId,
       workspacePath: tuple.workspacePath,
       reasoningEffort: tuple.reasoningEffort,
+      attachmentIds: attachments.uploadedIds,
     })
   }
 
@@ -221,6 +255,7 @@ function ExistingChatBody({
         initialTuple={initialTupleRef.current}
         hasPriorTurns={data.messages.length > 0}
         isStreaming={data.isStreaming}
+        conversationId={conversationId}
         onTupleChange={setTuple}
         onSubmit={handleSubmit}
         onCancel={handleCancel}

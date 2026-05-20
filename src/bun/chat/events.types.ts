@@ -19,6 +19,11 @@ export type ProtocolEvent =
         modelId?: string | null
         workspacePath?: string | null
         reasoningEffort?: string | null
+        // Persisted alongside the turn so transcript replay can render
+        // attachment chips on the user bubble without re-reading bytes
+        // from the chat-routes side; the metadata lookup uses these ids
+        // against the attachments table.
+        attachmentIds?: string[]
       }
     }
   | {

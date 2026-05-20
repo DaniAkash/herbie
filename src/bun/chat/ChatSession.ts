@@ -3,6 +3,7 @@ import { type LanguageModelUsage, type ModelMessage, streamText } from 'ai'
 import { desc, eq } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import type { DB } from '../../db'
+import type { Attachment } from '../../db/schema/attachments.sql'
 import { chatEvents } from '../../db/schema/chat-events.sql'
 import {
   type Conversation,
@@ -69,9 +70,7 @@ export class ChatSession {
     nextSeq: number,
   ) {
     // Inbox-seeded convo (events present + no acpx session yet) —
-    // needs its own sessionKey and a forced first-turn replay. For
-    // non-seeded convs we seed `activeTuple` from the row so a future
-    // pre-built-provider path can take session/load on resume.
+    // needs its own sessionKey and a forced first-turn replay.
     const seededFromInbox = nextSeq > 0 && conversation.acpxRecordId == null
     this.seededFromInbox = seededFromInbox
     this.routeState = {
@@ -121,6 +120,7 @@ export class ChatSession {
   async appendUserMessage(
     text: string,
     tuple: ChatTuple,
+    attachments: Attachment[] = [],
   ): Promise<{ requestId: string }> {
     if (this.activeTurn)
       throw new TurnInProgressError('turn already in progress')
@@ -137,13 +137,13 @@ export class ChatSession {
         modelId: tuple.modelId,
         workspacePath: tuple.workspacePath,
         reasoningEffort: tuple.reasoningEffort,
+        attachmentIds:
+          attachments.length > 0 ? attachments.map((a) => a.id) : undefined,
       },
     })
 
-    // routeTurn + the stream start can both throw — agent not
-    // installed, acpx rejects a config option, etc. Without a guard
-    // here turn.start lives on forever in the event log and the
-    // renderer is stuck on "streaming".
+    // routeTurn + the stream start can both throw. Without a guard
+    // here turn.start lives on forever and the renderer stays stuck.
     try {
       const messages = await routeTurn(
         {
@@ -161,6 +161,7 @@ export class ChatSession {
         tuple,
         text,
         requestId,
+        attachments,
       )
       await this.startTurn(messages, tuple, requestId, controller)
       return { requestId }

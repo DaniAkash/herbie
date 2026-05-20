@@ -85,6 +85,13 @@
       "when": 1778678055985,
       "tag": "0011_awesome_red_skull",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1779101476224,
+      "tag": "0012_fresh_starbolt",
+      "breakpoints": true
     }
   ]
 }
