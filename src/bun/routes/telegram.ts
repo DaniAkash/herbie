@@ -144,11 +144,18 @@ export const telegramRoute = new Hono()
         return c.json({ error: message }, 400)
       }
       const now = new Date()
+      // kind defaults to 'special_purpose' here so the existing
+      // Mobile-settings flow keeps working unchanged. The Send-to-Telegram
+      // popup will also create special_purpose bots. Remote Control bot
+      // creation lands in a follow-up via an explicit kind override
+      // (and an at-most-one check).
       const row = {
         id: nanoid(),
         name: body.name,
         botUsername: botInfo.username,
         botTokenEncrypted: await encryptSecret(body.botToken),
+        kind: 'special_purpose' as const,
+        defaultConversationId: null,
         agentId: body.agentId,
         modelId: body.modelId ?? null,
         workspacePath: body.workspacePath,
