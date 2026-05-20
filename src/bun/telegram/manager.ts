@@ -10,8 +10,27 @@ import {
 } from '../../db/schema/telegram-connections.sql'
 import { getDb } from '../db-singleton'
 import { decryptSecret } from '../security/secrets'
+import { setMyCommands, type TelegramBotCommand } from './api'
 import { handleIncomingTelegramMessage } from './bridge'
 import { MemoryStateAdapter } from './state-adapter'
+
+// Slash-command catalogs surfaced in Telegram's native autocomplete
+// menu via setMyCommands. The two bot kinds advertise different sets:
+// remote_control bots get the full management interface; special
+// purpose bots only need /help since their behavior is just
+// "messages route to the assigned conversation."
+const REMOTE_CONTROL_COMMANDS: readonly TelegramBotCommand[] = [
+  { command: 'new', description: 'Start a new conversation' },
+  { command: 'list', description: 'Show all conversations' },
+  { command: 'switch', description: 'Switch active conversation' },
+  { command: 'current', description: 'Show active conversation' },
+  { command: 'archive', description: 'Archive a conversation' },
+  { command: 'unarchive', description: 'Restore an archived conversation' },
+  { command: 'help', description: 'Show command list' },
+]
+const SPECIAL_PURPOSE_COMMANDS: readonly TelegramBotCommand[] = [
+  { command: 'help', description: 'Show what this bot does' },
+]
 
 type RunningBot = {
   connectionId: string
@@ -142,6 +161,19 @@ class TelegramManager {
       adapter,
     })
     await this.clearError(connection.id)
+
+    // Register the slash-command catalog with Telegram so the native
+    // `/` autocomplete menu surfaces them. Non-fatal — the bot still
+    // works without the menu, the user just doesn't get autocomplete.
+    const commands =
+      connection.kind === 'remote_control'
+        ? REMOTE_CONTROL_COMMANDS
+        : SPECIAL_PURPOSE_COMMANDS
+    try {
+      await setMyCommands(botToken, commands)
+    } catch (err) {
+      logError(connection.id, 'setMyCommands failed', err)
+    }
   }
 
   private async markError(

@@ -35,3 +35,31 @@ export async function validateBotToken(token: string): Promise<ValidatedBot> {
     firstName: body.result.first_name ?? null,
   }
 }
+
+export interface TelegramBotCommand {
+  command: string
+  description: string
+}
+
+// Registers the bot's slash-command catalog with Telegram so the
+// native `/` autocomplete menu surfaces them. chat-sdk doesn't expose
+// this — call it directly after chat.initialize() in the manager.
+// Idempotent: every boot overwrites with the same list.
+export async function setMyCommands(
+  token: string,
+  commands: readonly TelegramBotCommand[],
+): Promise<void> {
+  const res = await fetch(
+    `https://api.telegram.org/bot${token}/setMyCommands`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ commands }),
+    },
+  )
+  const body = (await res.json()) as TelegramApiResponse<true>
+  if (!body.ok) {
+    const reason = body.description ?? `HTTP ${res.status}`
+    throw new Error(`Telegram setMyCommands failed: ${reason}`)
+  }
+}
