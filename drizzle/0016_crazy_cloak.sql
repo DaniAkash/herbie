@@ -1,0 +1,1 @@
+DROP INDEX `telegram_chats_conn_chat_unique`;
