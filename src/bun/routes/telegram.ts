@@ -25,6 +25,8 @@ function serializeConnection(row: TelegramConnection) {
     id: row.id,
     name: row.name,
     botUsername: row.botUsername,
+    kind: row.kind,
+    defaultConversationId: row.defaultConversationId,
     agentId: row.agentId,
     modelId: row.modelId,
     workspacePath: row.workspacePath,
@@ -136,6 +138,25 @@ export const telegramRoute = new Hono()
       const body = c.req.valid('json')
       const agentError = await validateAgentId(body.agentId)
       if (agentError) return c.json({ error: agentError }, 400)
+      const kind = body.kind ?? 'special_purpose'
+      // At most one Remote Control bot per user. The form should also
+      // disable the radio in this case; this is the server-side guard.
+      if (kind === 'remote_control') {
+        const existing = await getDb()
+          .select({ id: telegramConnections.id })
+          .from(telegramConnections)
+          .where(eq(telegramConnections.kind, 'remote_control'))
+          .get()
+        if (existing) {
+          return c.json(
+            {
+              error:
+                'A Remote Control bot already exists. Delete it first or add a Special Purpose bot instead.',
+            },
+            409,
+          )
+        }
+      }
       let botInfo: ValidatedBot
       try {
         botInfo = await validateBotToken(body.botToken)
@@ -144,18 +165,18 @@ export const telegramRoute = new Hono()
         return c.json({ error: message }, 400)
       }
       const now = new Date()
-      // kind defaults to 'special_purpose' here so the existing
-      // Mobile-settings flow keeps working unchanged. The Send-to-Telegram
-      // popup will also create special_purpose bots. Remote Control bot
-      // creation lands in a follow-up via an explicit kind override
-      // (and an at-most-one check).
       const row = {
         id: nanoid(),
         name: body.name,
         botUsername: botInfo.username,
         botTokenEncrypted: await encryptSecret(body.botToken),
-        kind: 'special_purpose' as const,
-        defaultConversationId: null,
+        kind,
+        // Remote Control bots never use this field; force null even
+        // if the client (incorrectly) sent one.
+        defaultConversationId:
+          kind === 'special_purpose'
+            ? (body.defaultConversationId ?? null)
+            : null,
         agentId: body.agentId,
         modelId: body.modelId ?? null,
         workspacePath: body.workspacePath,
