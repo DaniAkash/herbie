@@ -21,18 +21,14 @@ export interface ProviderResolverDeps {
  * owns provider lifetime. Does NOT bootstrap (call
  * `bootstrapNewProvider` separately before the first turn).
  *
- * `sessionKeyOverride` is for the inbox-seeded case — those
- * conversations carry their own rebuilt prompt and must not resume
- * an acpx session record from another conversation that happens to
- * share the same tuple. Default sessionKey is `tupleKey(tuple)` so
- * each (agent, model, cwd, effort) combination gets its own on-disk
- * acpx record and the file-store handles per-tuple resume
- * transparently.
+ * Session records are scoped per conversation + tuple so no two
+ * conversations share an on-disk acpx record. Including the tupleKey
+ * suffix means a mid-conversation agent/model switch produces a fresh
+ * record rather than resuming the prior tuple's session memory.
  */
 export async function buildProvider(
   deps: ProviderResolverDeps,
   tuple: ChatTuple,
-  sessionKeyOverride?: string,
 ): Promise<AcpxProvider> {
   const settings = await readSettings()
   const cwd = await resolveWorkspaceCwd(deps, tuple.workspacePath, settings)
@@ -41,7 +37,7 @@ export async function buildProvider(
     conversationId: deps.conversationId,
     agentId: tuple.agentId,
     workspacePath: cwd,
-    sessionKey: sessionKeyOverride ?? tupleKey(tuple),
+    sessionKey: `conv::${deps.conversationId}::${tupleKey(tuple)}`,
     mcpServers,
   })
 }

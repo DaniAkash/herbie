@@ -12,7 +12,6 @@ import {
   type ChatTuple,
   providerKeyEqual,
   rebuildMessagesFromLog,
-  tupleKey,
   tuplesEqual,
 } from './tuple'
 import { buildUserMessage } from './user-message'
@@ -33,14 +32,6 @@ export interface TurnRouteState {
 export interface TurnRouteContext {
   db: DB
   conversationId: string
-  /**
-   * True when the conversation was seeded from outside (e.g. inbox
-   * "Open in chat") — events exist but no acpx session has run yet.
-   * Forces a per-conversation sessionKey so the seeded transcript
-   * replay doesn't get stripped to a single user message under acpx's
-   * continuation mode.
-   */
-  seededFromInbox: boolean
   resolverDeps: ProviderResolverDeps
   state: TurnRouteState
 }
@@ -82,9 +73,6 @@ export async function routeTurn(
   attachments: Attachment[] = [],
 ): Promise<ModelMessage[]> {
   const { state } = ctx
-  const sessionKeyOverride = ctx.seededFromInbox
-    ? `seeded::${ctx.conversationId}::${tupleKey(tuple)}`
-    : undefined
 
   const providerKept =
     state.provider !== null && providerKeyEqual(tuple, state.activeTuple)
@@ -100,11 +88,7 @@ export async function routeTurn(
         // close() can race with an in-flight stream; non-fatal.
       }
     }
-    state.provider = await buildProvider(
-      ctx.resolverDeps,
-      tuple,
-      sessionKeyOverride,
-    )
+    state.provider = await buildProvider(ctx.resolverDeps, tuple)
     state.providerBootstrapped = false
     await bootstrapNewProvider(ctx.db, state.provider, tuple)
     state.providerBootstrapped = true

@@ -61,7 +61,6 @@ function tupleFromConversation(conv: Conversation): ChatTuple {
 export class ChatSession {
   private readonly routeState: TurnRouteState
   private activeTurn: ActiveTurn | null = null
-  private readonly seededFromInbox: boolean
   private readonly events: EventSink
 
   private constructor(
@@ -70,9 +69,8 @@ export class ChatSession {
     nextSeq: number,
   ) {
     // Inbox-seeded convo (events present + no acpx session yet) —
-    // needs its own sessionKey and a forced first-turn replay.
+    // force path A (transcript replay) on the first send.
     const seededFromInbox = nextSeq > 0 && conversation.acpxRecordId == null
-    this.seededFromInbox = seededFromInbox
     this.routeState = {
       provider: null,
       providerBootstrapped: false,
@@ -149,7 +147,6 @@ export class ChatSession {
         {
           db: this.db,
           conversationId: this.conversation.id,
-          seededFromInbox: this.seededFromInbox,
           resolverDeps: {
             db: this.db,
             conversationId: this.conversation.id,
