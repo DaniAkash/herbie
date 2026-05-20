@@ -10,6 +10,7 @@ import {
   cmdUnknown,
 } from './commands.read'
 import { cmdArchive, cmdNew, cmdSwitch, cmdUnarchive } from './commands.write'
+import { tryConsumeLinkingStart } from './linking'
 
 // Bot command interception. The bridge calls handleBotCommand before
 // running the AI turn pipeline. If the text was a command, this
@@ -58,9 +59,23 @@ export async function handleBotCommand(
   const { name, args } = parsed
   const db = getDb()
 
-  // /start and /help are universal — every bot replies so first-time
-  // users get oriented.
-  if (name === 'start' || name === 'help') {
+  // /start may carry a `link_<token>` deep-link payload from the
+  // "Send to Telegram" desktop popup. Try to consume it before falling
+  // back to the generic help reply. Other /start invocations (the user
+  // tapping Telegram's native START button) and /help are just usage
+  // guides.
+  if (name === 'start') {
+    const linking = await tryConsumeLinkingStart(
+      connection,
+      thread,
+      telegramChatId,
+      args,
+    )
+    if (linking.handled) return true
+    await cmdHelp(connection, thread)
+    return true
+  }
+  if (name === 'help') {
     await cmdHelp(connection, thread)
     return true
   }
