@@ -21,7 +21,6 @@ import {
 import { useInboxItems } from '@/modules/api/inbox.hooks'
 import { dayBucket } from '@/modules/utils/relativeTime'
 import { ConversationRow } from './ConversationRow'
-import { TelegramSidebarGroup } from './TelegramSidebarGroup'
 
 export function AppSidebar() {
   const { data: inboxItems = [] } = useInboxItems()
@@ -99,8 +98,6 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-
-        <TelegramSidebarGroup />
 
         {pinned.length > 0 && (
           <SidebarGroup>
