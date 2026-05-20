@@ -13,6 +13,9 @@ const $pause = api.telegram.connections[':id'].pause.$post
 const $resume = api.telegram.connections[':id'].resume.$post
 const $workspaceInUse = api.telegram.connections['workspace-in-use'].$get
 const $chats = api.telegram.chats.$get
+const $createLink = api.telegram.connections[':id'].links.$post
+const $pollLink = api.telegram.links[':token'].$get
+const $reassign = api.telegram.connections[':id'].reassign.$post
 
 export type TelegramConnection = InferResponseType<typeof $list>[number]
 export type TelegramConnectionDetail = Exclude<
@@ -125,4 +128,58 @@ export const useResumeTelegramConnection = createMutation<
     })
   },
   onError: toastApiError('Failed to resume Telegram bot'),
+})
+
+// Send-to-Telegram flow: mint a token, render the deep link, poll
+// until the user taps START in Telegram (consumed) or the token
+// expires. The success signal comes from observing the conversation's
+// telegramLink in GET /chat — the dialog watches that separately.
+export type CreateLinkResponse = Exclude<
+  InferResponseType<typeof $createLink>,
+  { error: string }
+>
+export const useCreateTelegramLink = createMutation<
+  CreateLinkResponse,
+  { connectionId: string; conversationId: string }
+>({
+  mutationFn: ({ connectionId, conversationId }) =>
+    $createLink({
+      param: { id: connectionId },
+      json: { conversationId },
+    }).then(parseResponse<CreateLinkResponse>),
+  onError: toastApiError('Failed to start Telegram link'),
+})
+
+export type PollLinkResponse = InferResponseType<typeof $pollLink>
+export const usePollTelegramLink = createQuery<
+  PollLinkResponse,
+  { token: string }
+>({
+  queryKey: ['telegram', 'links', 'poll'],
+  fetcher: ({ token }) =>
+    $pollLink({ param: { token } }).then(parseResponse<PollLinkResponse>),
+  refetchInterval: 2000,
+})
+
+// Reassign an existing Special Purpose bot to a different conversation.
+// Used by the "Send to Telegram" popup when the user picks an
+// already-assigned bot.
+export type ReassignResponse = Exclude<
+  InferResponseType<typeof $reassign>,
+  { error: string }
+>
+export const useReassignTelegramBot = createMutation<
+  ReassignResponse,
+  { connectionId: string; conversationId: string }
+>({
+  mutationFn: ({ connectionId, conversationId }) =>
+    $reassign({
+      param: { id: connectionId },
+      json: { conversationId },
+    }).then(parseResponse<ReassignResponse>),
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: useTelegramConnections.getKey() })
+    queryClient.invalidateQueries({ queryKey: ['chat', 'list'] })
+  },
+  onError: toastApiError('Failed to reassign bot'),
 })

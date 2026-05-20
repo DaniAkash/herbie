@@ -37,6 +37,7 @@ import {
 import { type ComposerTuple, tuplesEqual } from './composer.types'
 import { ModelPicker } from './ModelPicker'
 import { ReasoningPicker } from './ReasoningPicker'
+import { SendToTelegramButton } from './SendToTelegramButton'
 import { WorkspacePicker } from './WorkspacePicker'
 
 export interface ComposerProps {
@@ -275,6 +276,12 @@ export function Composer({
                 <PaperclipIcon data-icon="inline-start" />
                 Attach
               </InputGroupButton>
+            )}
+            {conversationId && (
+              <SendToTelegramButton
+                conversationId={conversationId}
+                disabled={isStreaming}
+              />
             )}
             <div className="flex-1" />
             {onSchedule && (
