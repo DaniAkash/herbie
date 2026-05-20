@@ -13,8 +13,7 @@ export const TELEGRAM_CONNECTION_KINDS = [
   'remote_control',
   'special_purpose',
 ] as const
-export type TelegramConnectionKind =
-  (typeof TELEGRAM_CONNECTION_KINDS)[number]
+export type TelegramConnectionKind = (typeof TELEGRAM_CONNECTION_KINDS)[number]
 
 // One row per bot the user has added. The tuple (agentId, modelId,
 // workspacePath, reasoningEffort) is pinned at creation and never

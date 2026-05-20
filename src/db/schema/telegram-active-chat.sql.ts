@@ -1,9 +1,4 @@
-import {
-  integer,
-  primaryKey,
-  sqliteTable,
-  text,
-} from 'drizzle-orm/sqlite-core'
+import { integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import { conversations } from './conversations.sql'
 import { telegramConnections } from './telegram-connections.sql'
 
