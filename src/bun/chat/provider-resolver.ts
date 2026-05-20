@@ -22,9 +22,11 @@ export interface ProviderResolverDeps {
  * `bootstrapNewProvider` separately before the first turn).
  *
  * Session records are scoped per conversation + tuple so no two
- * conversations share an on-disk acpx record. Including the tupleKey
- * suffix means a mid-conversation agent/model switch produces a fresh
- * record rather than resuming the prior tuple's session memory.
+ * conversations share an on-disk acpx record. The tupleKey suffix
+ * isolates records when the agent or workspace changes mid-conversation
+ * (those rebuild the provider via Path A). Model and reasoning-effort
+ * changes go through Path C (in-place setConfigOption) and do not
+ * rebuild the provider, so they share the record for that conversation.
  */
 export async function buildProvider(
   deps: ProviderResolverDeps,
