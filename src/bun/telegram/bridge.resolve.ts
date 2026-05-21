@@ -63,15 +63,15 @@ async function resolveSpecialPurpose(
   firstText: string,
   thread: Thread,
 ): Promise<string | null> {
-  // Re-read defaultConversationId from the DB on every inbound
-  // message — the `connection` argument is captured at bot-start
-  // time in chat.onDirectMessage's closure and never refreshes, so
-  // any UPDATE we make below would be invisible to the next message.
-  // Without this, the first message's auto-create branch fires for
-  // every subsequent message too, spawning a new conversation each
-  // time.
+  // Re-read defaultConversationId from the DB per message. The
+  // `connection` arg is captured in chat.onDirectMessage's closure
+  // at bot-start time and never refreshes, so any UPDATE here would
+  // be invisible to the next message — making the auto-create branch
+  // spawn a fresh conversation every time.
   const fresh = await db
-    .select({ defaultConversationId: telegramConnections.defaultConversationId })
+    .select({
+      defaultConversationId: telegramConnections.defaultConversationId,
+    })
     .from(telegramConnections)
     .where(eq(telegramConnections.id, connection.id))
     .get()
