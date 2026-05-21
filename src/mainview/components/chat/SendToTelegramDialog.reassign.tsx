@@ -1,5 +1,7 @@
 import { ArrowLeftIcon, TriangleAlertIcon } from 'lucide-react'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   type ConversationSummary,
   useConversations,
@@ -37,34 +39,38 @@ export function ReassignConfirmStep({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-start gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-3 text-amber-700 text-xs leading-relaxed dark:text-amber-300">
-        <TriangleAlertIcon className="mt-0.5 size-4 shrink-0" />
-        <div className="flex-1">
-          <div className="font-medium text-sm">Reassign {botLabel}?</div>
-          <p className="mt-1">
-            {botLabel} is currently linked to{' '}
-            <span className="font-medium">"{previousTitle}"</span>.
-          </p>
-        </div>
-      </div>
+      <Alert>
+        <TriangleAlertIcon />
+        <AlertTitle>Reassign {botLabel}?</AlertTitle>
+        <AlertDescription>
+          {botLabel} is currently linked to{' '}
+          <span className="font-medium text-foreground">"{previousTitle}"</span>
+          .
+        </AlertDescription>
+      </Alert>
 
-      <div className="rounded-lg border bg-muted/30 px-3 py-3 text-xs leading-relaxed">
-        <div className="font-medium text-sm">Reassigning will:</div>
-        <ul className="mt-2 flex flex-col gap-1 pl-5 [&>li]:list-disc">
-          <li>
-            Detach <span className="font-medium">"{previousTitle}"</span> from
-            Telegram. It stays in your sidebar but isn't reachable from{' '}
-            {botLabel} anymore.
-          </li>
-          <li>
-            Link <span className="font-medium">"{conv.title}"</span> to{' '}
-            {botLabel}.
-          </li>
-          <li>
-            Post a notice in the Telegram chat so the other end sees the switch.
-          </li>
-        </ul>
-      </div>
+      <Card size="sm">
+        <CardHeader>
+          <CardTitle>Reassigning will:</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ul className="flex list-disc flex-col gap-1 pl-5 text-xs leading-relaxed">
+            <li>
+              Detach <span className="font-medium">"{previousTitle}"</span> from
+              Telegram. It stays in your sidebar but isn't reachable from{' '}
+              {botLabel} anymore.
+            </li>
+            <li>
+              Link <span className="font-medium">"{conv.title}"</span> to{' '}
+              {botLabel}.
+            </li>
+            <li>
+              Post a notice in the Telegram chat so the other end sees the
+              switch.
+            </li>
+          </ul>
+        </CardContent>
+      </Card>
 
       <div className="flex justify-between gap-2">
         <Button type="button" variant="ghost" onClick={onBack}>

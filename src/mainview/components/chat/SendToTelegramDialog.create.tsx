@@ -2,6 +2,12 @@ import { ArrowLeftIcon, EyeIcon, EyeOffIcon } from 'lucide-react'
 import { type FormEvent, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+} from '@/components/ui/card'
+import {
   Field,
   FieldDescription,
   FieldGroup,
@@ -105,20 +111,22 @@ export function CreateBotStep({
 // different settings, they create the bot manually in Mobile settings.
 function InheritedSettings({ conv }: { conv: ConversationSummary }) {
   return (
-    <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs">
-      <div className="mb-1 font-medium text-muted-foreground">
-        Inherited from this conversation
-      </div>
-      <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-0.5 font-mono">
-        <dt className="text-muted-foreground">Agent</dt>
-        <dd>{conv.agentId}</dd>
-        <dt className="text-muted-foreground">Model</dt>
-        <dd>{conv.modelId ?? 'agent default'}</dd>
-        <dt className="text-muted-foreground">Workspace</dt>
-        <dd className="truncate">{conv.workspacePath ?? '—'}</dd>
-        <dt className="text-muted-foreground">Reasoning</dt>
-        <dd>{conv.reasoningEffort ?? 'default'}</dd>
-      </dl>
-    </div>
+    <Card size="sm">
+      <CardHeader>
+        <CardDescription>Inherited from this conversation</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-0.5 font-mono text-xs">
+          <dt className="text-muted-foreground">Agent</dt>
+          <dd>{conv.agentId}</dd>
+          <dt className="text-muted-foreground">Model</dt>
+          <dd>{conv.modelId ?? 'agent default'}</dd>
+          <dt className="text-muted-foreground">Workspace</dt>
+          <dd className="truncate">{conv.workspacePath ?? '—'}</dd>
+          <dt className="text-muted-foreground">Reasoning</dt>
+          <dd>{conv.reasoningEffort ?? 'default'}</dd>
+        </dl>
+      </CardContent>
+    </Card>
   )
 }

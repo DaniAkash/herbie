@@ -1,5 +1,6 @@
-import { Loader2Icon } from 'lucide-react'
+import { InfoIcon, Loader2Icon } from 'lucide-react'
 import { useEffect, useRef } from 'react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { useConversations } from '@/modules/api/chat.hooks'
 import { queryClient } from '@/modules/api/queryClient'
@@ -71,13 +72,14 @@ export function LinkStep({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="rounded-lg border bg-muted/40 px-4 py-4">
-        <p className="text-sm leading-relaxed">
+      <Alert>
+        <InfoIcon />
+        <AlertDescription>
           {via === 'new'
             ? `New bot created. Open ${botLabel} on Telegram and tap START to finish linking.`
             : `Open ${botLabel} on Telegram and tap START to link this conversation.`}
-        </p>
-      </div>
+        </AlertDescription>
+      </Alert>
 
       {url ? (
         <Button

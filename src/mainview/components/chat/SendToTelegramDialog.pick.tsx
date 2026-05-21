@@ -1,5 +1,12 @@
 import { PlusIcon, TriangleAlertIcon } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  Card,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import type { ConversationSummary } from '@/modules/api/chat.hooks'
 import {
@@ -39,23 +46,7 @@ export function PickBotStep({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
-        <button
-          type="button"
-          onClick={onCreateNew}
-          className={cn(
-            'flex items-start gap-3 rounded-lg border border-dashed px-3 py-2.5 text-left transition-colors',
-            'border-border hover:border-foreground/30 hover:bg-muted/40',
-          )}
-        >
-          <PlusIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-          <span className="flex flex-col gap-0.5">
-            <span className="font-medium text-sm">Create new bot</span>
-            <span className="text-muted-foreground text-xs">
-              Make a dedicated bot for this conversation. Paste a token from{' '}
-              <span className="font-mono">@BotFather</span>.
-            </span>
-          </span>
-        </button>
+        <CreateNewBotCard onClick={onCreateNew} />
 
         {specialPurpose.length > 0 && (
           <>
@@ -63,7 +54,7 @@ export function PickBotStep({
               Or reassign an existing dedicated bot
             </div>
             {specialPurpose.map((bot) => (
-              <BotPickerRow
+              <BotPickerCard
                 key={bot.id}
                 bot={bot}
                 onPick={() =>
@@ -86,7 +77,41 @@ export function PickBotStep({
   )
 }
 
-function BotPickerRow({
+// Clickable Card pattern for the picker rows. Card is a static
+// primitive; making it a button via render-as is the shadcn idiom
+// for an action-trigger card. Keeps focus-ring + keyboard handling.
+function CreateNewBotCard({ onClick }: { onClick: () => void }) {
+  return (
+    <Card
+      size="sm"
+      className={cn(
+        'cursor-pointer border-dashed transition-colors hover:bg-muted/40',
+      )}
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onClick()
+        }
+      }}
+    >
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <PlusIcon className="size-4 text-muted-foreground" />
+          Create new bot
+        </CardTitle>
+        <CardDescription>
+          Make a dedicated bot for this conversation. Paste a token from{' '}
+          <span className="font-mono">@BotFather</span>.
+        </CardDescription>
+      </CardHeader>
+    </Card>
+  )
+}
+
+function BotPickerCard({
   bot,
   onPick,
 }: {
@@ -96,29 +121,33 @@ function BotPickerRow({
   const assigned = !!bot.defaultConversationId
   const label = formatBotLabel(bot)
   return (
-    <button
-      type="button"
+    <Card
+      size="sm"
+      className={cn('cursor-pointer transition-colors hover:bg-muted/40')}
+      role="button"
+      tabIndex={0}
       onClick={onPick}
-      className={cn(
-        'flex items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors',
-        'border-border hover:border-foreground/30 hover:bg-muted/40',
-      )}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onPick()
+        }
+      }}
     >
-      <span className="mt-0.5 size-4 shrink-0" aria-hidden />
-      <span className="flex flex-col gap-0.5">
-        <span className="font-medium text-sm">{label}</span>
-        {assigned ? (
-          <span className="flex items-center gap-1 text-amber-700 text-xs dark:text-amber-400">
-            <TriangleAlertIcon className="size-3" />
-            Currently linked — reassigning will detach the current chat
-          </span>
-        ) : (
-          <span className="text-muted-foreground text-xs">
-            Unassigned — ready to link
-          </span>
-        )}
-      </span>
-    </button>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">{label}</CardTitle>
+        <CardDescription className="flex items-center gap-1.5">
+          {assigned ? (
+            <Badge variant="outline">
+              <TriangleAlertIcon data-icon="inline-start" />
+              Reassigning will detach the current chat
+            </Badge>
+          ) : (
+            <span>Unassigned — ready to link</span>
+          )}
+        </CardDescription>
+      </CardHeader>
+    </Card>
   )
 }
 
@@ -140,19 +169,17 @@ function AlreadyLinked({
     : `Type messages there to continue this conversation. Replies will stream back here and mirror to the Telegram chat.`
   return (
     <div className="flex flex-col gap-3">
-      <div className="rounded-lg border bg-muted/40 px-3 py-3">
-        <div className="font-medium text-sm">
-          Already linked to {label}
-          {isRemoteControl && (
-            <span className="ml-2 font-normal text-[10px] text-muted-foreground uppercase tracking-wider">
-              Remote Control
-            </span>
-          )}
-        </div>
-        <p className="mt-1 text-muted-foreground text-xs leading-snug">
-          {body}
-        </p>
-      </div>
+      <Card size="sm">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            Already linked to {label}
+            {isRemoteControl && (
+              <Badge variant="secondary">Remote Control</Badge>
+            )}
+          </CardTitle>
+          <CardDescription>{body}</CardDescription>
+        </CardHeader>
+      </Card>
       {url && (
         <Button
           type="button"
