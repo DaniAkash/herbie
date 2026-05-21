@@ -1,0 +1,1 @@
+CREATE INDEX `telegram_chats_conn_chat_idx` ON `telegram_chats` (`connection_id`,`telegram_chat_id`);

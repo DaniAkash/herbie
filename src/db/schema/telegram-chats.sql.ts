@@ -1,4 +1,4 @@
-import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import { conversations } from './conversations.sql'
 import { telegramConnections } from './telegram-connections.sql'
 
@@ -21,19 +21,33 @@ export type TelegramChatKind = (typeof TELEGRAM_CHAT_KINDS)[number]
 //
 // On connection delete the row is dropped (cascade); the conversation
 // is left in place but marked archived so the sidebar hides it.
-export const telegramChats = sqliteTable('telegram_chats', {
-  id: text('id').primaryKey(),
-  connectionId: text('connection_id')
-    .notNull()
-    .references(() => telegramConnections.id, { onDelete: 'cascade' }),
-  telegramChatId: text('telegram_chat_id').notNull(),
-  chatKind: text('chat_kind', { enum: TELEGRAM_CHAT_KINDS }).notNull(),
-  chatTitle: text('chat_title'),
-  conversationId: text('conversation_id')
-    .notNull()
-    .references(() => conversations.id, { onDelete: 'cascade' }),
-  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
-  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
-})
+//
+// Non-unique index on (connection_id, telegram_chat_id) replaces the
+// old unique index that was dropped to enable RC pools. Routing /
+// dedupe / tray queries all filter by this pair; without an index
+// they'd become table scans as the table grows.
+export const telegramChats = sqliteTable(
+  'telegram_chats',
+  {
+    id: text('id').primaryKey(),
+    connectionId: text('connection_id')
+      .notNull()
+      .references(() => telegramConnections.id, { onDelete: 'cascade' }),
+    telegramChatId: text('telegram_chat_id').notNull(),
+    chatKind: text('chat_kind', { enum: TELEGRAM_CHAT_KINDS }).notNull(),
+    chatTitle: text('chat_title'),
+    conversationId: text('conversation_id')
+      .notNull()
+      .references(() => conversations.id, { onDelete: 'cascade' }),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+  },
+  (t) => ({
+    connTgChatIdx: index('telegram_chats_conn_chat_idx').on(
+      t.connectionId,
+      t.telegramChatId,
+    ),
+  }),
+)
 
 export type TelegramChat = typeof telegramChats.$inferSelect
