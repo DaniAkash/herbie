@@ -10,14 +10,13 @@ import {
 
 // Step 3: render the deep link the user opens on Telegram, and wait
 // for them to tap START. This step OWNS the completion detection
-// (no parent cache-watching), via three signals:
+// (no parent cache-watching), via two signals:
 //
 //   1. usePollTelegramLink — token endpoint. 'pending' while the
 //      handshake is open, 'gone' once consumed or expired.
 //   2. useConversations — when the bot consumes the token, it
 //      writes telegramLink for our conversation. When token goes
 //      'gone' we kick a refetch and watch for that link.
-//   3. Time — the link has expiresAt; we show a quiet countdown.
 //
 // When telegramLink for this conversation matches the bot we minted
 // for, we fire onLinked exactly once.
