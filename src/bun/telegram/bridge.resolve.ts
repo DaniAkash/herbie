@@ -63,12 +63,26 @@ async function resolveSpecialPurpose(
   firstText: string,
   thread: Thread,
 ): Promise<string | null> {
+  // Re-read defaultConversationId from the DB on every inbound
+  // message — the `connection` argument is captured at bot-start
+  // time in chat.onDirectMessage's closure and never refreshes, so
+  // any UPDATE we make below would be invisible to the next message.
+  // Without this, the first message's auto-create branch fires for
+  // every subsequent message too, spawning a new conversation each
+  // time.
+  const fresh = await db
+    .select({ defaultConversationId: telegramConnections.defaultConversationId })
+    .from(telegramConnections)
+    .where(eq(telegramConnections.id, connection.id))
+    .get()
+  const defaultConversationId = fresh?.defaultConversationId ?? null
+
   // 1. Pointed at an existing live conversation → route there.
-  if (connection.defaultConversationId) {
+  if (defaultConversationId) {
     const conv = await db
       .select()
       .from(conversations)
-      .where(eq(conversations.id, connection.defaultConversationId))
+      .where(eq(conversations.id, defaultConversationId))
       .get()
     if (conv?.archivedAt) {
       // User intentionally archived this conversation. Don't silently
