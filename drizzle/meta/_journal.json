@@ -92,6 +92,41 @@
       "when": 1779101476224,
       "tag": "0012_fresh_starbolt",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1779298083940,
+      "tag": "0013_perfect_gamma_corps",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1779298184009,
+      "tag": "0014_melodic_franklin_storm",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "6",
+      "when": 1779298222516,
+      "tag": "0015_typical_toxin",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1779298258170,
+      "tag": "0016_crazy_cloak",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1779374195989,
+      "tag": "0017_unique_kid_colt",
+      "breakpoints": true
     }
   ]
 }

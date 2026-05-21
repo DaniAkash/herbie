@@ -241,11 +241,11 @@ export function ReasoningSelect({
   const { data } = useAgentCapabilities({ variables: { id: agentId } })
   const reasoning = data?.reasoning
 
-  // See ReasoningPicker — codex bakes effort into the model id and
-  // re-exposes it here, so hide the duplicate surface for the same
-  // reasons the composer picker does.
-  if (agentId === 'codex') return null
-
+  // Whether reasoning is supported is entirely driven by the
+  // capability probe response now — the codex bake-into-model-id
+  // gate from before #37 is gone. Agents without a reasoning block
+  // (e.g. claude/gemini today, depending on what they expose) just
+  // show as disabled.
   const disabled = !reasoning
 
   return (

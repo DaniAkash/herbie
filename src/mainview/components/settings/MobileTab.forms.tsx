@@ -17,9 +17,11 @@ import { Input } from '@/components/ui/input'
 import { useWorkspaces } from '@/modules/api/settings.hooks'
 import {
   useCreateTelegramConnection,
+  useTelegramConnections,
   useWorkspaceInUse,
 } from '@/modules/api/telegram.hooks'
 import type { AgentId } from '@/modules/data/herbie-data.types'
+import { type BotKind, BotKindPicker } from './MobileTab.kind-picker'
 import {
   AgentSelect,
   ModelSelect,
@@ -30,6 +32,11 @@ import {
 export function AddConnectionForm({ onDone }: { onDone: () => void }) {
   const create = useCreateTelegramConnection()
   const { defaultPath } = useWorkspaces()
+  const { data: existingConnections = [] } = useTelegramConnections()
+  const hasRemoteControl = existingConnections.some(
+    (c) => c.kind === 'remote_control',
+  )
+  const [kind, setKind] = useState<BotKind>('special_purpose')
   const [name, setName] = useState('')
   const [token, setToken] = useState('')
   const [showToken, setShowToken] = useState(false)
@@ -58,6 +65,7 @@ export function AddConnectionForm({ onDone }: { onDone: () => void }) {
       await create.mutateAsync({
         name: name.trim(),
         botToken: token.trim(),
+        kind,
         agentId,
         modelId: modelId ?? null,
         workspacePath: effectiveWorkspace,
@@ -65,7 +73,9 @@ export function AddConnectionForm({ onDone }: { onDone: () => void }) {
       })
       toast.success('Bot connected', {
         description:
-          'Send /start to your bot in Telegram to confirm it’s live.',
+          kind === 'remote_control'
+            ? 'Send /help to your Remote Control bot in Telegram.'
+            : 'Send /start to your bot in Telegram to confirm it’s live.',
       })
       onDone()
     } catch {
@@ -85,6 +95,12 @@ export function AddConnectionForm({ onDone }: { onDone: () => void }) {
       </DialogHeader>
 
       <FieldGroup>
+        <BotKindPicker
+          value={kind}
+          onChange={setKind}
+          remoteControlTaken={hasRemoteControl}
+        />
+
         <Field>
           <FieldLabel htmlFor="tg-name">Name</FieldLabel>
           <Input

@@ -37,6 +37,7 @@ import {
 import { type ComposerTuple, tuplesEqual } from './composer.types'
 import { ModelPicker } from './ModelPicker'
 import { ReasoningPicker } from './ReasoningPicker'
+import { SendToTelegramButton } from './SendToTelegramButton'
 import { WorkspacePicker } from './WorkspacePicker'
 
 export interface ComposerProps {
@@ -277,19 +278,6 @@ export function Composer({
               </InputGroupButton>
             )}
             <div className="flex-1" />
-            {onSchedule && (
-              <InputGroupButton
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={handleSchedule}
-                disabled={!trimmed || isStreaming}
-                title="Schedule this prompt instead of sending"
-              >
-                <ClockIcon data-icon="inline-start" />
-                Schedule
-              </InputGroupButton>
-            )}
             <Button
               type="submit"
               size="icon-sm"
@@ -308,16 +296,42 @@ export function Composer({
           className="hidden"
           onChange={handleFiles}
         />
-        <p className="mt-2 px-1 text-[11px] text-muted-foreground">
-          <kbd className="rounded border bg-muted px-1 py-0.5 font-mono text-[10px]">
-            ↵
-          </kbd>{' '}
-          send ·{' '}
-          <kbd className="rounded border bg-muted px-1 py-0.5 font-mono text-[10px]">
-            ⇧↵
-          </kbd>{' '}
-          new line
-        </p>
+        {/* Below-composer action row: actions on the conversation /
+            prompt, not on the message being composed. Kept visually
+            quieter than the in-composer toolbar so the eye doesn't
+            confuse them with sending controls. */}
+        <div className="mt-2 flex flex-wrap items-center gap-1 px-1">
+          {onSchedule && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleSchedule}
+              disabled={!trimmed || isStreaming}
+              title="Schedule this prompt instead of sending"
+            >
+              <ClockIcon data-icon="inline-start" />
+              Schedule
+            </Button>
+          )}
+          {conversationId && (
+            <SendToTelegramButton
+              conversationId={conversationId}
+              disabled={isStreaming}
+            />
+          )}
+          <div className="flex-1" />
+          <p className="text-[11px] text-muted-foreground">
+            <kbd className="rounded border bg-muted px-1 py-0.5 font-mono text-[10px]">
+              ↵
+            </kbd>{' '}
+            send ·{' '}
+            <kbd className="rounded border bg-muted px-1 py-0.5 font-mono text-[10px]">
+              ⇧↵
+            </kbd>{' '}
+            new line
+          </p>
+        </div>
       </div>
     </form>
   )

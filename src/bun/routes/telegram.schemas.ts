@@ -15,6 +15,14 @@ export const createConnectionSchema = z
     modelId: z.string().min(1).nullish(),
     workspacePath: z.string().min(1),
     reasoningEffort: z.string().min(1).nullish(),
+    // Defaults to 'special_purpose' (the existing 1:1 mode). Remote
+    // Control creation requires explicitly picking the kind AND
+    // passing the at-most-one check on the server.
+    kind: z.enum(['remote_control', 'special_purpose']).optional(),
+    // For special_purpose bots: optionally pin to an existing
+    // conversation at creation time. Defaults to null (unassigned;
+    // first inbound message auto-creates).
+    defaultConversationId: z.string().min(1).nullish(),
   })
   .strict()
 

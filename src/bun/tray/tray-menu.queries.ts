@@ -92,7 +92,12 @@ export async function fetchTelegramBots(db: DB): Promise<TelegramBotRow[]> {
     .orderBy(desc(conversations.updatedAt))
     .all()
 
-  const byBot = new Map<string, TelegramBotRow>()
+  // Since we dropped the unique index on telegram_chats(connection_id,
+  // telegram_chat_id), a single conversation can be linked through
+  // multiple Telegram chats (a DM AND a group). Dedupe per bot by
+  // conversation_id — show each conversation once, taking the most
+  // recent (first-seen since rows are sorted DESC).
+  const byBot = new Map<string, { row: TelegramBotRow; seen: Set<string> }>()
   for (const r of rows) {
     const chat = {
       conversationId: r.conversationId,
@@ -104,22 +109,27 @@ export async function fetchTelegramBots(db: DB): Promise<TelegramBotRow[]> {
     }
     const existing = byBot.get(r.connectionId)
     if (existing) {
-      existing.chats.push(chat)
-      existing.unreadCount += chat.unreadCount
+      if (existing.seen.has(chat.conversationId)) continue
+      existing.seen.add(chat.conversationId)
+      existing.row.chats.push(chat)
+      existing.row.unreadCount += chat.unreadCount
     } else {
       byBot.set(r.connectionId, {
-        connectionId: r.connectionId,
-        botUsername: r.botUsername,
-        connectionName: r.connectionName,
-        chats: [chat],
-        unreadCount: chat.unreadCount,
+        row: {
+          connectionId: r.connectionId,
+          botUsername: r.botUsername,
+          connectionName: r.connectionName,
+          chats: [chat],
+          unreadCount: chat.unreadCount,
+        },
+        seen: new Set([chat.conversationId]),
       })
     }
   }
   // SELECT was ordered by chat updatedAt DESC, so first-seen bot
   // determines its rank. Map preserves insert order → array is
   // already in the right order for the menu.
-  return [...byBot.values()].slice(0, TOTAL)
+  return [...byBot.values()].map((b) => b.row).slice(0, TOTAL)
 }
 
 export type ChatRow = {

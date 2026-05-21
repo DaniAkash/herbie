@@ -10,6 +10,7 @@ import { skillsRoute } from './routes/skills'
 import { systemRoute } from './routes/system'
 import { tasksRoute } from './routes/tasks'
 import { telegramRoute } from './routes/telegram'
+import { telegramLinksRoute } from './routes/telegram-links'
 import { trayRefreshMiddleware } from './tray/tray-refresh-middleware'
 
 const app = new Hono()
@@ -35,6 +36,7 @@ const routes = app
   .route('/', internalRoute)
   .route('/', skillsRoute)
   .route('/', telegramRoute)
+  .route('/', telegramLinksRoute)
 
 export type AppType = typeof routes
 export default routes

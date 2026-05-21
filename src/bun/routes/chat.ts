@@ -1,5 +1,5 @@
 import { zValidator } from '@hono/zod-validator'
-import { and, desc, eq, isNull, sql } from 'drizzle-orm'
+import { desc, eq, isNull, sql } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
 import { nanoid } from 'nanoid'
@@ -14,6 +14,7 @@ import { mirrorAppTurnToTelegram } from '../telegram/outbound'
 import { removeConversationAttachments } from './attachments'
 import { loadConvAttachments, mergeSendTuple } from './chat.send-helpers'
 import { loadEvents, parseAfter, runChatStream } from './chat.stream'
+import { loadTelegramLinks } from './chat.telegram-links'
 
 // agentId is free-form at the schema level; runtime validation against
 // the live registry happens inside each handler via the shared
@@ -110,10 +111,13 @@ export const chatRoute = new Hono()
     return c.json({ ...serializeConversation(row), unread: false })
   })
   .get('/chat', async (c) => {
-    // Sidebar listing: in-app conversations only, exclude archived.
-    // The lastEventAt subquery powers the unread dot — read via the
-    // (conversation_id, seq) PK index instead of MAX(created_at).
-    const rows = await getDb()
+    // Unified sidebar listing: all non-archived conversations,
+    // regardless of origin. Each row also carries telegramLink (the
+    // bot the conversation is reachable from, if any) and
+    // isActiveForTelegram (true when this is the live route from a
+    // remote_control bot's pointer).
+    const db = getDb()
+    const rows = await db
       .select({
         conversation: conversations,
         lastEventAt: sql<number | null>`(
@@ -125,19 +129,25 @@ export const chatRoute = new Hono()
         )`,
       })
       .from(conversations)
-      .where(
-        and(eq(conversations.origin, 'chat'), isNull(conversations.archivedAt)),
-      )
+      .where(isNull(conversations.archivedAt))
       .orderBy(desc(conversations.updatedAt))
       .all()
 
+    if (rows.length === 0) return c.json([])
+
+    const links = await loadTelegramLinks(rows.map((r) => r.conversation.id))
     return c.json(
       rows.map(({ conversation, lastEventAt }) => {
         const serialized = serializeConversation(conversation)
         const unread =
           lastEventAt != null &&
           (serialized.lastSeenAt == null || lastEventAt > serialized.lastSeenAt)
-        return { ...serialized, unread }
+        return {
+          ...serialized,
+          unread,
+          telegramLink: links.byConversation.get(conversation.id) ?? null,
+          isActiveForTelegram: links.activeIds.has(conversation.id),
+        }
       }),
     )
   })
@@ -172,9 +182,12 @@ export const chatRoute = new Hono()
     await getDb().delete(conversations).where(eq(conversations.id, id)).run()
     return c.json({ ok: true })
   })
-  // Rename + pin/unpin. Refuses Telegram-origin rows because their
-  // title is sourced from the upstream chat — mutating it locally
-  // would drift and the next inbound message would clobber it anyway.
+  // Rename + pin/unpin. Telegram-origin conversations were previously
+  // refused on the grounds that title came from the upstream chat —
+  // but with multi-conversation, titles come from /new <title> or
+  // first-message text and are no longer tied to the Telegram chat.
+  // Lift the restriction so users can rename / pin Telegram-linked
+  // threads from the desktop sidebar like any other conversation.
   .patch('/chat/:id', zValidator('json', patchSchema), async (c) => {
     const id = c.req.param('id')
     const body = c.req.valid('json')
@@ -184,9 +197,6 @@ export const chatRoute = new Hono()
       .where(eq(conversations.id, id))
       .get()
     if (!conv) return c.json({ error: 'conversation not found' }, 404)
-    if (conv.origin !== 'chat') {
-      return c.json({ error: 'cannot modify telegram conversations' }, 400)
-    }
     const next: Partial<typeof conversations.$inferInsert> = {
       updatedAt: new Date(),
     }

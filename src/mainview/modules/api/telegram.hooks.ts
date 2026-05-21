@@ -12,33 +12,36 @@ const $delete = api.telegram.connections[':id'].$delete
 const $pause = api.telegram.connections[':id'].pause.$post
 const $resume = api.telegram.connections[':id'].resume.$post
 const $workspaceInUse = api.telegram.connections['workspace-in-use'].$get
-const $chats = api.telegram.chats.$get
+const $createLink = api.telegram.connections[':id'].links.$post
+const $pollLink = api.telegram.links[':token'].$get
+const $reassign = api.telegram.connections[':id'].reassign.$post
 
 export type TelegramConnection = InferResponseType<typeof $list>[number]
 export type TelegramConnectionDetail = Exclude<
   InferResponseType<typeof $create>,
   { error: string }
 >
-export type TelegramChatsResponse = InferResponseType<typeof $chats>
-export type TelegramChatsGroup = TelegramChatsResponse[number]
-export type TelegramChatsEntry = TelegramChatsGroup['chats'][number]
 type CreateInput = InferRequestType<typeof $create>['json']
 type PatchInput = InferRequestType<typeof $patch>['json'] & { id: string }
 type WorkspaceInUseResponse = InferResponseType<typeof $workspaceInUse>
 
+// Display label for a bot. Only adds the @ prefix when the bot
+// actually has a Telegram username — falls back to the user-set
+// friendly name (no @) otherwise. Without this guard, bots whose
+// username we never resolved render as `@<friendly name>` which
+// reads like a Telegram handle but isn't one.
+export function formatBotLabel(bot: {
+  botUsername: string | null
+  botName?: string | null
+  name?: string | null
+}): string {
+  if (bot.botUsername) return `@${bot.botUsername}`
+  return bot.botName ?? bot.name ?? 'bot'
+}
+
 export const useTelegramConnections = createQuery<TelegramConnection[]>({
   queryKey: ['telegram', 'connections'],
   fetcher: () => $list().then(parseResponse<TelegramConnection[]>),
-})
-
-// Drives the sidebar's External Chats → Telegram nest. Poll on a
-// short-ish interval so new inbound chats (from Telegram) show up
-// without a page reload — chat_events writes hit the API process
-// directly, but the renderer doesn't get notified yet.
-export const useTelegramChats = createQuery<TelegramChatsResponse>({
-  queryKey: ['telegram', 'chats'],
-  fetcher: () => $chats().then(parseResponse<TelegramChatsResponse>),
-  refetchInterval: 4000,
 })
 
 // Callers gate this at call-time with `{ enabled: path.length > 0 }`.
@@ -125,4 +128,62 @@ export const useResumeTelegramConnection = createMutation<
     })
   },
   onError: toastApiError('Failed to resume Telegram bot'),
+})
+
+// Send-to-Telegram flow: mint a token, render the deep link, poll
+// until the user taps START in Telegram (consumed) or the token
+// expires. The success signal comes from observing the conversation's
+// telegramLink in GET /chat — the dialog watches that separately.
+export type CreateLinkResponse = Exclude<
+  InferResponseType<typeof $createLink>,
+  { error: string }
+>
+export const useCreateTelegramLink = createMutation<
+  CreateLinkResponse,
+  { connectionId: string; conversationId: string }
+>({
+  mutationFn: ({ connectionId, conversationId }) =>
+    $createLink({
+      param: { id: connectionId },
+      json: { conversationId },
+    }).then(parseResponse<CreateLinkResponse>),
+  onError: toastApiError('Failed to start Telegram link'),
+})
+
+export type PollLinkResponse = InferResponseType<typeof $pollLink>
+export const usePollTelegramLink = createQuery<
+  PollLinkResponse,
+  { token: string }
+>({
+  queryKey: ['telegram', 'links', 'poll'],
+  fetcher: ({ token }) =>
+    $pollLink({ param: { token } }).then(parseResponse<PollLinkResponse>),
+  // Stop polling once the token is no longer pending. Otherwise the
+  // dialog keeps hitting the endpoint every 2s forever while the
+  // user reads the expired-or-done message.
+  refetchInterval: (q) =>
+    q.state.data?.status === 'pending' ? 2000 : false,
+})
+
+// Reassign an existing Special Purpose bot to a different conversation.
+// Used by the "Send to Telegram" popup when the user picks an
+// already-assigned bot.
+export type ReassignResponse = Exclude<
+  InferResponseType<typeof $reassign>,
+  { error: string }
+>
+export const useReassignTelegramBot = createMutation<
+  ReassignResponse,
+  { connectionId: string; conversationId: string }
+>({
+  mutationFn: ({ connectionId, conversationId }) =>
+    $reassign({
+      param: { id: connectionId },
+      json: { conversationId },
+    }).then(parseResponse<ReassignResponse>),
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: useTelegramConnections.getKey() })
+    queryClient.invalidateQueries({ queryKey: ['chat', 'list'] })
+  },
+  onError: toastApiError('Failed to reassign bot'),
 })

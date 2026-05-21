@@ -1,8 +1,7 @@
 import { zValidator } from '@hono/zod-validator'
-import { desc, eq, inArray, isNull, sql } from 'drizzle-orm'
+import { desc, eq, inArray } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { nanoid } from 'nanoid'
-import { chatEvents } from '../../db/schema/chat-events.sql'
 import { conversations } from '../../db/schema/conversations.sql'
 import { telegramChats } from '../../db/schema/telegram-chats.sql'
 import {
@@ -25,6 +24,8 @@ function serializeConnection(row: TelegramConnection) {
     id: row.id,
     name: row.name,
     botUsername: row.botUsername,
+    kind: row.kind,
+    defaultConversationId: row.defaultConversationId,
     agentId: row.agentId,
     modelId: row.modelId,
     workspacePath: row.workspacePath,
@@ -44,77 +45,6 @@ export const telegramRoute = new Hono()
       .orderBy(desc(telegramConnections.updatedAt))
       .all()
     return c.json(rows.map(serializeConnection))
-  })
-  // Sidebar feed: returns the External Chats → Telegram → @bot → chat
-  // nest in one shot. Grouped by connection, sorted by recency, with
-  // an unreadCount (chat_events.createdAt > conversations.lastSeenAt)
-  // per chat for the badge.
-  .get('/telegram/chats', async (c) => {
-    const db = getDb()
-    const connectionRows = await db
-      .select()
-      .from(telegramConnections)
-      .orderBy(desc(telegramConnections.updatedAt))
-      .all()
-    if (connectionRows.length === 0) return c.json([])
-
-    const chatRows = await db
-      .select({
-        id: telegramChats.id,
-        connectionId: telegramChats.connectionId,
-        telegramChatId: telegramChats.telegramChatId,
-        chatKind: telegramChats.chatKind,
-        chatTitle: telegramChats.chatTitle,
-        conversationId: telegramChats.conversationId,
-        conversationTitle: conversations.title,
-        updatedAt: conversations.updatedAt,
-        lastSeenAt: conversations.lastSeenAt,
-        archivedAt: conversations.archivedAt,
-        // Subquery for unread count. NULL lastSeenAt means "never
-        // seen" → count every event.
-        unreadCount: sql<number>`(
-          SELECT COUNT(*) FROM ${chatEvents}
-          WHERE ${chatEvents.conversationId} = ${conversations.id}
-            AND (${conversations.lastSeenAt} IS NULL
-                 OR ${chatEvents.createdAt} > ${conversations.lastSeenAt})
-        )`,
-      })
-      .from(telegramChats)
-      .innerJoin(
-        conversations,
-        eq(conversations.id, telegramChats.conversationId),
-      )
-      .where(isNull(conversations.archivedAt))
-      .orderBy(desc(conversations.updatedAt))
-      .all()
-
-    const byConnection = new Map<string, typeof chatRows>()
-    for (const row of chatRows) {
-      const list = byConnection.get(row.connectionId) ?? []
-      list.push(row)
-      byConnection.set(row.connectionId, list)
-    }
-
-    return c.json(
-      connectionRows.map((conn) => ({
-        connection: {
-          id: conn.id,
-          name: conn.name,
-          botUsername: conn.botUsername,
-          status: conn.status,
-        },
-        chats: (byConnection.get(conn.id) ?? []).map((r) => ({
-          id: r.id,
-          conversationId: r.conversationId,
-          telegramChatId: r.telegramChatId,
-          chatKind: r.chatKind,
-          chatTitle: r.chatTitle,
-          conversationTitle: r.conversationTitle,
-          updatedAt: r.updatedAt.getTime(),
-          unreadCount: Number(r.unreadCount),
-        })),
-      })),
-    )
   })
   .get('/telegram/connections/workspace-in-use', async (c) => {
     const path = c.req.query('path')
@@ -136,6 +66,25 @@ export const telegramRoute = new Hono()
       const body = c.req.valid('json')
       const agentError = await validateAgentId(body.agentId)
       if (agentError) return c.json({ error: agentError }, 400)
+      const kind = body.kind ?? 'special_purpose'
+      // At most one Remote Control bot per user. The form should also
+      // disable the radio in this case; this is the server-side guard.
+      if (kind === 'remote_control') {
+        const existing = await getDb()
+          .select({ id: telegramConnections.id })
+          .from(telegramConnections)
+          .where(eq(telegramConnections.kind, 'remote_control'))
+          .get()
+        if (existing) {
+          return c.json(
+            {
+              error:
+                'A Remote Control bot already exists. Delete it first or add a Special Purpose bot instead.',
+            },
+            409,
+          )
+        }
+      }
       let botInfo: ValidatedBot
       try {
         botInfo = await validateBotToken(body.botToken)
@@ -149,6 +98,13 @@ export const telegramRoute = new Hono()
         name: body.name,
         botUsername: botInfo.username,
         botTokenEncrypted: await encryptSecret(body.botToken),
+        kind,
+        // Remote Control bots never use this field; force null even
+        // if the client (incorrectly) sent one.
+        defaultConversationId:
+          kind === 'special_purpose'
+            ? (body.defaultConversationId ?? null)
+            : null,
         agentId: body.agentId,
         modelId: body.modelId ?? null,
         workspacePath: body.workspacePath,
