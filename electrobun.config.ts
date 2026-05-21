@@ -30,9 +30,13 @@ export default {
     },
     linux: {
       bundleCEF: false,
+      icon: 'icon.iconset/icon_512x512.png',
     },
     win: {
       bundleCEF: false,
+      // Electrobun auto-converts PNG → ICO at build time. Reusing one of
+      // the iconset PNGs keeps icon files in a single directory.
+      icon: 'icon.iconset/icon_512x512.png',
     },
   },
 } satisfies ElectrobunConfig
