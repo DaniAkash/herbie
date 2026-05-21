@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import type { ConversationSummary } from '@/modules/api/chat.hooks'
+import { useWorkspaces } from '@/modules/api/settings.hooks'
 import {
   type CreateLinkResponse,
   type TelegramConnection,
@@ -46,6 +47,11 @@ export function SendToTelegramDialog({
   const createLink = useCreateTelegramLink()
   const createBot = useCreateTelegramConnection()
   const reassign = useReassignTelegramBot()
+  // Used as a fallback when the source conversation has no workspace
+  // set — the create-connection schema requires a non-empty path, so
+  // '' from `conv.workspacePath ?? ''` previously failed validation
+  // and 400'd. Fall back to the user's default workspace instead.
+  const { defaultPath } = useWorkspaces()
 
   // Reset to the pick step on every open. No other lifecycle logic
   // here — completion is reported explicitly by each action's own
@@ -96,6 +102,14 @@ export function SendToTelegramDialog({
     name: string
     botToken: string
   }): Promise<void> {
+    const workspacePath = conv.workspacePath ?? defaultPath
+    if (!workspacePath) {
+      toast.error('No workspace selected', {
+        description:
+          "This conversation has no workspace, and you haven't set a default. Pick one in Settings before linking.",
+      })
+      return
+    }
     try {
       const bot = await createBot.mutateAsync({
         name: args.name,
@@ -103,7 +117,7 @@ export function SendToTelegramDialog({
         kind: 'special_purpose',
         agentId: conv.agentId,
         modelId: conv.modelId ?? null,
-        workspacePath: conv.workspacePath ?? '',
+        workspacePath,
         reasoningEffort: conv.reasoningEffort ?? null,
       })
       await startLinkFlow(bot, 'new')
