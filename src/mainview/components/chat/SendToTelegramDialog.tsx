@@ -8,10 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import {
-  type ConversationSummary,
-  useConversations,
-} from '@/modules/api/chat.hooks'
+import type { ConversationSummary } from '@/modules/api/chat.hooks'
 import {
   type CreateLinkResponse,
   type TelegramConnection,
@@ -27,7 +24,12 @@ import { ReassignConfirmStep } from './SendToTelegramDialog.reassign'
 type Step =
   | { kind: 'pick' }
   | { kind: 'create' }
-  | { kind: 'link'; link: CreateLinkResponse; via: 'new' | 'existing' }
+  | {
+      kind: 'link'
+      link: CreateLinkResponse
+      connectionId: string
+      via: 'new' | 'existing'
+    }
   | { kind: 'reassign-confirm'; bot: TelegramConnection }
 
 export function SendToTelegramDialog({
@@ -41,43 +43,37 @@ export function SendToTelegramDialog({
 }) {
   const [step, setStep] = useState<Step>({ kind: 'pick' })
 
-  // Reset to step 1 every time the dialog opens — avoids leaking the
-  // previous run's link / create-form state into a fresh attempt.
+  const createLink = useCreateTelegramLink()
+  const createBot = useCreateTelegramConnection()
+  const reassign = useReassignTelegramBot()
+
+  // Reset to the pick step on every open. No other lifecycle logic
+  // here — completion is reported explicitly by each action's own
+  // handler (handleReassign for reassign, LinkStep's onLinked for
+  // both deep-link paths). The dialog deliberately doesn't watch the
+  // conversations cache to infer "did the link finish" — that data-
+  // shaped state is owned by whichever surface initiated the action.
   useEffect(() => {
     if (open) setStep({ kind: 'pick' })
   }, [open])
 
-  const createLink = useCreateTelegramLink()
-  const createBot = useCreateTelegramConnection()
-  const reassign = useReassignTelegramBot()
-  const conversations = useConversations()
-
-  // Success signal: when the source conversation's telegramLink shows
-  // up in the unified /chat response, the link completed. Catches
-  // both the deep-link handshake and the reassignment path.
-  useEffect(() => {
-    if (!open) return
-    const fresh = conversations.data?.find((c) => c.id === conv.id)
-    if (fresh?.telegramLink) {
-      toast.success('Linked!', {
-        description: `"${fresh.title}" is now reachable from @${
-          fresh.telegramLink.botUsername ?? fresh.telegramLink.botName
-        }.`,
-      })
-      onOpenChange(false)
-    }
-  }, [conversations.data, conv.id, open, onOpenChange])
+  function reportLinked(botLabel: string): void {
+    toast.success('Linked!', {
+      description: `"${conv.title}" is now reachable from @${botLabel}.`,
+    })
+    onOpenChange(false)
+  }
 
   async function startLinkFlow(
-    connectionId: string,
+    connection: TelegramConnection,
     via: 'new' | 'existing',
   ): Promise<void> {
     try {
       const link = await createLink.mutateAsync({
-        connectionId,
+        connectionId: connection.id,
         conversationId: conv.id,
       })
-      setStep({ kind: 'link', link, via })
+      setStep({ kind: 'link', link, connectionId: connection.id, via })
     } catch {
       // toastApiError on the mutation surfaces the message; stay on
       // the current step so the user can pick a different bot.
@@ -90,10 +86,9 @@ export function SendToTelegramDialog({
         connectionId: bot.id,
         conversationId: conv.id,
       })
-      // Dialog auto-closes via the telegramLink useEffect above when
-      // the conversations cache refreshes.
+      reportLinked(bot.botUsername ?? bot.name)
     } catch {
-      // toastApiError surfaces the failure
+      // toastApiError surfaces the failure; stay on the confirm step
     }
   }
 
@@ -111,7 +106,7 @@ export function SendToTelegramDialog({
         workspacePath: conv.workspacePath ?? '',
         reasoningEffort: conv.reasoningEffort ?? null,
       })
-      await startLinkFlow(bot.id, 'new')
+      await startLinkFlow(bot, 'new')
     } catch {
       // mutation surfaces the error
     }
@@ -139,6 +134,7 @@ export function SendToTelegramDialog({
           handleCreate,
           setStep,
           onOpenChange,
+          reportLinked,
         })}
       </DialogContent>
     </Dialog>
@@ -158,23 +154,28 @@ function renderStep({
   handleCreate,
   setStep,
   onOpenChange,
+  reportLinked,
 }: {
   step: Step
   conv: ConversationSummary
   isCreating: boolean
   isReassigning: boolean
-  startLinkFlow: (id: string, via: 'new' | 'existing') => Promise<void>
+  startLinkFlow: (
+    bot: TelegramConnection,
+    via: 'new' | 'existing',
+  ) => Promise<void>
   handleReassign: (bot: TelegramConnection) => Promise<void>
   handleCreate: (args: { name: string; botToken: string }) => Promise<void>
   setStep: (next: Step) => void
   onOpenChange: (open: boolean) => void
+  reportLinked: (botLabel: string) => void
 }) {
   switch (step.kind) {
     case 'pick':
       return (
         <PickBotStep
           conv={conv}
-          onPickUnassigned={(bot) => startLinkFlow(bot.id, 'existing')}
+          onPickUnassigned={(bot) => startLinkFlow(bot, 'existing')}
           onPickAssigned={(bot) => setStep({ kind: 'reassign-confirm', bot })}
           onCreateNew={() => setStep({ kind: 'create' })}
         />
@@ -191,8 +192,11 @@ function renderStep({
     case 'link':
       return (
         <LinkStep
+          conversationId={conv.id}
+          connectionId={step.connectionId}
           link={step.link}
           via={step.via}
+          onLinked={() => reportLinked(step.link.botUsername ?? 'bot')}
           onCancel={() => onOpenChange(false)}
         />
       )

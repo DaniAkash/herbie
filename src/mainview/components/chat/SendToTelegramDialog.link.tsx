@@ -1,42 +1,74 @@
 import { Loader2Icon } from 'lucide-react'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
+import { useConversations } from '@/modules/api/chat.hooks'
+import { queryClient } from '@/modules/api/queryClient'
 import {
   type CreateLinkResponse,
   usePollTelegramLink,
 } from '@/modules/api/telegram.hooks'
 
-// Step 3: render the deep link the user opens on Telegram. While the
-// dialog is on this screen, we poll the token endpoint — once the
-// bot consumes it (or it expires), we react accordingly. Actual
-// success is detected by the parent watching the conversation's
-// telegramLink in GET /chat; this step's polling just covers the
-// 'expired' transition.
+// Step 3: render the deep link the user opens on Telegram, and wait
+// for them to tap START. This step OWNS the completion detection
+// (no parent cache-watching), via three signals:
+//
+//   1. usePollTelegramLink — token endpoint. 'pending' while the
+//      handshake is open, 'gone' once consumed or expired.
+//   2. useConversations — when the bot consumes the token, it
+//      writes telegramLink for our conversation. When token goes
+//      'gone' we kick a refetch and watch for that link.
+//   3. Time — the link has expiresAt; we show a quiet countdown.
+//
+// When telegramLink for this conversation matches the bot we minted
+// for, we fire onLinked exactly once.
 export function LinkStep({
+  conversationId,
+  connectionId,
   link,
   via,
+  onLinked,
   onCancel,
 }: {
+  conversationId: string
+  connectionId: string
   link: CreateLinkResponse
   via: 'new' | 'existing'
+  onLinked: () => void
   onCancel: () => void
 }) {
   const poll = usePollTelegramLink({
     variables: { token: link.token },
     enabled: !!link.token,
   })
-  const status = poll.data?.status
-  const expired = status === 'gone'
+  const conversations = useConversations()
+  const tokenGone = poll.data?.status === 'gone'
+  const firedRef = useRef(false)
 
-  // Stop polling once the token is gone (consumed or expired). The
-  // parent dialog's separate effect catches the success case via the
-  // conversation's telegramLink update; here we just freeze the UI.
+  // When the token goes 'gone', force a conversations refetch so the
+  // link-confirmation check below sees the freshest cache instead of
+  // a stale snapshot from the last invalidation.
   useEffect(() => {
-    if (status === 'gone') poll.refetch().catch(() => {})
-  }, [status, poll.refetch])
+    if (!tokenGone) return
+    queryClient.invalidateQueries({ queryKey: useConversations.getKey() })
+  }, [tokenGone])
+
+  // Fire onLinked the moment the conversation shows a link to the
+  // bot we minted this token for. Compare on connectionId (passed
+  // through by the dialog from startLinkFlow) — unambiguous and
+  // doesn't rely on botUsername equality. Idempotent via firedRef
+  // since react-query may re-settle before the parent unmounts us.
+  const fresh = conversations.data?.find((c) => c.id === conversationId)
+  const linkedHere = fresh?.telegramLink?.connectionId === connectionId
+  useEffect(() => {
+    if (firedRef.current) return
+    if (!linkedHere) return
+    firedRef.current = true
+    onLinked()
+  }, [linkedHere, onLinked])
 
   const url = link.deepLinkUrl
   const botLabel = link.botUsername ? `@${link.botUsername}` : 'your bot'
+  const expired = tokenGone && !linkedHere
 
   return (
     <div className="flex flex-col gap-4">

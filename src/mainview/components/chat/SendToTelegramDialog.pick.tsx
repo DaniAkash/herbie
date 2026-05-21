@@ -10,9 +10,9 @@ import {
 // Step 1: choose how to send. Lists existing special-purpose bots
 // (showing what they're currently assigned to, if anything) and a
 // "Create new bot" option. Remote-control bots are intentionally
-// omitted — Send-to-Telegram is for Special Purpose flows; users add
-// conversations to their Remote Control bot from inside Telegram via
-// /new, not from the desktop.
+// omitted from the picker — Send-to-Telegram creates SP flows; users
+// add conversations to their Remote Control bot from inside Telegram
+// via /new, not from the desktop.
 export function PickBotStep({
   conv,
   onPickUnassigned,
@@ -27,11 +27,12 @@ export function PickBotStep({
   const { data: connections = [] } = useTelegramConnections()
   const specialPurpose = connections.filter((c) => c.kind === 'special_purpose')
 
-  const alreadyLinkedBot = specialPurpose.find(
-    (b) => b.defaultConversationId === conv.id,
-  )
-  if (alreadyLinkedBot) {
-    return <AlreadyLinked bot={alreadyLinkedBot} />
+  // Conversation may already be reachable from a bot — by kind:
+  //   special_purpose → an SP bot's defaultConversationId points here
+  //   remote_control  → it's in an RC bot's pool (telegram_chats row)
+  // Both cases short-circuit the picker; the user can't double-link.
+  if (conv.telegramLink) {
+    return <AlreadyLinked link={conv.telegramLink} />
   }
 
   return (
@@ -120,20 +121,35 @@ function BotPickerRow({
   )
 }
 
-// Shown when the conversation is already linked to a bot. Read-only;
-// to relink, the user goes through "Send to Telegram" again from a
-// different conversation that wants this bot, or unlinks the current
-// one from settings.
-function AlreadyLinked({ bot }: { bot: TelegramConnection }) {
-  const label = bot.botUsername ? `@${bot.botUsername}` : bot.name
-  const url = bot.botUsername ? `https://t.me/${bot.botUsername}` : null
+// Shown when the conversation is already reachable from a bot.
+// Kind-aware copy: SP bots route every message to this conversation;
+// RC bots manage a pool and need /switch to point messages here.
+// Read-only — to relink, unlink from settings or send a different
+// conversation through Send-to-Telegram.
+function AlreadyLinked({
+  link,
+}: {
+  link: NonNullable<ConversationSummary['telegramLink']>
+}) {
+  const label = link.botUsername ? `@${link.botUsername}` : link.botName
+  const url = link.botUsername ? `https://t.me/${link.botUsername}` : null
+  const isRemoteControl = link.kind === 'remote_control'
+  const body = isRemoteControl
+    ? `This conversation is in ${label}'s Remote Control pool. Open the bot and use /switch to point new messages here, or just /list to see all your conversations.`
+    : `Type messages there to continue this conversation. Replies will stream back here and mirror to the Telegram chat.`
   return (
     <div className="flex flex-col gap-3">
       <div className="rounded-lg border bg-muted/40 px-3 py-3">
-        <div className="font-medium text-sm">Already linked to {label}</div>
+        <div className="font-medium text-sm">
+          Already linked to {label}
+          {isRemoteControl && (
+            <span className="ml-2 font-normal text-[10px] text-muted-foreground uppercase tracking-wider">
+              Remote Control
+            </span>
+          )}
+        </div>
         <p className="mt-1 text-muted-foreground text-xs leading-snug">
-          Type messages there to continue this conversation. Replies will stream
-          back here and mirror to the Telegram chat.
+          {body}
         </p>
       </div>
       {url && (
