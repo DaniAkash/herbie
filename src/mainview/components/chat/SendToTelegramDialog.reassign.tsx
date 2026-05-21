@@ -4,7 +4,10 @@ import {
   type ConversationSummary,
   useConversations,
 } from '@/modules/api/chat.hooks'
-import type { TelegramConnection } from '@/modules/api/telegram.hooks'
+import {
+  formatBotLabel,
+  type TelegramConnection,
+} from '@/modules/api/telegram.hooks'
 
 // Step 2b: warning shown before reassigning an already-assigned bot.
 // Names the conversation that will be detached, the new one that
@@ -30,7 +33,7 @@ export function ReassignConfirmStep({
     (c) => c.id === bot.defaultConversationId,
   )
   const previousTitle = previous?.title ?? 'an existing conversation'
-  const botLabel = bot.botUsername ? `@${bot.botUsername}` : bot.name
+  const botLabel = formatBotLabel(bot)
 
   return (
     <div className="flex flex-col gap-4">

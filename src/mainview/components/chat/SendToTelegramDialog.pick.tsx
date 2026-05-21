@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { ConversationSummary } from '@/modules/api/chat.hooks'
 import {
+  formatBotLabel,
   type TelegramConnection,
   useTelegramConnections,
 } from '@/modules/api/telegram.hooks'
@@ -93,7 +94,7 @@ function BotPickerRow({
   onPick: () => void
 }) {
   const assigned = !!bot.defaultConversationId
-  const label = bot.botUsername ? `@${bot.botUsername}` : bot.name
+  const label = formatBotLabel(bot)
   return (
     <button
       type="button"
@@ -131,7 +132,7 @@ function AlreadyLinked({
 }: {
   link: NonNullable<ConversationSummary['telegramLink']>
 }) {
-  const label = link.botUsername ? `@${link.botUsername}` : link.botName
+  const label = formatBotLabel(link)
   const url = link.botUsername ? `https://t.me/${link.botUsername}` : null
   const isRemoteControl = link.kind === 'remote_control'
   const body = isRemoteControl

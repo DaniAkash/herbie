@@ -12,6 +12,7 @@ import type { ConversationSummary } from '@/modules/api/chat.hooks'
 import { useWorkspaces } from '@/modules/api/settings.hooks'
 import {
   type CreateLinkResponse,
+  formatBotLabel,
   type TelegramConnection,
   useCreateTelegramConnection,
   useCreateTelegramLink,
@@ -65,7 +66,7 @@ export function SendToTelegramDialog({
 
   function reportLinked(botLabel: string): void {
     toast.success('Linked!', {
-      description: `"${conv.title}" is now reachable from @${botLabel}.`,
+      description: `"${conv.title}" is now reachable from ${botLabel}.`,
     })
     onOpenChange(false)
   }
@@ -92,7 +93,7 @@ export function SendToTelegramDialog({
         connectionId: bot.id,
         conversationId: conv.id,
       })
-      reportLinked(bot.botUsername ?? bot.name)
+      reportLinked(formatBotLabel(bot))
     } catch {
       // toastApiError surfaces the failure; stay on the confirm step
     }
@@ -210,7 +211,14 @@ function renderStep({
           connectionId={step.connectionId}
           link={step.link}
           via={step.via}
-          onLinked={() => reportLinked(step.link.botUsername ?? 'bot')}
+          onLinked={() =>
+            reportLinked(
+              formatBotLabel({
+                botUsername: step.link.botUsername,
+                botName: null,
+              }),
+            )
+          }
           onCancel={() => onOpenChange(false)}
         />
       )

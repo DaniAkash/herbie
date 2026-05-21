@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { TelegramIcon } from '@/components/icons/TelegramIcon'
 import { Button } from '@/components/ui/button'
 import { useConversations } from '@/modules/api/chat.hooks'
+import { formatBotLabel } from '@/modules/api/telegram.hooks'
 import { SendToTelegramDialog } from './SendToTelegramDialog'
 
 // Conversation-level action exposed below the composer (alongside
@@ -22,8 +23,8 @@ export function SendToTelegramButton({
   if (!conv) return null
 
   const linked = !!conv.telegramLink
-  const label = linked
-    ? `Linked: @${conv.telegramLink?.botUsername ?? conv.telegramLink?.botName ?? 'bot'}`
+  const label = conv.telegramLink
+    ? `Linked: ${formatBotLabel(conv.telegramLink)}`
     : 'Send to Telegram'
 
   return (

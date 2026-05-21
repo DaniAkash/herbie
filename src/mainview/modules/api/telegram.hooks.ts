@@ -25,6 +25,20 @@ type CreateInput = InferRequestType<typeof $create>['json']
 type PatchInput = InferRequestType<typeof $patch>['json'] & { id: string }
 type WorkspaceInUseResponse = InferResponseType<typeof $workspaceInUse>
 
+// Display label for a bot. Only adds the @ prefix when the bot
+// actually has a Telegram username — falls back to the user-set
+// friendly name (no @) otherwise. Without this guard, bots whose
+// username we never resolved render as `@<friendly name>` which
+// reads like a Telegram handle but isn't one.
+export function formatBotLabel(bot: {
+  botUsername: string | null
+  botName?: string | null
+  name?: string | null
+}): string {
+  if (bot.botUsername) return `@${bot.botUsername}`
+  return bot.botName ?? bot.name ?? 'bot'
+}
+
 export const useTelegramConnections = createQuery<TelegramConnection[]>({
   queryKey: ['telegram', 'connections'],
   fetcher: () => $list().then(parseResponse<TelegramConnection[]>),
