@@ -1,6 +1,10 @@
-# Herbie
+<div align="center">
+  <img src="./icon.iconset/icon_256x256.png" width="128" alt="Herbie" />
 
-**One window for every AI coding agent on your machine.**
+  # Herbie
+
+  **One window for every AI coding agent on your machine.**
+</div>
 
 Claude, Codex, Gemini, Hermes — they're all powerful, but they live in
 separate terminals, have their own configs, and you can't get to any of
