@@ -5,6 +5,7 @@ import {
   patchAgentCapabilities,
   readAgentCapability,
 } from '../routes/settings'
+import { CAPABILITY_SCHEMA_VERSION } from '../routes/settings.agent-capability.schema'
 import { resolveAgentCommand } from './registry'
 
 // Cached capabilities are considered stale when older than this window
@@ -55,12 +56,25 @@ async function discoverCapabilities(
 }
 
 function resultToCapability(r: AgentProbeResult): AgentCapability {
+  // Source the picker's model list from `modelConfig.values` — the ids
+  // `setConfigOption('model', X)` will actually accept. The parallel
+  // `models[]` array is a *declarative* surface (`availableModels`); on
+  // some adapters (codex) it lists model+effort combinations that
+  // `setConfigOption` rejects, which silently breaks the next prompt.
+  // Reuse the rich name/description from `models[]` where the id
+  // overlaps so the picker still shows nice labels.
+  const richModels = new Map(r.models.map((m) => [m.id, m]))
+  const modelIds = r.modelConfig?.values ?? r.models.map((m) => m.id)
+  const models = modelIds.map((id) => {
+    const rich = richModels.get(id)
+    return {
+      id,
+      name: rich?.name ?? null,
+      description: rich?.description ?? null,
+    }
+  })
   return {
-    models: r.models.map((m) => ({
-      id: m.id,
-      name: m.name ?? null,
-      description: m.description ?? null,
-    })),
+    models,
     reasoning: r.reasoning
       ? {
           key: r.reasoning.configId,
@@ -75,15 +89,18 @@ function resultToCapability(r: AgentProbeResult): AgentCapability {
     },
     agentName: r.agentInfo?.name ?? null,
     discoveredAt: Date.now(),
+    schemaVersion: CAPABILITY_SCHEMA_VERSION,
   }
 }
 
-// Re-probe rows that predate the acp-probe migration (missing the new
-// `promptCapabilities` field) or that have aged past the freshness
-// window. Capabilities don't change without an agent upgrade; a day is
-// plenty for cache.
+// Re-probe rows that predate the current cache shape (missing
+// `promptCapabilities` from the earlier migration, or below the
+// current `schemaVersion`) or that have aged past the freshness
+// window. Capabilities don't change without an agent upgrade; a day
+// is plenty for cache.
 function capabilityIsFresh(c: AgentCapability): boolean {
   if (c.promptCapabilities === undefined) return false
+  if (c.schemaVersion !== CAPABILITY_SCHEMA_VERSION) return false
   return Date.now() - c.discoveredAt < FRESHNESS_MS
 }
 

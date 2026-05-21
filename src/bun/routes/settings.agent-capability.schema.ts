@@ -48,7 +48,15 @@ export const agentCapabilitySchema = z.object({
   // ms timestamp of when this entry was discovered — lets us refresh stale
   // caches without needing a separate column.
   discoveredAt: z.number().int().nonnegative(),
+  // Cache-shape version. Bumped when the normalisation in
+  // `resultToCapability` changes in a way that would make stored rows
+  // misleading (e.g. switching the picker source from availableModels
+  // to configOptions.model.options). `capabilityIsFresh` treats any
+  // row without this field as legacy and forces a re-probe.
+  schemaVersion: z.literal(2).optional(),
 })
+
+export const CAPABILITY_SCHEMA_VERSION = 2 as const
 
 export type AgentProbedModel = z.infer<typeof probedModelSchema>
 export type AgentPromptCapabilities = z.infer<typeof promptCapabilitiesSchema>

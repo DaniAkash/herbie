@@ -29,15 +29,6 @@ export function ReasoningPicker({
   const { data } = useAgentCapabilities({ variables: { id: agentId } })
   const reasoning = data?.reasoning
 
-  // TODO(reasoning-overlap): codex exposes effort twice — baked into the
-  // model id (`gpt-5.5/medium`) AND as a separate `reasoning_effort`
-  // config option, with no defined precedence. Hide the picker for
-  // codex so the model id is the single source of truth; revisit once
-  // we have more agents with the same dual-surface pattern and can pick
-  // a generic rule (e.g. detect when every model id ends in
-  // `/<reasoning-value>` and collapse the model picker instead).
-  if (agentId === 'codex') return null
-
   if (!reasoning) return null
 
   // When the user hasn't picked, show the agent's own default if the
