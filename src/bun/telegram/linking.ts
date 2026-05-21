@@ -56,13 +56,13 @@ export async function tryConsumeLinkingStart(
   // Tokens are bot-scoped — the desktop popup mints them tied to a
   // specific bot. A user opening a stale token in the wrong bot
   // shouldn't accidentally link a conversation to the wrong place.
+  // We intentionally do NOT delete the token here: it's still valid
+  // for the bot it was minted for, and the user may simply have
+  // tapped through to the wrong bot first. Token expires on its own
+  // TTL.
   if (link.connectionId !== connection.id) {
-    await db
-      .delete(pendingTelegramLinks)
-      .where(eq(pendingTelegramLinks.token, token))
-      .run()
     await thread.post(
-      '⚠ This link was issued for a different bot. Generate a new one for this bot from the Herbie desktop app.',
+      '⚠ This link was issued for a different bot. Open the correct bot from the Herbie desktop app to use it, or wait for the link to expire.',
     )
     return { handled: true }
   }
