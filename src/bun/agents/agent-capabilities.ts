@@ -55,12 +55,25 @@ async function discoverCapabilities(
 }
 
 function resultToCapability(r: AgentProbeResult): AgentCapability {
+  // Source the picker's model list from `modelConfig.values` — the ids
+  // `setConfigOption('model', X)` will actually accept. The parallel
+  // `models[]` array is a *declarative* surface (`availableModels`); on
+  // some adapters (codex) it lists model+effort combinations that
+  // `setConfigOption` rejects, which silently breaks the next prompt.
+  // Reuse the rich name/description from `models[]` where the id
+  // overlaps so the picker still shows nice labels.
+  const richModels = new Map(r.models.map((m) => [m.id, m]))
+  const modelIds = r.modelConfig?.values ?? r.models.map((m) => m.id)
+  const models = modelIds.map((id) => {
+    const rich = richModels.get(id)
+    return {
+      id,
+      name: rich?.name ?? null,
+      description: rich?.description ?? null,
+    }
+  })
   return {
-    models: r.models.map((m) => ({
-      id: m.id,
-      name: m.name ?? null,
-      description: m.description ?? null,
-    })),
+    models,
     reasoning: r.reasoning
       ? {
           key: r.reasoning.configId,

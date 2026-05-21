@@ -22,9 +22,9 @@
         "@tanstack/react-query": "^5.100.7",
         "@tanstack/react-router": "^1.168.4",
         "@xyflow/react": "^12.10.2",
-        "acp-probe": "0.0.1",
+        "acp-probe": "0.0.2",
         "acpx": "^0.7.0",
-        "acpx-ai-provider": "^0.0.4",
+        "acpx-ai-provider": "^0.0.6",
         "agent-skills-manager": "0.0.1",
         "ai": "^6.0.168",
         "ansi-to-react": "^6.2.6",
@@ -675,11 +675,11 @@
 
     "acorn-jsx": ["acorn-jsx@5.3.2", "", { "peerDependencies": { "acorn": "^6.0.0 || ^7.0.0 || ^8.0.0" } }, "sha512-rq9s+JNhf0IChjtDXxllJ7g41oZk5SlXtp0LHwyA5cejwn7vKmKp4pPri6YEePv2PU65sAsegbXtIinmDFDXgQ=="],
 
-    "acp-probe": ["acp-probe@0.0.1", "", { "dependencies": { "@agentclientprotocol/sdk": "^0.21.0" }, "peerDependencies": { "acpx": ">=0.7.0" }, "optionalPeers": ["acpx"] }, "sha512-myhENZFYYPuNTtiijiFoNO0Lbrt0lnpWlJdfHDvV3kMqQkOqg13DW3hBkGe311++GUBLXOSxJJAr0JaNuGDnGQ=="],
+    "acp-probe": ["acp-probe@0.0.2", "", { "dependencies": { "@agentclientprotocol/sdk": "^0.21.0" }, "peerDependencies": { "acpx": ">=0.7.0" }, "optionalPeers": ["acpx"] }, "sha512-xR0mLngodmIxT9u/doxYtHoa3gkhH4/wcujDiXPGGo6VupgxtEgWK9kcPohDQ47ZiSXm5YR9NtGyrGdEELQucQ=="],
 
     "acpx": ["acpx@0.7.0", "", { "dependencies": { "@agentclientprotocol/sdk": "^0.21.0", "commander": "^14.0.3", "skillflag": "^0.1.4", "tsx": "^4.21.0", "zod": "^4.4.2" }, "bin": { "acpx": "dist/cli.js" } }, "sha512-BratfuaUoZv1iSETJobqhiWM3E/Z3lJlGRxSImJX162LXSwqwnWiCEh6GjKzx2/56rJgZno8VV06aXev46mLmw=="],
 
-    "acpx-ai-provider": ["acpx-ai-provider@0.0.4", "", { "peerDependencies": { "acpx": ">=0.6.1", "ai": ">=6.0.0" } }, "sha512-DUMPXbAM7u/g0k2+kcV0KRDKCylBvRY68QXfjPb0GUP3GyOBKv71gbnN/zPojQo9rvvmQENn72SUKjCUVos2HA=="],
+    "acpx-ai-provider": ["acpx-ai-provider@0.0.6", "", { "peerDependencies": { "acpx": ">=0.8.0", "ai": ">=6.0.0" } }, "sha512-loseYTXj34kVH1ZQlFgIHUzHBK0KfHWJUnSLDerw8aI1/0yver7tEPFWhy5i8opEgjS0kK1fnudha+e2w8Q/WQ=="],
 
     "agent-base": ["agent-base@7.1.4", "", {}, "sha512-MnA+YT8fwfJPgBx3m60MNqakm30XOkyIoH1y6huTQvC0PwZG7ki8NacLBcrPbNoo8vEZy7Jpuk7+jMO+CUovTQ=="],
 
