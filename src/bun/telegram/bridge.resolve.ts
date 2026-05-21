@@ -6,7 +6,10 @@ import type { DB } from '../../db'
 import { conversations } from '../../db/schema/conversations.sql'
 import { telegramActiveChat } from '../../db/schema/telegram-active-chat.sql'
 import { telegramChats } from '../../db/schema/telegram-chats.sql'
-import type { TelegramConnection } from '../../db/schema/telegram-connections.sql'
+import {
+  type TelegramConnection,
+  telegramConnections,
+} from '../../db/schema/telegram-connections.sql'
 import { getDb } from '../db-singleton'
 import { upsertActivePointer } from './commands.queries'
 
@@ -19,10 +22,11 @@ export type TelegramMessageLike = Omit<Message, 'raw'> & {
 
 // Branches on connection.kind. Special-purpose bots route via the
 // connection's defaultConversationId (a single dedicated conversation
-// per bot). Remote-control bots route via the active pointer in
-// telegram_active_chat, with a fallback to the most-recent
-// telegram_chats row (handles upgrade-from-1:1 and post-archive
-// recovery), and an auto-create path if nothing is linked yet.
+// per bot, auto-created on first message if unlinked). Remote-control
+// bots route via the active pointer in telegram_active_chat with a
+// fallback to the most-recent telegram_chats row (handles upgrade-
+// from-1:1 and post-archive recovery), then auto-create if nothing
+// is linked yet.
 export async function resolveConversationId(
   connection: TelegramConnection,
   message: TelegramMessageLike,
@@ -38,6 +42,7 @@ export async function resolveConversationId(
       connection,
       message,
       telegramChatId,
+      firstText,
       thread,
     )
   }
@@ -55,42 +60,62 @@ async function resolveSpecialPurpose(
   connection: TelegramConnection,
   message: TelegramMessageLike,
   telegramChatId: string,
+  firstText: string,
   thread: Thread,
 ): Promise<string | null> {
-  if (!connection.defaultConversationId) {
-    await thread.post(
-      "⚠ This bot isn't linked to a conversation right now.\n" +
-        'Use "Send to Telegram" in the Herbie desktop app to link it.',
-    )
-    return null
+  // 1. Pointed at an existing live conversation → route there.
+  if (connection.defaultConversationId) {
+    const conv = await db
+      .select()
+      .from(conversations)
+      .where(eq(conversations.id, connection.defaultConversationId))
+      .get()
+    if (conv?.archivedAt) {
+      // User intentionally archived this conversation. Don't silently
+      // create a new one — surface the state so they can restore /
+      // re-link from the desktop.
+      await thread.post(
+        `⚠ "${conv.title}" is archived.\n` +
+          'Restore it from the desktop app, or re-link this bot to a different conversation.',
+      )
+      return null
+    }
+    if (conv) {
+      // Idempotent record of this Telegram chat as a viewport on the
+      // bot — used by the reassign flow to fan out notices.
+      await ensureTelegramChatRow(
+        db,
+        connection,
+        message,
+        telegramChatId,
+        conv.id,
+      )
+      return conv.id
+    }
+    // conv === undefined means the FK didn't get cleared by ON DELETE
+    // SET NULL (older schema / manual surgery). Fall through to
+    // auto-create rather than dead-ending.
   }
-  const conv = await db
-    .select()
-    .from(conversations)
-    .where(eq(conversations.id, connection.defaultConversationId))
-    .get()
-  if (!conv) {
-    // FK is ON DELETE SET NULL, so this branch is mostly defensive —
-    // the column should already be null. Belt-and-braces in case the
-    // SET NULL didn't propagate (older schemas, manual surgery, etc).
-    await thread.post(
-      "⚠ This bot's conversation was removed.\n" +
-        'Re-link it from the Herbie desktop app via "Send to Telegram".',
-    )
-    return null
-  }
-  if (conv.archivedAt) {
-    await thread.post(
-      `⚠ "${conv.title}" is archived.\n` +
-        'Restore it from the desktop app, or re-link this bot to a different conversation.',
-    )
-    return null
-  }
-  // Record this Telegram chat as a known viewport on the bot.
-  // Idempotent; the reassign flow uses these rows to know where to
-  // post the "this bot has been reassigned" notice.
-  await ensureTelegramChatRow(db, connection, message, telegramChatId, conv.id)
-  return conv.id
+
+  // 2. No (live) target → auto-create. This is the common path for
+  //    SP bots added via Mobile settings without explicitly linking
+  //    them at creation time — first inbound message bootstraps the
+  //    dedicated conversation, exactly like the pre-feature behavior.
+  //    After this point, every future message routes via
+  //    defaultConversationId on the fast path.
+  const conversationId = await createTelegramConversation(
+    db,
+    connection,
+    message,
+    telegramChatId,
+    firstText,
+  )
+  await db
+    .update(telegramConnections)
+    .set({ defaultConversationId: conversationId, updatedAt: new Date() })
+    .where(eq(telegramConnections.id, connection.id))
+    .run()
+  return conversationId
 }
 
 async function resolveRemoteControl(
@@ -152,6 +177,30 @@ async function resolveRemoteControl(
   //    pre-existing pool. Same shape as the pre-feature behavior, but
   //    we also write the active pointer now so the next message lands
   //    on the fast path.
+  const conversationId = await createTelegramConversation(
+    db,
+    connection,
+    message,
+    telegramChatId,
+    firstText,
+  )
+  await upsertActivePointer(db, connection.id, telegramChatId, conversationId)
+  return conversationId
+}
+
+// Shared bootstrap for any inbound message that needs to spin up a
+// fresh conversation: writes the conversations row + a telegram_chats
+// row tying it to this Telegram chat, and returns the new
+// conversationId. Callers are responsible for whatever pointer /
+// connection state update follows (active pointer for RC,
+// defaultConversationId for SP).
+async function createTelegramConversation(
+  db: DB,
+  connection: TelegramConnection,
+  message: TelegramMessageLike,
+  telegramChatId: string,
+  firstText: string,
+): Promise<string> {
   const now = new Date()
   const conversationId = nanoid()
   await db
@@ -186,7 +235,6 @@ async function resolveRemoteControl(
       updatedAt: now,
     })
     .run()
-  await upsertActivePointer(db, connection.id, telegramChatId, conversationId)
   return conversationId
 }
 
