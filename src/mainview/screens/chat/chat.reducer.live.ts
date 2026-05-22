@@ -28,6 +28,7 @@ export function appendTextDelta(ctx: ReducerCtx, ev: PersistedEventDTO): void {
     ...part,
     text: part.text + text,
   }))
+  bumpLiveOutputChars(ctx, text.length)
 }
 
 export function openReasoningBlock(
@@ -59,6 +60,19 @@ export function appendReasoningDelta(
     }
     return { ...part, text: next }
   })
+  bumpLiveOutputChars(ctx, delta.length)
+}
+
+// AgentBusy reads liveOutputChars off ctx.activeAssistant for its
+// output-token estimate. Append-only — never decremented — so a
+// turn.cancel or turn.error mid-stream keeps the last value visible
+// until finalize clears the whole struct.
+function bumpLiveOutputChars(ctx: ReducerCtx, delta: number): void {
+  if (!ctx.activeAssistant || delta <= 0) return
+  ctx.activeAssistant = {
+    ...ctx.activeAssistant,
+    liveOutputChars: ctx.activeAssistant.liveOutputChars + delta,
+  }
 }
 
 export function closeBlock(

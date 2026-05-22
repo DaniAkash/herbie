@@ -84,11 +84,6 @@ export function ChatMessageRow({
 
   const allowed = new Set(partKinds)
   const visibleParts = message.parts.filter((p) => allowed.has(p.kind))
-  const showThinking =
-    message.isStreaming &&
-    visibleParts.length === 0 &&
-    !message.isCancelled &&
-    !message.isError
 
   return (
     <Message from="assistant">
@@ -114,9 +109,6 @@ export function ChatMessageRow({
         {visibleParts.map((part) => (
           <PartView key={part.id} part={part} streaming={message.isStreaming} />
         ))}
-        {showThinking && (
-          <div className="text-muted-foreground text-sm italic">thinking…</div>
-        )}
         {message.errorMessage && (
           <TestError>
             <TestErrorMessage>{message.errorMessage}</TestErrorMessage>

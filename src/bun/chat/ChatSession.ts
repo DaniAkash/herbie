@@ -24,6 +24,7 @@ import type {
 } from './events.types'
 import { SegmentBuffer } from './streamPart'
 import type { ChatTuple } from './tuple'
+import { sumModelMessageChars } from './turn-input-chars'
 import { routeTurn, type TurnRouteState } from './turn-router'
 
 export type { ChatTuple }
@@ -160,6 +161,11 @@ export class ChatSession {
         requestId,
         attachments,
       )
+      const approxInputChars = sumModelMessageChars(messages)
+      await this.events.writeProtocolEvent({
+        type: 'meta.turn-input',
+        payload: { requestId, approxInputChars },
+      })
       await this.startTurn(messages, tuple, requestId, controller)
       return { requestId }
     } catch (err) {
@@ -191,7 +197,7 @@ export class ChatSession {
       abortSignal: controller.signal,
     })
 
-    await this.persistTuple(tuple)
+    this.conversation = await persistTuple(this.db, this.conversation, tuple)
 
     void this.runTurn(result, requestId, provider)
   }
@@ -277,15 +283,8 @@ export class ChatSession {
   }
 
   private async setStatus(status: Conversation['status']): Promise<void> {
-    this.conversation = await setConversationStatus(
-      this.db,
-      this.conversation,
-      status,
-    )
-  }
-
-  private async persistTuple(tuple: ChatTuple): Promise<void> {
-    this.conversation = await persistTuple(this.db, this.conversation, tuple)
+    const next = await setConversationStatus(this.db, this.conversation, status)
+    this.conversation = next
   }
 
   private async persistAcpxIds(provider: AcpxProvider): Promise<void> {
