@@ -1,8 +1,9 @@
 # Tag-triggered signed + notarized macOS release.
 #
 # Push a `v*` tag (e.g. `v0.0.2`, `v0.1.0-rc.1`) → this workflow builds
-# both per-arch signed + notarized .dmgs in parallel, creates a DRAFT
-# GitHub Release for that tag, and attaches both .dmgs.
+# a signed + notarized arm64 .dmg, creates a DRAFT GitHub Release for
+# that tag, and attaches the .dmg. x86_64 is intentionally skipped
+# until Electrobun ships cross-compile (see job comment below).
 #
 # The release stays in DRAFT state. Review it in the GitHub UI and click
 # Publish when ready — never auto-published.
@@ -27,7 +28,7 @@
 # All values stored in repo Settings → Secrets and variables → Actions.
 # Never inline any of them here, even as examples.
 
-name: Release (signed + notarized per-arch macOS builds)
+name: Release (signed + notarized arm64 macOS build)
 
 on:
   push:
@@ -83,29 +84,24 @@ jobs:
           config: cliff.toml
           args: --strip header ${{ steps.previous_tag.outputs.previous_tag }}..${{ github.ref_name }}
 
-  # Job 2: build + sign + notarize each macOS arch in parallel, one per
-  # native runner. Electrobun's CLI has no cross-compile flag — its
-  # `build.targets` config field defaults to "current" (whatever the
-  # runner is). Pairing each arch with its native runner sidesteps the
-  # whole cross-compile question: macos-15 builds arm64 for itself,
-  # macos-13 builds x86_64 for itself.
+  # Job 2: build + sign + notarize for Apple Silicon (arm64) only.
   #
-  # `fail-fast: false` so a flake on one arch doesn't cancel the other;
-  # the `release` job's `needs:` simply won't be satisfied and no draft
-  # is created — re-run the failing entry.
+  # Electrobun v1.16.0 has no working cross-compile — the docs and the
+  # source both say "use a runner per architecture." Since the only
+  # GitHub-hosted Intel runner image is macos-13 (Apple stopped selling
+  # Intel Macs in 2022, so GitHub never produced a newer Intel runner),
+  # adding x86_64 to this matrix means waiting on the slow macos-13
+  # queue every release — saw a 1h 40min hang on rc.4.
+  #
+  # For Herbie's audience (Apple Silicon dominates new Macs by a huge
+  # margin in 2026), arm64-only is the pragmatic call. Add x64 back
+  # when Electrobun ships --targets= cross-compile again
+  # (https://github.com/blackboardsh/electrobun/issues/341).
   build:
-    name: Build ${{ matrix.arch_suffix }}
+    name: Build aarch64
     needs: [changelog]
-    runs-on: ${{ matrix.runner }}
+    runs-on: macos-15
     timeout-minutes: 60
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner: macos-15
-            arch_suffix: aarch64
-          - runner: macos-13
-            arch_suffix: x64
 
     steps:
       - name: Checkout
@@ -172,11 +168,11 @@ jobs:
       - name: Add stable-named DMG copy
         # Electrobun bundler-produced names embed the version, which changes
         # every release. README badges want a stable filename under
-        # /releases/latest/download/. Ship side-by-side copies.
+        # /releases/latest/download/. Ship a side-by-side copy.
         run: |
           set -euo pipefail
           ARTIFACT_DIR=artifacts
-          STABLE="herbie-${{ matrix.arch_suffix }}.dmg"
+          STABLE="herbie-aarch64.dmg"
           src=$(find "$ARTIFACT_DIR" -type f -name '*.dmg' | head -n 1)
           if [ -z "$src" ]; then
             echo "No .dmg found in $ARTIFACT_DIR"
@@ -187,13 +183,13 @@ jobs:
           ls -la "$ARTIFACT_DIR"
 
       - name: Upload .dmg as workflow artifact
-        # Hands every release artifact for this arch off to the `release`
-        # job (Linux runner, can't reach into this macOS runner's
-        # filesystem directly). Short retention because everything also
-        # lands on the GitHub Release within minutes.
+        # Hands the release artifact off to the `release` job (Linux
+        # runner, can't reach into this macOS runner's filesystem
+        # directly). Short retention because everything also lands on
+        # the GitHub Release within minutes.
         uses: actions/upload-artifact@v4
         with:
-          name: bundles-${{ matrix.arch_suffix }}
+          name: bundles-aarch64
           path: artifacts/*.dmg
           if-no-files-found: error
           retention-days: 7
@@ -206,10 +202,11 @@ jobs:
         run: |
           security delete-keychain "$RUNNER_TEMP/build.keychain-db" || true
 
-  # Job 3: create the draft release with both .dmgs attached. Lives
-  # outside the matrix because softprops/action-gh-release running inside
-  # the matrix would create two separate releases (one per matrix entry)
-  # and the second would 422 because the tag already has a release.
+  # Job 3: create the draft release with the arm64 .dmg attached.
+  # Kept as its own job (rather than inlining in build) so it's easy
+  # to extend back to multi-arch when Electrobun ships cross-compile
+  # — just add matrix entries to `build`, the `needs:` here picks up
+  # whatever artifacts they upload.
   release:
     name: Create draft release
     needs: [changelog, build]
@@ -224,7 +221,7 @@ jobs:
           # the final `files:` glob doesn't need a level of indirection.
           merge-multiple: true
 
-      - name: Create draft release with both .dmgs
+      - name: Create draft release with the arm64 .dmg
         uses: softprops/action-gh-release@v2
         with:
           # DRAFT — never auto-publish. The user reviews the body, edits
