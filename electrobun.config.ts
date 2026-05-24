@@ -1,5 +1,9 @@
 import type { ElectrobunConfig } from 'electrobun'
 
+// Release builds (CI) set ELECTROBUN_SIGN=1 to enable codesign + notarize.
+// Local dev builds leave it unset so they don't try to talk to Apple.
+const SIGN = Bun.env.ELECTROBUN_SIGN === '1'
+
 export default {
   app: {
     name: 'Herbie',
@@ -27,6 +31,8 @@ export default {
     watchIgnore: ['dist/**'],
     mac: {
       bundleCEF: false,
+      codesign: SIGN,
+      notarize: SIGN,
     },
     linux: {
       bundleCEF: false,
