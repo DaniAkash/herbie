@@ -11,8 +11,8 @@
     "lint": "biome check",
     "typecheck": "tsc --noEmit",
     "lint:fix": "biome check --write --unsafe",
-    "build:release:arm64": "ELECTROBUN_SIGN=1 vite build && electrobun build --target=macos-arm64",
-    "build:release:x64": "ELECTROBUN_SIGN=1 vite build && electrobun build --target=macos-x64",
+    "build:release:arm64": "ELECTROBUN_SIGN=1 ELECTROBUN_TARGET=macos-arm64 vite build && ELECTROBUN_SIGN=1 ELECTROBUN_TARGET=macos-arm64 electrobun build",
+    "build:release:x64": "ELECTROBUN_SIGN=1 ELECTROBUN_TARGET=macos-x64 vite build && ELECTROBUN_SIGN=1 ELECTROBUN_TARGET=macos-x64 electrobun build",
     "fallow": "fallow check",
     "db:generate": "drizzle-kit generate",
     "db:studio": "drizzle-kit studio"
