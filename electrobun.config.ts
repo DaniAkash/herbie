@@ -1,11 +1,17 @@
 import type { ElectrobunConfig } from 'electrobun'
 
-// Production builds (electrobun build) always sign + notarize. Local dev
-// (`bun run dev` → electrobun dev --watch) goes through the CLI's
-// runDevWatch path which doesn't touch the signing code at all, so these
-// flags being `true` here don't affect dev. The release workflow runs on
-// macos-15 (arm64) and macos-13 (x64) so each runner builds for its own
-// native architecture — `build.targets` defaults to 'current'.
+// CI release builds set ELECTROBUN_SIGN=1 to enable codesign + notarize.
+// Local dev leaves it unset; `electrobun dev --watch` (the dev script)
+// goes through runDevWatch which never touches the signing code path
+// regardless, but keeping these flags gated also keeps the `start`
+// script (`vite build && electrobun dev`) safe — it runs runBuild in
+// "dev" mode which respects the config.
+//
+// Bun.env, not process.env, so biome's noProcessEnv rule applies cleanly
+// across the rest of the project. Bun.env is Bun's native env API and
+// works identically inside the standalone Electrobun CLI's config loader.
+const SIGN = Bun.env.ELECTROBUN_SIGN === '1'
+
 export default {
   app: {
     name: 'Herbie',
@@ -33,8 +39,8 @@ export default {
     watchIgnore: ['dist/**'],
     mac: {
       bundleCEF: false,
-      codesign: true,
-      notarize: true,
+      codesign: SIGN,
+      notarize: SIGN,
     },
     linux: {
       bundleCEF: false,

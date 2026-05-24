@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "description": "Lightweight AI assistant menubar app",
   "scripts": {
-    "start": "vite build && electrobun dev --watch",
+    "start": "vite build && electrobun dev",
     "build": "vite build",
     "dev": "electrobun dev --watch",
     "dev:hmr": "concurrently \"bun run hmr\" \"bun run start\"",
@@ -11,7 +11,7 @@
     "lint": "biome check",
     "typecheck": "tsc --noEmit",
     "lint:fix": "biome check --write --unsafe",
-    "build:release": "vite build && electrobun build",
+    "build:release": "vite build && electrobun build --env=stable",
     "fallow": "fallow check",
     "db:generate": "drizzle-kit generate",
     "db:studio": "drizzle-kit studio"
