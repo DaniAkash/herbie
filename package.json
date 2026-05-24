@@ -49,6 +49,7 @@
     "drizzle-orm": "^0.45.2",
     "electrobun": "1.16.0",
     "embla-carousel-react": "^8.6.0",
+    "fix-path": "^5.0.0",
     "hono": "^4.12.16",
     "lucide-react": "^1.8.0",
     "media-chrome": "^4.19.0",

@@ -9,6 +9,7 @@ import { setupApplicationMenu } from './applicationMenu'
 import { recoverInterruptedTurns } from './chat/recovery'
 import { getSessionManager } from './chat/sessionManager'
 import { setDb } from './db-singleton'
+import { fixMacOsPath } from './fix-macos-path'
 import { setLoginItem } from './loginItems'
 import app from './server'
 import { recoverInterruptedRuns } from './tasks/recovery'
@@ -25,6 +26,12 @@ import {
 
 const DEV_SERVER_PORT = 5173
 const DEV_SERVER_URL = `http://localhost:${DEV_SERVER_PORT}`
+
+// First boot step — runs before any child_process / Bun.spawn call so
+// spawned agents (npx, claude, codex, gemini, hermes, custom CLIs)
+// inherit the user's real shell PATH rather than the launchd minimal
+// /usr/bin:/bin:/usr/sbin:/sbin. No-op on non-darwin.
+fixMacOsPath()
 
 const { db } = await initializeDatabase()
 setDb(db)
