@@ -83,22 +83,29 @@ jobs:
           config: cliff.toml
           args: --strip header ${{ steps.previous_tag.outputs.previous_tag }}..${{ github.ref_name }}
 
-  # Job 2: build + sign + notarize each macOS arch in parallel. Each
-  # matrix entry produces ONE per-arch .dmg.
+  # Job 2: build + sign + notarize each macOS arch in parallel, one per
+  # native runner. Electrobun's CLI has no cross-compile flag — its
+  # `build.targets` config field defaults to "current" (whatever the
+  # runner is). Pairing each arch with its native runner sidesteps the
+  # whole cross-compile question: macos-15 builds arm64 for itself,
+  # macos-13 builds x86_64 for itself.
+  #
   # `fail-fast: false` so a flake on one arch doesn't cancel the other;
-  # the `release` job's `needs:` will simply not be satisfied and no
-  # draft is created — re-run the failing entry.
+  # the `release` job's `needs:` simply won't be satisfied and no draft
+  # is created — re-run the failing entry.
   build:
-    name: Build ${{ matrix.target }}
+    name: Build ${{ matrix.arch_suffix }}
     needs: [changelog]
-    runs-on: macos-15
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
-        target:
-          - macos-arm64
-          - macos-x64
+        include:
+          - runner: macos-15
+            arch_suffix: aarch64
+          - runner: macos-13
+            arch_suffix: x64
 
     steps:
       - name: Checkout
@@ -150,25 +157,15 @@ jobs:
 
       - name: Build, sign, and notarize
         env:
-          # Electrobun reads these directly:
-          #   ELECTROBUN_SIGN gates the codesign + notarize logic via
-          #     electrobun.config.ts (mac.codesign / mac.notarize).
-          #   ELECTROBUN_TARGET drives build.targets in the config — the
-          #     CLI has no --target flag, the config field is the only
-          #     way to control which platform/arch gets built.
-          #   ELECTROBUN_DEVELOPER_ID is the signing identity string.
-          #   ELECTROBUN_APPLEID / IDPASS / TEAMID are passed to
-          #     `xcrun notarytool submit --wait`.
-          ELECTROBUN_SIGN: '1'
-          ELECTROBUN_TARGET: ${{ matrix.target }}
+          # mac.codesign + mac.notarize are hardcoded to `true` in
+          # electrobun.config.ts. Electrobun's own CLI code reads these
+          # four env vars to invoke codesign and `xcrun notarytool
+          # submit --wait`.
           ELECTROBUN_DEVELOPER_ID: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           ELECTROBUN_APPLEID:      ${{ secrets.APPLE_ID }}
           ELECTROBUN_APPLEIDPASS:  ${{ secrets.APPLE_PASSWORD }}
           ELECTROBUN_TEAMID:       ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          set -euo pipefail
-          bunx vite build
-          bunx electrobun build
+        run: bun run build:release
 
       - name: Add stable-named DMG copy
         # Electrobun bundler-produced names embed the version, which changes
@@ -177,11 +174,7 @@ jobs:
         run: |
           set -euo pipefail
           ARTIFACT_DIR=artifacts
-          case "${{ matrix.target }}" in
-            macos-arm64) STABLE=herbie-aarch64.dmg ;;
-            macos-x64)   STABLE=herbie-x64.dmg ;;
-            *) echo "Unknown target ${{ matrix.target }}"; exit 1 ;;
-          esac
+          STABLE="herbie-${{ matrix.arch_suffix }}.dmg"
           src=$(find "$ARTIFACT_DIR" -type f -name '*.dmg' | head -n 1)
           if [ -z "$src" ]; then
             echo "No .dmg found in $ARTIFACT_DIR"
@@ -198,7 +191,7 @@ jobs:
         # lands on the GitHub Release within minutes.
         uses: actions/upload-artifact@v4
         with:
-          name: bundles-${{ matrix.target }}
+          name: bundles-${{ matrix.arch_suffix }}
           path: artifacts/*.dmg
           if-no-files-found: error
           retention-days: 7

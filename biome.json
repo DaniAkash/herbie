@@ -56,16 +56,6 @@
   },
   "overrides": [
     {
-      "includes": ["electrobun.config.ts"],
-      "linter": {
-        "rules": {
-          "style": {
-            "noProcessEnv": "off"
-          }
-        }
-      }
-    },
-    {
       "includes": [
         "src/mainview/components/ui/**",
         "src/mainview/components/ai-elements/**"
