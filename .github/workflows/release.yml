@@ -153,10 +153,14 @@ jobs:
           # Electrobun reads these directly:
           #   ELECTROBUN_SIGN gates the codesign + notarize logic via
           #     electrobun.config.ts (mac.codesign / mac.notarize).
+          #   ELECTROBUN_TARGET drives build.targets in the config — the
+          #     CLI has no --target flag, the config field is the only
+          #     way to control which platform/arch gets built.
           #   ELECTROBUN_DEVELOPER_ID is the signing identity string.
           #   ELECTROBUN_APPLEID / IDPASS / TEAMID are passed to
           #     `xcrun notarytool submit --wait`.
           ELECTROBUN_SIGN: '1'
+          ELECTROBUN_TARGET: ${{ matrix.target }}
           ELECTROBUN_DEVELOPER_ID: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           ELECTROBUN_APPLEID:      ${{ secrets.APPLE_ID }}
           ELECTROBUN_APPLEIDPASS:  ${{ secrets.APPLE_PASSWORD }}
@@ -164,7 +168,7 @@ jobs:
         run: |
           set -euo pipefail
           bunx vite build
-          bunx electrobun build --target=${{ matrix.target }}
+          bunx electrobun build
 
       - name: Add stable-named DMG copy
         # Electrobun bundler-produced names embed the version, which changes
