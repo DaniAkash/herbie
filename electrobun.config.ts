@@ -35,6 +35,17 @@ export default {
       // bundled bun executable; the spec builder resolves the path
       // from `process.execPath`.
       'src/bun/tasks/mcp-task-result': 'mcp-task-result',
+      // @libsql/client loads its native binary via a runtime-computed
+      // require pattern (require(`@libsql/${platform}-${arch}`)) that
+      // Bun's bundler can't statically trace. The JS shim ends up in
+      // index.js but the .node binary is dropped from the bundle, so
+      // every fresh install crashes at startup with "Cannot find
+      // module '@libsql/darwin-arm64'". Copy the matching platform
+      // package into node_modules/ where Bun's CommonJS resolver finds
+      // it relative to index.js. When x64 returns (electrobun#341),
+      // add a sibling entry for @libsql/darwin-x64.
+      'node_modules/@libsql/darwin-arm64':
+        'bun/node_modules/@libsql/darwin-arm64',
     },
     watchIgnore: ['dist/**'],
     mac: {
