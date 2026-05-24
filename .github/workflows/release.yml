@@ -1,0 +1,239 @@
+# Tag-triggered signed + notarized macOS release.
+#
+# Push a `v*` tag (e.g. `v0.0.2`, `v0.1.0-rc.1`) → this workflow builds
+# both per-arch signed + notarized .dmgs in parallel, creates a DRAFT
+# GitHub Release for that tag, and attaches both .dmgs.
+#
+# The release stays in DRAFT state. Review it in the GitHub UI and click
+# Publish when ready — never auto-published.
+#
+# How to cut a release:
+#   1. Bump version in electrobun.config.ts (app.version) and package.json
+#   2. Commit ("chore(release): vX.Y.Z") — the `chore(release)` scope is
+#      filtered out by cliff.toml so the version-bump commit doesn't show
+#      up in the next release's changelog.
+#   3. git tag vX.Y.Z && git push origin main --tags
+#   4. Wait ~10–15 min, then publish the draft from the Releases page
+#
+# Required repo secrets (Settings → Secrets and variables → Actions):
+#   APPLE_CERTIFICATE                    — base64-encoded Developer ID .p12
+#   APPLE_CERTIFICATE_PASSWORD           — password for the .p12
+#   APPLE_SIGNING_IDENTITY               — full Developer ID Application identity string
+#   APPLE_ID                             — Apple ID email
+#   APPLE_PASSWORD                       — app-specific password for notarytool
+#   APPLE_TEAM_ID                        — Apple Developer team identifier
+#   KEYCHAIN_PASSWORD                    — throwaway, unlocks the temp runner keychain
+#
+# All values stored in repo Settings → Secrets and variables → Actions.
+# Never inline any of them here, even as examples.
+
+name: Release (signed + notarized per-arch macOS builds)
+
+on:
+  push:
+    tags:
+      # Only semver-style tags trigger releases. Loose patterns like `v*`
+      # would also match `vnext`, `vendor-fix`, or typo'd tags and silently
+      # kick off a notarized build.
+      - 'v[0-9]*'
+
+# `contents: write` is required for softprops/action-gh-release to create
+# the draft release. Everything else stays at default-deny.
+permissions:
+  contents: write
+
+jobs:
+  # Job 1: figure out the changelog ONCE, on a free Linux runner, and
+  # pass it to the macOS build matrix + final release step via job
+  # outputs.
+  changelog:
+    name: Compute changelog
+    runs-on: ubuntu-latest
+    outputs:
+      first_release: ${{ steps.previous_tag.outputs.first_release }}
+      content: ${{ steps.changelog.outputs.content || 'first release' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Full history is required so git-cliff (and `git describe`) can
+          # walk back to the previous tag and compute the changelog range.
+          fetch-depth: 0
+
+      - name: Determine previous tag (for changelog range)
+        id: previous_tag
+        run: |
+          set +e
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 --match 'v[0-9]*' "${GITHUB_REF_NAME}^" 2>/dev/null)
+          set -e
+          if [ -z "$PREVIOUS_TAG" ]; then
+            echo "first_release=true" >> "$GITHUB_OUTPUT"
+            echo "No previous tag found — this is the first release."
+          else
+            echo "first_release=false" >> "$GITHUB_OUTPUT"
+            echo "previous_tag=$PREVIOUS_TAG" >> "$GITHUB_OUTPUT"
+            echo "Previous tag: $PREVIOUS_TAG"
+          fi
+
+      - name: Generate changelog (subsequent releases only)
+        if: steps.previous_tag.outputs.first_release == 'false'
+        id: changelog
+        uses: orhun/git-cliff-action@v4
+        with:
+          config: cliff.toml
+          args: --strip header ${{ steps.previous_tag.outputs.previous_tag }}..${{ github.ref_name }}
+
+  # Job 2: build + sign + notarize each macOS arch in parallel. Each
+  # matrix entry produces ONE per-arch .dmg.
+  # `fail-fast: false` so a flake on one arch doesn't cancel the other;
+  # the `release` job's `needs:` will simply not be satisfied and no
+  # draft is created — re-run the failing entry.
+  build:
+    name: Build ${{ matrix.target }}
+    needs: [changelog]
+    runs-on: macos-15
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - macos-arm64
+          - macos-x64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install
+
+      # ──────────────────────────────────────────────────────────────────
+      # Set up a temp keychain with the Developer ID certificate inside.
+      # Electrobun's CLI expects the signing identity already present in
+      # a keychain — it shells out to `codesign` without managing the
+      # keychain itself, unlike tauri-action.
+      # ──────────────────────────────────────────────────────────────────
+      - name: Import Apple Developer ID certificate
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          CERT_PATH="$RUNNER_TEMP/cert.p12"
+          KEYCHAIN_PATH="$RUNNER_TEMP/build.keychain-db"
+
+          echo "$APPLE_CERTIFICATE" | base64 --decode > "$CERT_PATH"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain   -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          security import "$CERT_PATH" \
+            -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -A -t cert -f pkcs12 \
+            -k "$KEYCHAIN_PATH"
+
+          security set-key-partition-list \
+            -S apple-tool:,apple:,codesign: \
+            -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          # Add the temp keychain to the search list so `codesign` can find
+          # the identity inside it.
+          security list-keychain -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | sed 's/"//g')
+
+          # Sanity check — fail fast if cert import didn't land.
+          security find-identity -v -p codesigning "$KEYCHAIN_PATH" | grep "Developer ID Application"
+
+      - name: Build, sign, and notarize
+        env:
+          # Electrobun reads these directly:
+          #   ELECTROBUN_SIGN gates the codesign + notarize logic via
+          #     electrobun.config.ts (mac.codesign / mac.notarize).
+          #   ELECTROBUN_DEVELOPER_ID is the signing identity string.
+          #   ELECTROBUN_APPLEID / IDPASS / TEAMID are passed to
+          #     `xcrun notarytool submit --wait`.
+          ELECTROBUN_SIGN: '1'
+          ELECTROBUN_DEVELOPER_ID: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          ELECTROBUN_APPLEID:      ${{ secrets.APPLE_ID }}
+          ELECTROBUN_APPLEIDPASS:  ${{ secrets.APPLE_PASSWORD }}
+          ELECTROBUN_TEAMID:       ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          bunx vite build
+          bunx electrobun build --target=${{ matrix.target }}
+
+      - name: Add stable-named DMG copy
+        # Electrobun bundler-produced names embed the version, which changes
+        # every release. README badges want a stable filename under
+        # /releases/latest/download/. Ship side-by-side copies.
+        run: |
+          set -euo pipefail
+          ARTIFACT_DIR=artifacts
+          case "${{ matrix.target }}" in
+            macos-arm64) STABLE=herbie-aarch64.dmg ;;
+            macos-x64)   STABLE=herbie-x64.dmg ;;
+            *) echo "Unknown target ${{ matrix.target }}"; exit 1 ;;
+          esac
+          src=$(find "$ARTIFACT_DIR" -type f -name '*.dmg' | head -n 1)
+          if [ -z "$src" ]; then
+            echo "No .dmg found in $ARTIFACT_DIR"
+            ls -la "$ARTIFACT_DIR" || true
+            exit 1
+          fi
+          cp -- "$src" "$ARTIFACT_DIR/$STABLE"
+          ls -la "$ARTIFACT_DIR"
+
+      - name: Upload .dmg as workflow artifact
+        # Hands every release artifact for this arch off to the `release`
+        # job (Linux runner, can't reach into this macOS runner's
+        # filesystem directly). Short retention because everything also
+        # lands on the GitHub Release within minutes.
+        uses: actions/upload-artifact@v4
+        with:
+          name: bundles-${{ matrix.target }}
+          path: artifacts/*.dmg
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Clean up temp keychain
+        # Always-run cleanup so a failed build doesn't leave a stale
+        # keychain on a recycled runner. macOS GH runners are nominally
+        # ephemeral but this is cheap insurance.
+        if: always()
+        run: |
+          security delete-keychain "$RUNNER_TEMP/build.keychain-db" || true
+
+  # Job 3: create the draft release with both .dmgs attached. Lives
+  # outside the matrix because softprops/action-gh-release running inside
+  # the matrix would create two separate releases (one per matrix entry)
+  # and the second would 422 because the tag already has a release.
+  release:
+    name: Create draft release
+    needs: [changelog, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: bundles-*
+          path: artifacts
+          # `merge-multiple` flattens the per-matrix subdirectories so
+          # the final `files:` glob doesn't need a level of indirection.
+          merge-multiple: true
+
+      - name: Create draft release with both .dmgs
+        uses: softprops/action-gh-release@v2
+        with:
+          # DRAFT — never auto-publish. The user reviews the body, edits
+          # if needed, and clicks Publish in the GitHub UI.
+          draft: true
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          body: ${{ needs.changelog.outputs.content }}
+          files: |
+            artifacts/*.dmg
+          fail_on_unmatched_files: true
