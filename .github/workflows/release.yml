@@ -157,10 +157,12 @@ jobs:
 
       - name: Build, sign, and notarize
         env:
-          # mac.codesign + mac.notarize are hardcoded to `true` in
-          # electrobun.config.ts. Electrobun's own CLI code reads these
-          # four env vars to invoke codesign and `xcrun notarytool
-          # submit --wait`.
+          # ELECTROBUN_SIGN=1 flips electrobun.config.ts's gate so
+          # mac.codesign + mac.notarize evaluate to true. Local dev
+          # leaves it unset and skips Apple credentials entirely.
+          # The other four are read directly by Electrobun's CLI code
+          # to invoke codesign and `xcrun notarytool submit --wait`.
+          ELECTROBUN_SIGN: '1'
           ELECTROBUN_DEVELOPER_ID: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           ELECTROBUN_APPLEID:      ${{ secrets.APPLE_ID }}
           ELECTROBUN_APPLEIDPASS:  ${{ secrets.APPLE_PASSWORD }}
