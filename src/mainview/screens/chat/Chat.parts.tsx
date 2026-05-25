@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import {
   Message,
   MessageContent,
@@ -209,13 +210,35 @@ function ReasoningPartView({
 }
 
 function ToolPartView({ part }: { part: ToolPart }) {
-  const open = part.state === 'input-streaming' || part.isError
+  // "Active" = the tool is still doing its thing. Newly-mounted active
+  // tools auto-open; the moment they transition out of active, we
+  // auto-close them — keeping only the latest streaming tool visible.
+  // User clicks lock out the auto-close so an inspected tool stays put.
+  const isActive =
+    part.state === 'input-streaming' || part.state === 'input-available'
+  const [open, setOpen] = useState(isActive)
+  const userTouchedRef = useRef(false)
+  const wasActiveRef = useRef(isActive)
+
+  useEffect(() => {
+    if (wasActiveRef.current && !isActive && !userTouchedRef.current) {
+      setOpen(false)
+    }
+    wasActiveRef.current = isActive
+  }, [isActive])
+
   const inputValue = tryParseJson(part.input)
   const outputValue =
     part.output === null ? undefined : tryParseJson(part.output)
 
   return (
-    <Tool defaultOpen={open}>
+    <Tool
+      open={open}
+      onOpenChange={(next) => {
+        userTouchedRef.current = true
+        setOpen(next)
+      }}
+    >
       <ToolHeader
         type="dynamic-tool"
         toolName={part.toolName}
