@@ -51,9 +51,16 @@ export function patchPart<T extends MessagePart>(
 // tool-input-* events identify the part by an internal block id (e.g.
 // "acpx-4"). The terminal tool-call event carries the agent's real
 // toolCallId (e.g. "toolu_01..."). Bind the latest tool part whose
-// toolCallId still equals its id placeholder so downstream tool-result /
+// isPlaceholder flag is still set so downstream tool-result /
 // tool-error lookups resolve. Returns true when a placeholder was bound
-// — false on replay (no in-flight placeholder existed).
+// — false on replay (no in-flight placeholder existed) or when the
+// provider skipped the input-streaming prelude entirely (codex, etc).
+//
+// The previous predicate was `toolCallId !== id`, which also matched
+// direct-path tool parts pushed by handleToolCall when no streaming
+// prelude existed — causing sequential tool.call events to cascade-
+// rebind the previous tool's part. isPlaceholder is set true only by
+// openToolBlock in chat.reducer.live.ts and cleared on bind here.
 export function bindToolCallId(
   ctx: ReducerCtx,
   toolCallId: string,
@@ -65,12 +72,13 @@ export function bindToolCallId(
   for (let i = msg.parts.length - 1; i >= 0; i--) {
     const part = msg.parts[i]
     if (!part || part.kind !== 'tool') continue
-    if (part.toolCallId !== part.id) continue
+    if (!part.isPlaceholder) continue
     const nextParts = [...msg.parts]
     nextParts[i] = {
       ...part,
       toolCallId,
       toolName: toolName ?? part.toolName,
+      isPlaceholder: false,
     }
     ctx.messages[ctx.activeAssistantIdx] = { ...msg, parts: nextParts }
     return true

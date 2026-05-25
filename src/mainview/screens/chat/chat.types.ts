@@ -30,6 +30,14 @@ export interface ToolPart {
   output: string | null
   isError: boolean
   errorMessage?: string
+  // True only while a live stream.tool-input-* sequence is still
+  // waiting for the terminal tool.call to bind it to a real
+  // toolCallId. False on direct-path (replay / providers that emit
+  // tool.call without the input-streaming prelude — codex et al).
+  // bindToolCallId only rebinds parts whose isPlaceholder is true,
+  // which keeps sequential tool.call events from rebinding already-
+  // resolved parts when no streaming prelude opened a placeholder.
+  isPlaceholder: boolean
   state: ToolPartState
 }
 

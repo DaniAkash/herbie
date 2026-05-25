@@ -241,6 +241,10 @@ function handleToolCall(ctx: ReducerCtx, ev: PersistedEventDTO): void {
     input: p.input === undefined ? '' : stringifyToolPayload(p.input),
     output: null,
     isError: false,
+    // Direct-path push (replay / providers without input-streaming).
+    // isPlaceholder stays false so the next sequential tool.call won't
+    // try to rebind this part via bindToolCallId.
+    isPlaceholder: false,
     state: 'input-available',
   })
 }

@@ -100,6 +100,7 @@ export function openToolBlock(ctx: ReducerCtx, ev: PersistedEventDTO): void {
     input: '',
     output: null,
     isError: false,
+    isPlaceholder: true,
     state: 'input-streaming',
   })
 }
