@@ -12,6 +12,7 @@ import { getSessionManager } from '../chat/sessionManager'
 import { getDb } from '../db-singleton'
 import { mirrorAppTurnToTelegram } from '../telegram/outbound'
 import { removeConversationAttachments } from './attachments'
+import { buildPatchUpdate } from './chat.patch-helpers'
 import { loadConvAttachments, mergeSendTuple } from './chat.send-helpers'
 import { loadEvents, parseAfter, runChatStream } from './chat.stream'
 import { loadTelegramLinks } from './chat.telegram-links'
@@ -70,18 +71,33 @@ const conversationQuery = z
   .object({ afterSeq: z.string().optional() })
   .optional()
 
-// PATCH /chat/:id accepts a title rename, a pin/unpin toggle, or both.
-// At least one field must be present — an empty patch is rejected so
-// callers don't accidentally bump updatedAt with nothing to change.
+// PATCH /chat/:id accepts a title rename, a pin/unpin toggle, or any
+// subset of the composer tuple fields. At least one field must be
+// present — an empty patch is rejected so callers don't accidentally
+// bump updatedAt with nothing to change. Tuple-field nulls are the
+// "agent default / unset" sentinel (matches the conversation row's
+// nullable columns); agentId is non-null in the schema so it can't
+// be cleared.
 const patchSchema = z
   .object({
     title: z.string().trim().min(1).max(200).optional(),
     pinned: z.boolean().optional(),
+    agentId: agentIdField.optional(),
+    modelId: z.string().nullable().optional(),
+    workspacePath: z.string().nullable().optional(),
+    reasoningEffort: z.string().nullable().optional(),
   })
   .strict()
-  .refine((v) => v.title !== undefined || v.pinned !== undefined, {
-    message: 'patch must include title or pinned',
-  })
+  .refine(
+    (v) =>
+      v.title !== undefined ||
+      v.pinned !== undefined ||
+      v.agentId !== undefined ||
+      v.modelId !== undefined ||
+      v.workspacePath !== undefined ||
+      v.reasoningEffort !== undefined,
+    { message: 'patch must include at least one field' },
+  )
 
 export const chatRoute = new Hono()
   .post('/chat', zValidator('json', createSchema), async (c) => {
@@ -182,31 +198,25 @@ export const chatRoute = new Hono()
     await getDb().delete(conversations).where(eq(conversations.id, id)).run()
     return c.json({ ok: true })
   })
-  // Rename + pin/unpin. Telegram-origin conversations were previously
-  // refused on the grounds that title came from the upstream chat —
-  // but with multi-conversation, titles come from /new <title> or
-  // first-message text and are no longer tied to the Telegram chat.
-  // Lift the restriction so users can rename / pin Telegram-linked
-  // threads from the desktop sidebar like any other conversation.
+  // Rename / pin / tuple update. Telegram-origin conversations are
+  // accepted too — once they're surfaced in the sidebar they're just
+  // conversations from the user's POV.
   .patch('/chat/:id', zValidator('json', patchSchema), async (c) => {
     const id = c.req.param('id')
     const body = c.req.valid('json')
+    if (body.agentId !== undefined) {
+      const agentError = await validateAgentId(body.agentId)
+      if (agentError) return c.json({ error: agentError }, 400)
+    }
     const conv = await getDb()
       .select()
       .from(conversations)
       .where(eq(conversations.id, id))
       .get()
     if (!conv) return c.json({ error: 'conversation not found' }, 404)
-    const next: Partial<typeof conversations.$inferInsert> = {
-      updatedAt: new Date(),
-    }
-    if (body.title !== undefined) next.title = body.title
-    if (body.pinned !== undefined) {
-      next.pinnedAt = body.pinned ? new Date() : null
-    }
     await getDb()
       .update(conversations)
-      .set(next)
+      .set(buildPatchUpdate(body))
       .where(eq(conversations.id, id))
       .run()
     return c.json({ ok: true })

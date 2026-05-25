@@ -18,6 +18,7 @@ import { useUploadAttachment } from '@/modules/api/attachments.hooks'
 import {
   useCreateConversation,
   useMarkConversationSeen,
+  useUpdateConversationTuple,
 } from '@/modules/api/chat.hooks'
 import { useDefaultAgent } from '@/modules/api/settings.hooks'
 import type { AgentId } from '@/modules/data/herbie-data.types'
@@ -200,6 +201,27 @@ function ExistingChatBody({
     reasoningEffort: conversation.reasoningEffort,
   })
   const [tuple, setTuple] = useState<ComposerTuple>(initialTupleRef.current)
+  const updateTuple = useUpdateConversationTuple()
+
+  // Eagerly PATCHes any changed tuple fields back to the conversation
+  // row, so picker selections persist across navigate-away. Without
+  // this the row only updated on send (via ChatSession.persistTuple),
+  // and the picked-but-not-yet-sent value lived purely in local React
+  // state — lost on unmount.
+  function handleTupleChange(next: ComposerTuple) {
+    setTuple(next)
+    const diff: Partial<ComposerTuple> = {}
+    if (next.agentId !== tuple.agentId) diff.agentId = next.agentId
+    if (next.modelId !== tuple.modelId) diff.modelId = next.modelId
+    if (next.workspacePath !== tuple.workspacePath) {
+      diff.workspacePath = next.workspacePath
+    }
+    if (next.reasoningEffort !== tuple.reasoningEffort) {
+      diff.reasoningEffort = next.reasoningEffort
+    }
+    if (Object.keys(diff).length === 0) return
+    void updateTuple.mutateAsync({ id: conversationId, tuple: diff })
+  }
 
   function handleSubmit(text: string, attachments: ComposerSubmitAttachments) {
     // Existing chats always have a conversationId, so the Composer's
@@ -270,7 +292,7 @@ function ExistingChatBody({
         hasPriorTurns={data.messages.length > 0}
         isStreaming={data.isStreaming}
         conversationId={conversationId}
-        onTupleChange={setTuple}
+        onTupleChange={handleTupleChange}
         onSubmit={handleSubmit}
         onCancel={handleCancel}
         onSchedule={handleSchedule}
