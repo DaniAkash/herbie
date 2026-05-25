@@ -248,15 +248,22 @@ function ExistingChatBody({
           {data.messages.map((m) => (
             <ChatMessageRow key={m.id} message={m} agent={tuple.agentId} />
           ))}
+        </ConversationContent>
+        <ConversationScrollButton />
+      </Conversation>
+      {/* Anchored above the composer (NOT inside the scrollable
+          ConversationContent) so the elapsed-time + token counters stay
+          still as messages stream in and the user scrolls. */}
+      <div className="px-6">
+        <div className="mx-auto max-w-3xl">
           <AgentBusy
             isStreaming={data.isStreaming}
             startedAt={data.activeAssistant?.startedAt ?? 0}
             outputChars={data.activeAssistant?.liveOutputChars ?? 0}
             inputChars={data.activeAssistant?.approxInputChars}
           />
-        </ConversationContent>
-        <ConversationScrollButton />
-      </Conversation>
+        </div>
+      </div>
       <Composer
         tuple={tuple}
         initialTuple={initialTupleRef.current}
