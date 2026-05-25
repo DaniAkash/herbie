@@ -51,9 +51,17 @@ export function patchPart<T extends MessagePart>(
 // tool-input-* events identify the part by an internal block id (e.g.
 // "acpx-4"). The terminal tool-call event carries the agent's real
 // toolCallId (e.g. "toolu_01..."). Bind the latest tool part whose
-// toolCallId still equals its id placeholder so downstream tool-result /
+// isPlaceholder flag is still set so downstream tool-result /
 // tool-error lookups resolve. Returns true when a placeholder was bound
-// — false on replay (no in-flight placeholder existed).
+// — false on replay (no in-flight placeholder existed) or when the
+// provider skipped the input-streaming prelude entirely (codex, etc).
+//
+// The previous predicate effectively matched placeholder parts where
+// `part.toolCallId === part.id`, which also matched direct-path tool
+// parts pushed by handleToolCall when no streaming prelude existed —
+// causing sequential tool.call events to cascade-rebind the previous
+// tool's part. isPlaceholder is set true only by openToolBlock in
+// chat.reducer.live.ts and cleared on bind here.
 export function bindToolCallId(
   ctx: ReducerCtx,
   toolCallId: string,
@@ -65,12 +73,13 @@ export function bindToolCallId(
   for (let i = msg.parts.length - 1; i >= 0; i--) {
     const part = msg.parts[i]
     if (!part || part.kind !== 'tool') continue
-    if (part.toolCallId !== part.id) continue
+    if (!part.isPlaceholder) continue
     const nextParts = [...msg.parts]
     nextParts[i] = {
       ...part,
       toolCallId,
       toolName: toolName ?? part.toolName,
+      isPlaceholder: false,
     }
     ctx.messages[ctx.activeAssistantIdx] = { ...msg, parts: nextParts }
     return true
@@ -153,6 +162,57 @@ export function stringifyToolPayload(value: unknown): string {
   } catch {
     return String(value)
   }
+}
+
+// acpx-ai-provider's finalizeToolCall puts state.emittedText into BOTH
+// tool-call.input AND tool-result.result for codex flows — there is no
+// distinct output field, just one accumulating blob. The blob's format
+// (codex CLI's text stream) interleaves the tool args, a status marker,
+// and (optionally) the actual tool output in a fenced block.
+//
+// Common variants observed:
+//   "<args> (in_progress)tool call: ```sh\n<output>\n```"
+//   "<args> (in_progress)tool call (failed): <error>"
+//   "<args> (in_progress)tool call (completed)"
+//   "<args> (in_progress): <repeated args>...tool call (completed)"  // web search
+//
+// This helper splits the blob into args and a clean output string. If
+// the marker isn't found, it's not the acpx codex flow (anthropic /
+// openai-direct emit structured tool.call payloads) and we leave the
+// caller's normal handling intact.
+const ACPX_STATUS_MARKER = ' (in_progress)'
+
+export function splitAcpxToolBlob(
+  s: string,
+): { args: string; output: string | null } | null {
+  const idx = s.indexOf(ACPX_STATUS_MARKER)
+  if (idx < 0) return null
+  const args = s.slice(0, idx).trim()
+  let rest = s.slice(idx + ACPX_STATUS_MARKER.length)
+  // Strip the various leading status sub-markers in order of specificity.
+  rest = rest
+    .replace(/^tool call\s*\([^)]*\)\s*:?\s*/, '')
+    .replace(/^tool call\s*:?\s*/, '')
+    .replace(/^:\s*/, '')
+    .trim()
+  // Strip surrounding fenced code block (```sh / ```bash / ``` / etc).
+  rest = rest
+    .replace(/^```\w*\s*\n?/, '')
+    .replace(/\n?```\s*$/, '')
+    .trim()
+  // Status-only completions ("tool call (completed)" with no real output)
+  // and the web-search variant where rest is a repeat of args followed by
+  // a status marker — neither carries new information. Drop them.
+  if (!rest || /^tool call\b/.test(rest)) {
+    return { args, output: null }
+  }
+  if (args && rest.startsWith(args)) {
+    const tail = rest.slice(args.length).trim()
+    if (!tail || /^tool call\b/.test(tail)) {
+      return { args, output: null }
+    }
+  }
+  return { args, output: rest }
 }
 
 export function errorToString(error: unknown): string {

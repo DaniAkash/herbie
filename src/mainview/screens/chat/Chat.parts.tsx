@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import {
   Message,
   MessageContent,
@@ -137,7 +138,7 @@ function PartView({
   if (part.kind === 'text') return <TextPartView part={part} />
   if (part.kind === 'reasoning')
     return <ReasoningPartView part={part} streaming={streaming} />
-  return <ToolPartView part={part} />
+  return <ToolPartView part={part} messageIsStreaming={streaming} />
 }
 
 function TextPartView({ part }: { part: TextPart }) {
@@ -208,14 +209,37 @@ function ReasoningPartView({
   )
 }
 
-function ToolPartView({ part }: { part: ToolPart }) {
-  const open = part.state === 'input-streaming' || part.isError
+function ToolPartView({
+  part,
+  messageIsStreaming,
+}: {
+  part: ToolPart
+  messageIsStreaming: boolean
+}) {
+  // `autoOpen` is pure derived state: a tool block is open exactly when
+  // it's the currently-active tool of a streaming turn. Anchoring on
+  // messageIsStreaming (not just the part's own state) handles the
+  // stuck-in-input-available case — if a tool.result event is dropped
+  // by the bridge or the turn ends with a cancel/error, the tool's
+  // state never moves to output-available, but the message stops
+  // streaming, so autoOpen still flips to false and the block closes.
+  //
+  // userOverride is null until the user clicks the trigger. Once set,
+  // it sticks for this tool — clicking to inspect a completed tool
+  // keeps it open even on the next render, and closing a still-active
+  // tool keeps it closed.
+  const isActive =
+    part.state === 'input-streaming' || part.state === 'input-available'
+  const autoOpen = isActive && messageIsStreaming
+  const [userOverride, setUserOverride] = useState<boolean | null>(null)
+  const open = userOverride ?? autoOpen
+
   const inputValue = tryParseJson(part.input)
   const outputValue =
     part.output === null ? undefined : tryParseJson(part.output)
 
   return (
-    <Tool defaultOpen={open}>
+    <Tool open={open} onOpenChange={setUserOverride}>
       <ToolHeader
         type="dynamic-tool"
         toolName={part.toolName}
