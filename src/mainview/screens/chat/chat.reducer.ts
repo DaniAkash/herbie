@@ -265,7 +265,14 @@ function handleToolResult(ctx: ReducerCtx, ev: PersistedEventDTO): void {
     ...part,
     state: p.isError ? 'output-error' : 'output-available',
     isError: !!p.isError,
-    output,
+    // acpx-ai-provider's finalizeToolCall puts state.emittedText into
+    // BOTH tool-call.input AND tool-result.result for codex flows that
+    // never produce a distinct output (the codex CLI's text stream
+    // collapses command + status + transcript into one blob). When
+    // input === output we'd otherwise render Parameters and Result as
+    // identical pres; null out output so ToolOutput's early-return
+    // hides the duplicate section and the user sees just Parameters.
+    output: output === part.input ? null : output,
   }))
 }
 
