@@ -1,4 +1,9 @@
-import type { ChatMessage, MessagePart, ToolPart } from './chat.types'
+import type {
+  ActiveAssistant,
+  ChatMessage,
+  MessagePart,
+  ToolPart,
+} from './chat.types'
 
 export interface ReducerCtx {
   messages: ChatMessage[]
@@ -9,6 +14,10 @@ export interface ReducerCtx {
   // Block id → part index within the active assistant message. Block
   // ids are unique per AI SDK stream block; cleared on turn.start.
   activeBlocks: Map<string, number>
+  // Metadata about the currently-streaming turn, surfaced to the UI
+  // via AgentBusy. Set on turn.start, updated by delta accumulators
+  // + meta.turn-input, cleared on finalize.
+  activeAssistant?: ActiveAssistant
 }
 
 export function pushPart(ctx: ReducerCtx, part: MessagePart): void {
@@ -104,6 +113,7 @@ export function finalizeActiveMessage(
 ): void {
   if (ctx.activeAssistantIdx < 0) {
     ctx.isStreaming = false
+    ctx.activeAssistant = undefined
     return
   }
   const msg = ctx.messages[ctx.activeAssistantIdx]
@@ -117,6 +127,7 @@ export function finalizeActiveMessage(
   ctx.isStreaming = false
   ctx.activeAssistantIdx = -1
   ctx.activeBlocks = new Map()
+  ctx.activeAssistant = undefined
 }
 
 export function rehydrateActive(ctx: ReducerCtx): void {

@@ -1,0 +1,48 @@
+// Curated verb list shown by AgentBusy while the agent is streaming.
+// Mix of straight verbs and playful ones; kept short on purpose so
+// each entry reads well in Herbie's tone. Picked uniformly at random
+// every ~10s by the indicator.
+export const AGENT_BUSY_VERBS = [
+  'Thinking',
+  'Pondering',
+  'Cogitating',
+  'Computing',
+  'Reasoning',
+  'Whirring',
+  'Brewing',
+  'Conjuring',
+  'Mulling',
+  'Considering',
+  'Processing',
+  'Working',
+  'Analysing',
+  'Synthesising',
+  'Inferring',
+  'Reflecting',
+  'Crunching',
+  'Calculating',
+  'Sketching',
+  'Drafting',
+  'Reading',
+  'Scanning',
+  'Searching',
+  'Fetching',
+  'Loading',
+  'Composing',
+  'Assembling',
+  'Connecting',
+  'Routing',
+  'Resolving',
+  'Imagining',
+  'Plotting',
+  'Charting',
+  'Mapping',
+  'Outlining',
+  'Polishing',
+  'Tuning',
+  'Tweaking',
+  'Refining',
+  'Wrapping up',
+] as const
+
+export type AgentBusyVerb = (typeof AGENT_BUSY_VERBS)[number]

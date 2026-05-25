@@ -66,6 +66,18 @@ export type ProtocolEvent =
       type: 'meta.title'
       payload: { title: string }
     }
+  | {
+      // Emitted right after routeTurn returns the ModelMessage[] that's
+      // about to be handed to streamText. Carries a character-count
+      // estimate of the total input the agent will receive (rebuilt
+      // transcript + the new user message). Used by the AgentBusy
+      // footer to render an approximate input-token cell. Sent as a
+      // separate event from turn.start so the latter can stay early
+      // (before routeTurn runs) and the UI can still flip into its
+      // streaming state immediately on send.
+      type: 'meta.turn-input'
+      payload: { requestId: string; approxInputChars: number }
+    }
 
 export interface PersistedEvent {
   conversationId: string

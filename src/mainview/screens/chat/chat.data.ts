@@ -9,6 +9,7 @@ import {
   useSendMessage,
 } from './chat.hooks'
 import type {
+  ActiveAssistant,
   ChatMessage,
   ChatViewState,
   PersistedEventDTO,
@@ -20,6 +21,10 @@ export interface UseChatDataResult {
   messages: ChatMessage[]
   isStreaming: boolean
   lastSeq: number
+  // Snapshot of the in-flight assistant turn (start time, live output
+  // char count, optional input char estimate). Undefined whenever the
+  // conversation is idle. Drives the AgentBusy footer.
+  activeAssistant?: ActiveAssistant
   sendMessage: (input: SendMessageInput) => Promise<{ requestId: string }>
   cancelTurn: (reason?: string) => Promise<unknown>
   isSending: boolean
@@ -67,6 +72,7 @@ export function useChatData(conversationId: string): UseChatDataResult {
     messages: view.messages,
     isStreaming: view.isStreaming,
     lastSeq: view.lastSeq,
+    activeAssistant: view.activeAssistant,
     sendMessage,
     cancelTurn,
     isSending: sendMutation.isPending,

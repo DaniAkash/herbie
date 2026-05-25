@@ -28,6 +28,7 @@ export function appendTextDelta(ctx: ReducerCtx, ev: PersistedEventDTO): void {
     ...part,
     text: part.text + text,
   }))
+  bumpLiveOutputChars(ctx, text.length)
 }
 
 export function openReasoningBlock(
@@ -59,6 +60,20 @@ export function appendReasoningDelta(
     }
     return { ...part, text: next }
   })
+  bumpLiveOutputChars(ctx, delta.length)
+}
+
+// AgentBusy reads liveOutputChars off ctx.activeAssistant for its
+// output-token estimate. Append-only — never decremented. All
+// terminal events (turn.finish / cancel / error) flow through
+// finalizeActiveMessage which clears activeAssistant entirely, so
+// this counter never needs rollback logic.
+function bumpLiveOutputChars(ctx: ReducerCtx, delta: number): void {
+  if (!ctx.activeAssistant || delta <= 0) return
+  ctx.activeAssistant = {
+    ...ctx.activeAssistant,
+    liveOutputChars: ctx.activeAssistant.liveOutputChars + delta,
+  }
 }
 
 export function closeBlock(

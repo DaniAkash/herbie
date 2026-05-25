@@ -7,6 +7,7 @@ import {
   ConversationContent,
   ConversationScrollButton,
 } from '@/components/ai-elements/conversation'
+import { AgentBusy } from '@/components/chat/AgentBusy'
 import { Composer } from '@/components/chat/Composer'
 import type { ComposerSubmitAttachments } from '@/components/chat/Composer.staging'
 import type { ComposerTuple } from '@/components/chat/composer.types'
@@ -250,6 +251,19 @@ function ExistingChatBody({
         </ConversationContent>
         <ConversationScrollButton />
       </Conversation>
+      {/* Anchored above the composer (NOT inside the scrollable
+          ConversationContent) so the elapsed-time + token counters stay
+          still as messages stream in and the user scrolls. */}
+      <div className="px-6">
+        <div className="mx-auto max-w-3xl">
+          <AgentBusy
+            isStreaming={data.isStreaming}
+            startedAt={data.activeAssistant?.startedAt ?? 0}
+            outputChars={data.activeAssistant?.liveOutputChars ?? 0}
+            inputChars={data.activeAssistant?.approxInputChars}
+          />
+        </div>
+      </div>
       <Composer
         tuple={tuple}
         initialTuple={initialTupleRef.current}

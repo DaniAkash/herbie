@@ -14,6 +14,7 @@ export function reduceChatEvents(
     isStreaming: initial.isStreaming,
     activeAssistantIdx: -1,
     activeBlocks: new Map(),
+    activeAssistant: initial.activeAssistant,
   }
   rehydrateActive(ctx)
 
@@ -28,5 +29,6 @@ export function reduceChatEvents(
     messages: ctx.messages,
     isStreaming: ctx.isStreaming,
     lastSeq,
+    activeAssistant: ctx.activeAssistant,
   }
 }

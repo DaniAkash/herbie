@@ -88,6 +88,9 @@ export function applyEvent(ctx: ReducerCtx, ev: PersistedEventDTO): void {
     case 'stream.error':
       handleStreamError(ctx, ev)
       break
+    case 'meta.turn-input':
+      handleTurnInput(ctx, ev)
+      break
     // Framing events with no UI surface — listed explicitly so a missing
     // handler for a new event type stays loud.
     case 'stream.start':
@@ -143,6 +146,18 @@ function handleTurnStart(ctx: ReducerCtx, ev: PersistedEventDTO): void {
   ctx.activeAssistantIdx = ctx.messages.length - 1
   ctx.activeBlocks = new Map()
   ctx.isStreaming = true
+  // approxInputChars is populated separately by meta.turn-input, which
+  // lands once routeTurn has assembled the actual ModelMessage[].
+  ctx.activeAssistant = { startedAt: ev.createdAt, liveOutputChars: 0 }
+}
+
+function handleTurnInput(ctx: ReducerCtx, ev: PersistedEventDTO): void {
+  const p = ev.payload as { requestId: string; approxInputChars: number }
+  if (!ctx.activeAssistant) return
+  ctx.activeAssistant = {
+    ...ctx.activeAssistant,
+    approxInputChars: p.approxInputChars,
+  }
 }
 
 function handleTurnError(ctx: ReducerCtx, ev: PersistedEventDTO): void {
