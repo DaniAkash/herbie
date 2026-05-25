@@ -56,11 +56,12 @@ export function patchPart<T extends MessagePart>(
 // — false on replay (no in-flight placeholder existed) or when the
 // provider skipped the input-streaming prelude entirely (codex, etc).
 //
-// The previous predicate was `toolCallId !== id`, which also matched
-// direct-path tool parts pushed by handleToolCall when no streaming
-// prelude existed — causing sequential tool.call events to cascade-
-// rebind the previous tool's part. isPlaceholder is set true only by
-// openToolBlock in chat.reducer.live.ts and cleared on bind here.
+// The previous predicate effectively matched placeholder parts where
+// `part.toolCallId === part.id`, which also matched direct-path tool
+// parts pushed by handleToolCall when no streaming prelude existed —
+// causing sequential tool.call events to cascade-rebind the previous
+// tool's part. isPlaceholder is set true only by openToolBlock in
+// chat.reducer.live.ts and cleared on bind here.
 export function bindToolCallId(
   ctx: ReducerCtx,
   toolCallId: string,
