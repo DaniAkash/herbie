@@ -12,8 +12,9 @@ interface AgentBusyProps {
   // the indicator renders.
   isStreaming: boolean
   // ms epoch from the turn.start event — anchors the elapsed cell.
-  // Use 0 (or omit via undefined) when no turn is active; the elapsed
-  // tick stays at 0 in that case but the component returns null anyway.
+  // Pass 0 when no turn is active; the component returns null in that
+  // case anyway (isStreaming gates the entire render), so the value
+  // is only read when streaming.
   startedAt: number
   // Sum of stream text + reasoning delta lengths so far. Estimated as
   // tokens for the output cell.
@@ -80,13 +81,13 @@ export function AgentBusy({
     typeof inputChars === 'number' ? approxTokensFromChars(inputChars) : null
 
   return (
-    <div
-      role="status"
-      aria-live="polite"
-      aria-label={`Agent is ${verb.toLowerCase()}`}
-      className="flex items-center gap-3 px-1 py-2 text-muted-foreground text-xs tabular-nums"
-    >
-      <Spinner className="size-3" />
+    // No role/aria-live — this row is decorative chrome for sighted
+    // users. The conversation's actual content (new assistant message,
+    // streaming text) is what screen readers should announce; layering
+    // a polite live region on top with sub-second updates produces
+    // constant chatter.
+    <div className="flex items-center gap-3 px-1 py-2 text-muted-foreground text-xs tabular-nums">
+      <Spinner aria-hidden="true" className="size-3" />
       <span className="italic">{verb}…</span>
       <span className="font-mono">{formatElapsed(elapsed)}</span>
       <span className="text-muted-foreground/60">·</span>

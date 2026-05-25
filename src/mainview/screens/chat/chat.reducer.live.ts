@@ -64,9 +64,10 @@ export function appendReasoningDelta(
 }
 
 // AgentBusy reads liveOutputChars off ctx.activeAssistant for its
-// output-token estimate. Append-only — never decremented — so a
-// turn.cancel or turn.error mid-stream keeps the last value visible
-// until finalize clears the whole struct.
+// output-token estimate. Append-only — never decremented. All
+// terminal events (turn.finish / cancel / error) flow through
+// finalizeActiveMessage which clears activeAssistant entirely, so
+// this counter never needs rollback logic.
 function bumpLiveOutputChars(ctx: ReducerCtx, delta: number): void {
   if (!ctx.activeAssistant || delta <= 0) return
   ctx.activeAssistant = {
