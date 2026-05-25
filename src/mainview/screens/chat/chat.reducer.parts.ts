@@ -163,6 +163,57 @@ export function stringifyToolPayload(value: unknown): string {
   }
 }
 
+// acpx-ai-provider's finalizeToolCall puts state.emittedText into BOTH
+// tool-call.input AND tool-result.result for codex flows — there is no
+// distinct output field, just one accumulating blob. The blob's format
+// (codex CLI's text stream) interleaves the tool args, a status marker,
+// and (optionally) the actual tool output in a fenced block.
+//
+// Common variants observed:
+//   "<args> (in_progress)tool call: ```sh\n<output>\n```"
+//   "<args> (in_progress)tool call (failed): <error>"
+//   "<args> (in_progress)tool call (completed)"
+//   "<args> (in_progress): <repeated args>...tool call (completed)"  // web search
+//
+// This helper splits the blob into args and a clean output string. If
+// the marker isn't found, it's not the acpx codex flow (anthropic /
+// openai-direct emit structured tool.call payloads) and we leave the
+// caller's normal handling intact.
+const ACPX_STATUS_MARKER = ' (in_progress)'
+
+export function splitAcpxToolBlob(
+  s: string,
+): { args: string; output: string | null } | null {
+  const idx = s.indexOf(ACPX_STATUS_MARKER)
+  if (idx < 0) return null
+  const args = s.slice(0, idx).trim()
+  let rest = s.slice(idx + ACPX_STATUS_MARKER.length)
+  // Strip the various leading status sub-markers in order of specificity.
+  rest = rest
+    .replace(/^tool call\s*\([^)]*\)\s*:?\s*/, '')
+    .replace(/^tool call\s*:?\s*/, '')
+    .replace(/^:\s*/, '')
+    .trim()
+  // Strip surrounding fenced code block (```sh / ```bash / ``` / etc).
+  rest = rest
+    .replace(/^```\w*\s*\n?/, '')
+    .replace(/\n?```\s*$/, '')
+    .trim()
+  // Status-only completions ("tool call (completed)" with no real output)
+  // and the web-search variant where rest is a repeat of args followed by
+  // a status marker — neither carries new information. Drop them.
+  if (!rest || /^tool call\b/.test(rest)) {
+    return { args, output: null }
+  }
+  if (args && rest.startsWith(args)) {
+    const tail = rest.slice(args.length).trim()
+    if (!tail || /^tool call\b/.test(tail)) {
+      return { args, output: null }
+    }
+  }
+  return { args, output: rest }
+}
+
 export function errorToString(error: unknown): string {
   if (typeof error === 'string') return error
   if (error && typeof error === 'object' && 'message' in error) {
