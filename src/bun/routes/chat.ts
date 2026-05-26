@@ -83,9 +83,11 @@ const patchSchema = z
     title: z.string().trim().min(1).max(200).optional(),
     pinned: z.boolean().optional(),
     agentId: agentIdField.optional(),
-    modelId: z.string().nullable().optional(),
-    workspacePath: z.string().nullable().optional(),
-    reasoningEffort: z.string().nullable().optional(),
+    // Spread the shared tupleFields (min(1).nullish) instead of
+    // redeclaring — keeps PATCH validation aligned with POST /chat
+    // and POST /chat/:id/messages. Empty strings are rejected (would
+    // otherwise persist as bogus tuple values).
+    ...tupleFields,
   })
   .strict()
   .refine(

@@ -16,9 +16,7 @@ export interface PatchBody {
 export function buildPatchUpdate(
   body: PatchBody,
 ): Partial<typeof conversations.$inferInsert> {
-  const next: Partial<typeof conversations.$inferInsert> = {
-    updatedAt: new Date(),
-  }
+  const next: Partial<typeof conversations.$inferInsert> = {}
   if (body.title !== undefined) next.title = body.title
   if (body.pinned !== undefined) {
     next.pinnedAt = body.pinned ? new Date() : null
@@ -28,6 +26,14 @@ export function buildPatchUpdate(
   if (body.workspacePath !== undefined) next.workspacePath = body.workspacePath
   if (body.reasoningEffort !== undefined) {
     next.reasoningEffort = body.reasoningEffort
+  }
+  // Only bump updatedAt for user-visible activity (rename / pin). The
+  // sidebar orders by updatedAt, so picking a model / agent /
+  // workspace would otherwise re-bucket the conversation to the top
+  // on every click — metadata changes shouldn't masquerade as fresh
+  // activity. A send still bumps updatedAt via setConversationStatus.
+  if (body.title !== undefined || body.pinned !== undefined) {
+    next.updatedAt = new Date()
   }
   return next
 }

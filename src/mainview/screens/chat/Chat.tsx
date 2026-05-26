@@ -201,6 +201,12 @@ function ExistingChatBody({
     reasoningEffort: conversation.reasoningEffort,
   })
   const [tuple, setTuple] = useState<ComposerTuple>(initialTupleRef.current)
+  // Synchronous mirror of the latest tuple — diff against this instead
+  // of the closure-captured `tuple` so rapid clicks (A→B→A before a
+  // re-render) compute the right diff. Without the ref the second
+  // call sees the stale render-time tuple and silently drops its
+  // PATCH, leaving the row out of sync with the UI.
+  const tupleRef = useRef<ComposerTuple>(initialTupleRef.current)
   const updateTuple = useUpdateConversationTuple()
 
   // Eagerly PATCHes any changed tuple fields back to the conversation
@@ -209,14 +215,16 @@ function ExistingChatBody({
   // and the picked-but-not-yet-sent value lived purely in local React
   // state — lost on unmount.
   function handleTupleChange(next: ComposerTuple) {
+    const prev = tupleRef.current
+    tupleRef.current = next
     setTuple(next)
     const diff: Partial<ComposerTuple> = {}
-    if (next.agentId !== tuple.agentId) diff.agentId = next.agentId
-    if (next.modelId !== tuple.modelId) diff.modelId = next.modelId
-    if (next.workspacePath !== tuple.workspacePath) {
+    if (next.agentId !== prev.agentId) diff.agentId = next.agentId
+    if (next.modelId !== prev.modelId) diff.modelId = next.modelId
+    if (next.workspacePath !== prev.workspacePath) {
       diff.workspacePath = next.workspacePath
     }
-    if (next.reasoningEffort !== tuple.reasoningEffort) {
+    if (next.reasoningEffort !== prev.reasoningEffort) {
       diff.reasoningEffort = next.reasoningEffort
     }
     if (Object.keys(diff).length === 0) return
