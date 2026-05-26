@@ -183,6 +183,25 @@ function ExistingChat({ conversationId }: { conversationId: string }) {
   }
 
   return (
+    // `key={conversationId}` is load-bearing. Without it, navigating
+    // between cached conversations reuses this component instance and
+    // the composer's tuple useState (model, agent, permission mode,
+    // etc.) survives the route param change.
+    //
+    // The path /chat/$id stays mounted across params, so React sees the
+    // same component tree and reconciles ExistingChatBody as the same
+    // instance. The brief <Skeleton /> branch above only unmounts on a
+    // cache miss, so navigating to an uncached conversation cleans up
+    // but navigating back to a cached one does not. That asymmetry
+    // caused tuple selections to leak from one chat into another.
+    //
+    // useRef captures initial values only on first mount, and tuple
+    // useState is preserved across re-renders. Both must reset whenever
+    // the underlying conversation row changes. Forcing a remount via
+    // the key is the simplest correct fix; the alternatives (sync
+    // effects, derived state, useMemo-with-id) all reintroduce stale-
+    // capture races. Do not remove this key without replacing it with
+    // an equally hard remount guarantee.
     <ExistingChatBody
       key={conversationId}
       conversationId={conversationId}
