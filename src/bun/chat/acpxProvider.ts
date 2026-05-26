@@ -6,7 +6,9 @@ import {
   createAcpxProvider,
 } from 'acpx-ai-provider'
 import { AGENT_REGISTRY_OVERRIDES } from '../agents/registry'
-import { readSettings } from '../routes/settings'
+import { type PermissionMode, readSettings } from '../routes/settings'
+import type { ProtocolEvent } from './events.types'
+import { buildPermissionCallback } from './permission-callback'
 
 export const ACPX_STATE_DIR = path.join(homedir(), '.herbie', 'acpx-state')
 
@@ -39,6 +41,20 @@ export interface BuildAcpxProviderOptions {
   sessionKey?: string
   resumeSessionId?: string | null
   mcpServers?: McpServerSpec[]
+  // Permission policy for the per-call gate. Drives the
+  // onPermissionRequest callback: 'allow-all' auto-approves, 'read-only'
+  // auto-decides by tool kind, 'auto-approve-reads' escalates writes,
+  // 'manual' escalates everything. See permission-callback.ts.
+  permissionMode: PermissionMode
+  // Bridge from the callback into the conversation's EventSink so
+  // permission.request / permission.resolved events flow alongside
+  // the rest of the turn's events. ChatSession passes its own
+  // writeProtocolEvent here.
+  writeProtocolEvent: (event: ProtocolEvent) => Promise<void>
+  // Callback-time lookup for the active turn's requestId — paired
+  // with the permission.request payload so the renderer can keep the
+  // card grouped with its turn during transcript replay.
+  getActiveTurnRequestId: () => string | null
 }
 
 export async function buildAcpxProvider(
@@ -62,10 +78,16 @@ export async function buildAcpxProvider(
     stateDir: ACPX_STATE_DIR,
     resumeSessionId: opts.resumeSessionId ?? undefined,
     agentRegistryOverrides: overrides,
-    // TODO(permissions): blanket-approve every tool call until the in-app
-    // permission UX is wired. Revisit before any non-personal use.
-    permissionMode: 'approve-all',
+    // Mode-based fallback only kicks in if onPermissionRequest throws.
+    // The picker is the real source of truth — see permission-callback.
+    permissionMode: 'approve-reads',
     nonInteractivePermissions: 'deny',
+    onPermissionRequest: buildPermissionCallback({
+      conversationId: opts.conversationId,
+      permissionMode: opts.permissionMode,
+      emit: opts.writeProtocolEvent,
+      getActiveTurnRequestId: opts.getActiveTurnRequestId,
+    }),
     mcpServers: opts.mcpServers?.map(toProviderShape),
   })
 }

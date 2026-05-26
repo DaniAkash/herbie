@@ -22,6 +22,8 @@ import type {
   ProtocolEvent,
   TurnFinishReason,
 } from './events.types'
+import { cancelAllPendingPermissions } from './permission-callback'
+import { resolvePermissionMode } from './permission-mode-resolver'
 import { SegmentBuffer } from './streamPart'
 import type { ChatTuple } from './tuple'
 import { sumModelMessageChars } from './turn-input-chars'
@@ -52,13 +54,8 @@ function tupleFromConversation(conv: Conversation): ChatTuple {
   }
 }
 
-/**
- * Owns one chat conversation's runtime state: the live acpx provider,
- * the in-flight turn, and the event sink. Tuple-change routing
- * (build/dispose provider, replay transcript, in-place config) lives
- * in `routeTurn` (see turn-router.ts) — this class drives turn
- * lifecycle (start/run/cancel/dispose).
- */
+// Owns one conversation's runtime state. Tuple-change routing lives
+// in routeTurn (turn-router.ts); this class drives turn lifecycle.
 export class ChatSession {
   private readonly routeState: TurnRouteState
   private activeTurn: ActiveTurn | null = null
@@ -69,8 +66,7 @@ export class ChatSession {
     private readonly db: DB,
     nextSeq: number,
   ) {
-    // Inbox-seeded convo (events present + no acpx session yet) —
-    // force path A (transcript replay) on the first send.
+    // Inbox-seeded: events present + no acpx session → force replay path.
     const seededFromInbox = nextSeq > 0 && conversation.acpxRecordId == null
     this.routeState = {
       provider: null,
@@ -141,8 +137,8 @@ export class ChatSession {
       },
     })
 
-    // routeTurn + the stream start can both throw. Without a guard
-    // here turn.start lives on forever and the renderer stays stuck.
+    // Guard: without try/catch, a routeTurn throw orphans turn.start.
+    const permissionMode = await resolvePermissionMode(this.conversation)
     try {
       const messages = await routeTurn(
         {
@@ -153,6 +149,8 @@ export class ChatSession {
             conversationId: this.conversation.id,
             writeProtocolEvent: (e: ProtocolEvent) =>
               this.events.writeProtocolEvent(e),
+            permissionMode,
+            getActiveTurnRequestId: () => this.activeTurn?.requestId ?? null,
           },
           state: this.routeState,
         },
@@ -215,6 +213,9 @@ export class ChatSession {
   async cancel(reason?: string): Promise<void> {
     const turn = this.activeTurn
     if (!turn) return
+    // Drain permission registry before abort so the race with the
+    // callback's abort handler is harmless.
+    cancelAllPendingPermissions(this.conversation.id)
     turn.controller.abort()
     try {
       await turn.provider.cancel(reason)
@@ -267,7 +268,7 @@ export class ChatSession {
       await this.setStatus('idle')
       await this.persistAcpxIds(provider)
     } catch (err) {
-      // cancel() already wrote turn.cancel + flipped status, don't double-emit.
+      // cancel() already wrote turn.cancel + flipped status.
       if (this.activeTurn?.requestId !== requestId) return
       const { message, code, details } = extractErrorDetails(err)
       await this.events.writeProtocolEvent({
@@ -289,13 +290,8 @@ export class ChatSession {
 
   private async persistAcpxIds(provider: AcpxProvider): Promise<void> {
     try {
-      this.conversation = await persistAcpxIds(
-        this.db,
-        this.conversation,
-        provider,
-      )
-    } catch {
-      // Non-fatal: next turn will start a fresh ACP session under the same key.
-    }
+      const next = await persistAcpxIds(this.db, this.conversation, provider)
+      this.conversation = next
+    } catch {} // next turn starts a fresh ACP session under the same key.
   }
 }

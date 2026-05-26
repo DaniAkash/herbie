@@ -18,6 +18,10 @@ export const conversations = sqliteTable('conversations', {
   modelId: text('model_id'),
   workspacePath: text('workspace_path'),
   reasoningEffort: text('reasoning_effort'),
+  // Permission policy for this conversation. NULL = inherit from
+  // settings.general.defaultPermissionMode at runtime. See
+  // bun/routes/settings.ts PERMISSION_MODES for the allowed values.
+  permissionMode: text('permission_mode'),
   acpxSessionId: text('acpx_session_id'),
   acpxRecordId: text('acpx_record_id'),
   agentSessionId: text('agent_session_id'),

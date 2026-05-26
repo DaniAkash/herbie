@@ -78,6 +78,64 @@ export type ProtocolEvent =
       type: 'meta.turn-input'
       payload: { requestId: string; approxInputChars: number }
     }
+  | {
+      // Emitted when the agent's onPermissionRequest callback fires
+      // and the conversation's permission mode escalates it to the
+      // user. The renderer responds via
+      //   POST /chat/:id/permission/:requestId
+      // which resolves the pending callback promise and emits a
+      // matching permission.resolved event.
+      type: 'permission.request'
+      payload: {
+        requestId: string
+        turnRequestId: string
+        toolCallId: string
+        toolName: string
+        toolKind: PermissionToolKind | null
+        input?: unknown
+      }
+    }
+  | {
+      // Emitted after the callback's pending promise resolves — either
+      // because the user clicked a button (resolvedBy='user'), the
+      // current permission mode short-circuited (resolvedBy='auto'),
+      // or turn.cancel landed while pending (resolvedBy='cancel').
+      // Carries the final outcome so the renderer can transition the
+      // card from pending to resolved without re-asking the server.
+      type: 'permission.resolved'
+      payload: {
+        requestId: string
+        outcome: PermissionOutcome
+        resolvedBy: 'user' | 'auto' | 'cancel'
+      }
+    }
+
+// Outcomes map 1:1 to acpx's AcpPermissionDecision. Re-declared here
+// (rather than imported from acpx-ai-provider) so the renderer can
+// consume this type via the existing PersistedEventDTO path without
+// dragging a bun-only dep into the renderer's tsconfig.
+export type PermissionOutcome =
+  | 'allow_once'
+  | 'allow_always'
+  | 'reject_once'
+  | 'reject_always'
+  | 'cancel'
+
+// Same idea — keep this union local so the renderer doesn't import
+// from acpx. Mirrors the kinds acpx's inferToolKind classifier
+// returns; null in the event payload covers the "could not infer"
+// case.
+export type PermissionToolKind =
+  | 'read'
+  | 'search'
+  | 'fetch'
+  | 'edit'
+  | 'execute'
+  | 'delete'
+  | 'move'
+  | 'switch_mode'
+  | 'think'
+  | 'other'
 
 export interface PersistedEvent {
   conversationId: string

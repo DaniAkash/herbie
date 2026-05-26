@@ -10,7 +10,11 @@ import {
 import { AgentBusy } from '@/components/chat/AgentBusy'
 import { Composer } from '@/components/chat/Composer'
 import type { ComposerSubmitAttachments } from '@/components/chat/Composer.staging'
-import type { ComposerTuple } from '@/components/chat/composer.types'
+import {
+  type ComposerTuple,
+  PERMISSION_MODES,
+  type PermissionMode,
+} from '@/components/chat/composer.types'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -20,7 +24,10 @@ import {
   useMarkConversationSeen,
   useUpdateConversationTuple,
 } from '@/modules/api/chat.hooks'
-import { useDefaultAgent } from '@/modules/api/settings.hooks'
+import {
+  useDefaultAgent,
+  useDefaultPermissionMode,
+} from '@/modules/api/settings.hooks'
 import type { AgentId } from '@/modules/data/herbie-data.types'
 import { ChatMessageRow } from './Chat.parts'
 import { type UseChatDataResult, useChatData } from './chat.data'
@@ -39,6 +46,7 @@ export function Chat({ conversationId }: ChatProps) {
 function NewChat() {
   const navigate = useNavigate()
   const { defaultAgent } = useDefaultAgent()
+  const { defaultPermissionMode } = useDefaultPermissionMode()
   // Tuple stays derived from the saved default until the user explicitly
   // picks something — that way the settings query resolving after first
   // paint doesn't leave us frozen on the fallback.
@@ -48,6 +56,7 @@ function NewChat() {
     modelId: null,
     workspacePath: null,
     reasoningEffort: null,
+    permissionMode: defaultPermissionMode,
   }
 
   const createMutation = useCreateConversation()
@@ -194,11 +203,21 @@ function ExistingChatBody({
   // Captured at first paint; stays stable across the body's lifetime so the
   // switch warning fires only on user-driven changes (and stops once we've
   // actually committed a switch via send).
+  const { defaultPermissionMode } = useDefaultPermissionMode()
+  // Fall back to the settings default when the conversation row's
+  // permissionMode is NULL (conversations created before the 0018
+  // migration, or rows whose stored value is no longer a recognised
+  // mode). Resolves the narrowing to a real PermissionMode union.
+  const rawConvMode = conversation.permissionMode as PermissionMode | null
   const initialTupleRef = useRef<ComposerTuple>({
     agentId: conversation.agentId as AgentId,
     modelId: conversation.modelId,
     workspacePath: conversation.workspacePath,
     reasoningEffort: conversation.reasoningEffort,
+    permissionMode:
+      rawConvMode && PERMISSION_MODES.includes(rawConvMode)
+        ? rawConvMode
+        : defaultPermissionMode,
   })
   const [tuple, setTuple] = useState<ComposerTuple>(initialTupleRef.current)
   // Synchronous mirror of the latest tuple — diff against this instead
@@ -276,7 +295,12 @@ function ExistingChatBody({
       <Conversation>
         <ConversationContent className="mx-auto w-full max-w-3xl 2xl:max-w-4xl">
           {data.messages.map((m) => (
-            <ChatMessageRow key={m.id} message={m} agent={tuple.agentId} />
+            <ChatMessageRow
+              key={m.id}
+              message={m}
+              agent={tuple.agentId}
+              conversationId={conversationId}
+            />
           ))}
         </ConversationContent>
         <ConversationScrollButton />

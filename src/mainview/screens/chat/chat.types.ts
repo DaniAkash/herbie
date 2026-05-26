@@ -41,7 +41,45 @@ export interface ToolPart {
   state: ToolPartState
 }
 
-export type MessagePart = TextPart | ReasoningPart | ToolPart
+export type PermissionOutcome =
+  | 'allow_once'
+  | 'allow_always'
+  | 'reject_once'
+  | 'reject_always'
+  | 'cancel'
+
+export type PermissionToolKind =
+  | 'read'
+  | 'search'
+  | 'fetch'
+  | 'edit'
+  | 'execute'
+  | 'delete'
+  | 'move'
+  | 'switch_mode'
+  | 'think'
+  | 'other'
+
+// Inline approval card. State starts at 'pending' when permission.request
+// arrives and transitions to 'resolved' when permission.resolved lands.
+// resolvedBy='auto' means the conversation's mode (e.g. allow-all)
+// auto-decided — the renderer collapses these into a compact breadcrumb
+// rather than the full card.
+export interface PermissionPart {
+  kind: 'permission'
+  id: string // = requestId
+  turnRequestId: string
+  toolCallId: string
+  toolName: string
+  toolKind: PermissionToolKind | null
+  input?: unknown
+  state: 'pending' | 'resolved'
+  outcome?: PermissionOutcome
+  resolvedBy?: 'user' | 'auto' | 'cancel'
+  resolvedAt?: number
+}
+
+export type MessagePart = TextPart | ReasoningPart | ToolPart | PermissionPart
 
 export interface ChatMessage {
   id: string

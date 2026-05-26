@@ -21,6 +21,7 @@ import {
   ToolInput,
   ToolOutput,
 } from '@/components/ai-elements/tool'
+import { PermissionApprovalCard } from '@/components/chat/PermissionApprovalCard'
 import { Badge } from '@/components/ui/badge'
 import {
   attachmentBlobUrl,
@@ -44,15 +45,21 @@ const DEFAULT_PART_KINDS: ReadonlyArray<MessagePart['kind']> = [
   'text',
   'reasoning',
   'tool',
+  'permission',
 ]
 
 export function ChatMessageRow({
   message,
   agent,
+  conversationId,
   partKinds = DEFAULT_PART_KINDS,
 }: {
   message: ChatMessage
   agent: AgentId
+  // Passed through to permission cards so they know which conv to
+  // POST decisions to. Task runs leave it undefined; tasks force
+  // read-only at runtime and never render pending cards anyway.
+  conversationId?: string
   partKinds?: ReadonlyArray<MessagePart['kind']>
 }) {
   if (message.role === 'user') {
@@ -108,7 +115,12 @@ export function ChatMessageRow({
           </span>
         </div>
         {visibleParts.map((part) => (
-          <PartView key={part.id} part={part} streaming={message.isStreaming} />
+          <PartView
+            key={part.id}
+            part={part}
+            streaming={message.isStreaming}
+            conversationId={conversationId}
+          />
         ))}
         {message.errorMessage && (
           <TestError>
@@ -131,13 +143,25 @@ export function ChatMessageRow({
 function PartView({
   part,
   streaming,
+  conversationId,
 }: {
   part: MessagePart
   streaming: boolean
+  conversationId?: string
 }) {
   if (part.kind === 'text') return <TextPartView part={part} />
   if (part.kind === 'reasoning')
     return <ReasoningPartView part={part} streaming={streaming} />
+  if (part.kind === 'permission') {
+    // Without a conversationId the card has no PATCH target. That
+    // happens in task-run views where permission events shouldn't
+    // appear in the first place; render nothing rather than a broken
+    // pending card.
+    if (!conversationId) return null
+    return (
+      <PermissionApprovalCard conversationId={conversationId} part={part} />
+    )
+  }
   return <ToolPartView part={part} messageIsStreaming={streaming} />
 }
 

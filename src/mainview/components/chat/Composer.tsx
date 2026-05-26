@@ -1,17 +1,5 @@
-import {
-  ArrowUpIcon,
-  ClockIcon,
-  PaperclipIcon,
-  StopCircleIcon,
-} from 'lucide-react'
-import {
-  type ChangeEvent,
-  type FormEvent,
-  type KeyboardEvent,
-  useRef,
-  useState,
-} from 'react'
-import { toast } from 'sonner'
+import { ArrowUpIcon, PaperclipIcon, StopCircleIcon } from 'lucide-react'
+import { type FormEvent, type KeyboardEvent, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   InputGroup,
@@ -20,23 +8,14 @@ import {
   InputGroupTextarea,
 } from '@/components/ui/input-group'
 import { useAgentCapabilities } from '@/modules/api/agents.hooks'
-import {
-  attachmentBlobUrl,
-  useDeleteAttachment,
-  useUploadAttachment,
-} from '@/modules/api/attachments.hooks'
 import { AgentPicker } from './AgentPicker'
 import { AttachmentChip } from './AttachmentChip'
-import {
-  type ComposerSubmitAttachments,
-  pendingFromFile,
-  type StagedAttachment,
-  stagedKey,
-} from './Composer.staging'
+import { BelowComposerRow } from './Composer.below-row'
+import type { ComposerSubmitAttachments } from './Composer.staging'
+import { useComposerStaging } from './Composer.staging-hook'
 import type { ComposerTuple } from './composer.types'
 import { ModelPicker } from './ModelPicker'
 import { ReasoningPicker } from './ReasoningPicker'
-import { SendToTelegramButton } from './SendToTelegramButton'
 import { SwitchWarning } from './SwitchWarning'
 import { WorkspacePicker } from './WorkspacePicker'
 
@@ -77,23 +56,23 @@ export function Composer({
 }: ComposerProps) {
   const [text, setText] = useState('')
   const [warningDismissed, setWarningDismissed] = useState(false)
-  const [staged, setStaged] = useState<StagedAttachment[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
   const trimmed = text.trim()
 
-  // Drives the paperclip's visibility — gated on the active agent's
-  // probe-discovered prompt caps. Works on both new-chat and existing-
-  // chat composers; the upload path differs (see handleFiles).
+  // Paperclip visibility is gated on the agent's probe-discovered caps.
   const { data: caps } = useAgentCapabilities({
     variables: { id: tuple.agentId },
   })
-  // Images-only for now. The backend `mimeAllowed` mirrors this; the
-  // file input's `accept` attribute narrows the picker so the user
-  // can't even stage a non-image.
   const canAttach = caps?.promptCapabilities?.image ?? false
 
-  const upload = useUploadAttachment()
-  const remove = useDeleteAttachment()
+  const {
+    staged,
+    setStaged,
+    upload,
+    handleFiles,
+    handleRemoveStaged,
+    revokePendingUrls,
+  } = useComposerStaging({ conversationId })
 
   function send() {
     if (!trimmed) return
@@ -105,11 +84,7 @@ export function Composer({
     }
     onSubmit(trimmed, { uploadedIds, pendingFiles })
     setText('')
-    // Revoke any object URLs we minted for pending chips so the
-    // tab doesn't leak blob handles.
-    for (const item of staged) {
-      if (item.kind === 'pending') URL.revokeObjectURL(item.blobUrl)
-    }
+    revokePendingUrls()
     setStaged([])
     setWarningDismissed(false)
   }
@@ -131,76 +106,9 @@ export function Composer({
     }
   }
 
-  function handleSchedule() {
-    if (!trimmed) return
-    onSchedule?.(trimmed)
-    setText('')
-  }
-
   function patchTuple(patch: Partial<ComposerTuple>) {
     setWarningDismissed(false)
     onTupleChange({ ...tuple, ...patch })
-  }
-
-  async function handleFiles(e: ChangeEvent<HTMLInputElement>) {
-    const files = e.target.files
-    if (!files) return
-    const list = Array.from(files)
-    if (conversationId) {
-      // Existing chat — upload right away so the chip is durable
-      // (refresh-safe) and the per-conv quota check runs before the
-      // user types more.
-      for (const file of list) {
-        await stageUploadedFile(conversationId, file)
-      }
-    } else {
-      // New chat — no conversation row yet to scope the upload to.
-      // Buffer in memory; the parent orchestrates create-conv →
-      // upload → send on submit.
-      setStaged((prev) => [
-        ...prev,
-        ...list.map((file, i) => pendingFromFile(file, prev.length + i)),
-      ])
-    }
-    // Reset so the same file can be re-picked after a remove.
-    e.target.value = ''
-  }
-
-  async function stageUploadedFile(convId: string, file: File): Promise<void> {
-    try {
-      const uploaded = await upload.mutateAsync({
-        conversationId: convId,
-        file,
-      })
-      setStaged((prev) => [
-        ...prev,
-        {
-          kind: 'uploaded',
-          id: uploaded.id,
-          filename: uploaded.filename,
-          mimeType: uploaded.mimeType,
-          // uploaded.url is the relative `/attachments/<id>/blob` path; the
-          // composer chip renders this as <img src=...> so it needs an
-          // absolute URL pointing at the bun API host.
-          blobUrl: attachmentBlobUrl(uploaded.id),
-        },
-      ])
-    } catch (err) {
-      toast.error('Upload failed', { description: String(err) })
-    }
-  }
-
-  function handleRemoveStaged(key: string) {
-    const target = staged.find((item) => stagedKey(item) === key)
-    if (!target) return
-    if (target.kind === 'pending') {
-      URL.revokeObjectURL(target.blobUrl)
-    } else {
-      // Fire-and-forget — if the server delete fails the row just sits
-      // there until the conv-delete cleanup picks it up.
-      void remove.mutateAsync(target.id).catch(() => undefined)
-    }
-    setStaged((prev) => prev.filter((item) => stagedKey(item) !== key))
   }
 
   // Mirror the bun-side providerKeyEqual (src/bun/chat/tuple.ts): the
@@ -310,42 +218,23 @@ export function Composer({
           className="hidden"
           onChange={handleFiles}
         />
-        {/* Below-composer action row: actions on the conversation /
-            prompt, not on the message being composed. Kept visually
-            quieter than the in-composer toolbar so the eye doesn't
-            confuse them with sending controls. */}
-        <div className="mt-2 flex flex-wrap items-center gap-1 px-1">
-          {onSchedule && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={handleSchedule}
-              disabled={!trimmed || isStreaming}
-              title="Schedule this prompt instead of sending"
-            >
-              <ClockIcon data-icon="inline-start" />
-              Schedule
-            </Button>
-          )}
-          {conversationId && (
-            <SendToTelegramButton
-              conversationId={conversationId}
-              disabled={isStreaming}
-            />
-          )}
-          <div className="flex-1" />
-          <p className="text-[11px] text-muted-foreground">
-            <kbd className="rounded border bg-muted px-1 py-0.5 font-mono text-[10px]">
-              ↵
-            </kbd>{' '}
-            send ·{' '}
-            <kbd className="rounded border bg-muted px-1 py-0.5 font-mono text-[10px]">
-              ⇧↵
-            </kbd>{' '}
-            new line
-          </p>
-        </div>
+        <BelowComposerRow
+          tuple={tuple}
+          isStreaming={isStreaming}
+          trimmed={trimmed}
+          conversationId={conversationId}
+          onPermissionModeChange={(permissionMode) =>
+            patchTuple({ permissionMode })
+          }
+          onSchedule={
+            onSchedule
+              ? (t) => {
+                  onSchedule(t)
+                  setText('')
+                }
+              : undefined
+          }
+        />
       </div>
     </form>
   )

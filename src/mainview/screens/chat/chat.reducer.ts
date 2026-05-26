@@ -9,16 +9,20 @@ import {
   transitionToolState,
 } from './chat.reducer.live'
 import {
-  bindToolCallId,
-  errorToString,
   finalizeActiveMessage,
   patchActiveMessage,
-  patchToolByCallId,
   pushPart,
   type ReducerCtx,
-  splitAcpxToolBlob,
-  stringifyToolPayload,
 } from './chat.reducer.parts'
+import {
+  handlePermissionRequest,
+  handlePermissionResolved,
+} from './chat.reducer.permission'
+import {
+  handleToolCall,
+  handleToolError,
+  handleToolResult,
+} from './chat.reducer.tool'
 import type { PersistedEventDTO } from './chat.types'
 
 export type { ReducerCtx } from './chat.reducer.parts'
@@ -91,6 +95,12 @@ export function applyEvent(ctx: ReducerCtx, ev: PersistedEventDTO): void {
       break
     case 'meta.turn-input':
       handleTurnInput(ctx, ev)
+      break
+    case 'permission.request':
+      handlePermissionRequest(ctx, ev)
+      break
+    case 'permission.resolved':
+      handlePermissionResolved(ctx, ev)
       break
     // Framing events with no UI surface — listed explicitly so a missing
     // handler for a new event type stays loud.
@@ -220,93 +230,4 @@ function handleReasoningComplete(ctx: ReducerCtx, ev: PersistedEventDTO): void {
     isOpen: false,
     isPlan,
   })
-}
-
-function handleToolCall(ctx: ReducerCtx, ev: PersistedEventDTO): void {
-  const p = ev.payload as {
-    toolCallId?: string
-    toolName?: string
-    input?: unknown
-  }
-  if (!p.toolCallId) return
-  // Live path: a placeholder ToolPart was opened by stream.tool-input-start.
-  // Bind it. Replay path: no placeholder exists, so push a fresh closed
-  // ToolPart with the assembled input.
-  const bound = bindToolCallId(ctx, p.toolCallId, p.toolName)
-  if (bound) return
-  const rawInput =
-    p.input === undefined ? '' : stringifyToolPayload(p.input)
-  // acpx-ai-provider's codex flow stuffs args + status + transcript into
-  // one blob; split it now so the initial Parameters render shows just
-  // the command/args (the matching tool.result lands on the same part
-  // a moment later with the output portion).
-  const split = splitAcpxToolBlob(rawInput)
-  pushPart(ctx, {
-    kind: 'tool',
-    id: p.toolCallId,
-    toolCallId: p.toolCallId,
-    toolName: p.toolName ?? 'tool',
-    input: split ? split.args : rawInput,
-    output: null,
-    isError: false,
-    // Direct-path push (replay / providers without input-streaming).
-    // isPlaceholder stays false so the next sequential tool.call won't
-    // try to rebind this part via bindToolCallId.
-    isPlaceholder: false,
-    state: 'input-available',
-  })
-}
-
-function handleToolResult(ctx: ReducerCtx, ev: PersistedEventDTO): void {
-  const p = ev.payload as {
-    toolCallId?: string
-    output?: unknown
-    result?: unknown
-    isError?: boolean
-  }
-  if (!p.toolCallId) return
-  // tool-result carries the canonical output. AI SDK V6 uses `output`;
-  // acpx-ai-provider's V2 shape uses `result`. Read both defensively.
-  const raw = p.output ?? p.result
-  const rawStr = raw === undefined ? '' : stringifyToolPayload(raw)
-  patchToolByCallId(ctx, p.toolCallId, (part) => {
-    // acpx codex flow: input and result are the same blob. Parse it
-    // and put the clean args in input, the transcript-output in output.
-    // Anthropic/openai-direct flow: no marker, the result is a real
-    // distinct output — pass through, but null out if it accidentally
-    // duplicates the existing input (shouldn't happen but safe).
-    const split = splitAcpxToolBlob(rawStr)
-    const nextInput = split ? split.args : part.input
-    const nextOutput = split
-      ? split.output
-      : rawStr === part.input
-        ? null
-        : rawStr
-    return {
-      ...part,
-      input: nextInput,
-      output: nextOutput,
-      state: p.isError ? 'output-error' : 'output-available',
-      isError: !!p.isError,
-    }
-  })
-}
-
-function handleToolError(ctx: ReducerCtx, ev: PersistedEventDTO): void {
-  const p = ev.payload as {
-    toolCallId?: string
-    error?: unknown
-    output?: unknown
-  }
-  if (!p.toolCallId) return
-  const message = errorToString(p.error)
-  patchToolByCallId(ctx, p.toolCallId, (part) => ({
-    ...part,
-    state: 'output-error',
-    isError: true,
-    errorMessage: message,
-    output:
-      part.output ??
-      (p.output === undefined ? '' : stringifyToolPayload(p.output)),
-  }))
 }

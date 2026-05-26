@@ -102,22 +102,48 @@ export const useToggleConversationPin = createMutation<
 // fields, so an extra refetch per picker click is wasted work. The
 // detail query is invalidated so a tab-back / SSE-reconnect reads the
 // fresh values from the row.
+type PatchTuplePayload = InferRequestType<typeof $patch>['json']
+
 export const useUpdateConversationTuple = createMutation<
   unknown,
   {
     id: string
-    tuple: {
-      agentId?: string
-      modelId?: string | null
-      workspacePath?: string | null
-      reasoningEffort?: string | null
-    }
+    tuple: Pick<
+      PatchTuplePayload,
+      | 'agentId'
+      | 'modelId'
+      | 'workspacePath'
+      | 'reasoningEffort'
+      | 'permissionMode'
+    >
   }
 >({
   mutationFn: ({ id, tuple }) =>
     $patch({ param: { id }, json: tuple }).then(parseResponse),
   onSuccess: invalidateConversationDetails,
   onError: toastApiError('Could not save composer selection'),
+})
+
+// Posts the user's approve/deny decision back to the in-flight
+// onPermissionRequest callback awaiting in permission-registry.
+// No cache invalidation — the matching permission.resolved event
+// lands via SSE on the chat stream and updates the renderer state
+// through the same path as any other turn event.
+const $permissionResolve = api.chat[':id'].permission[':requestId'].$post
+export const useResolvePermission = createMutation<
+  unknown,
+  {
+    conversationId: string
+    requestId: string
+    outcome: 'allow_once' | 'allow_always' | 'reject_once' | 'reject_always'
+  }
+>({
+  mutationFn: ({ conversationId, requestId, outcome }) =>
+    $permissionResolve({
+      param: { id: conversationId, requestId },
+      json: { outcome },
+    }).then(parseResponse),
+  onError: toastApiError('Could not resolve permission'),
 })
 
 export const useDeleteConversation = createMutation<unknown, { id: string }>({
