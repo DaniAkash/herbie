@@ -93,6 +93,33 @@ export const useToggleConversationPin = createMutation<
   onError: toastApiError('Could not update pin state'),
 })
 
+// Persists the composer's tuple (agent / model / workspace / reasoning)
+// to the conversation row as the user picks. Without this, the picker's
+// state lived only in React useState — navigating away and back reset
+// it to whatever the row last committed (which only happened on send).
+//
+// Lists aren't invalidated on purpose: sidebar rows don't render tuple
+// fields, so an extra refetch per picker click is wasted work. The
+// detail query is invalidated so a tab-back / SSE-reconnect reads the
+// fresh values from the row.
+export const useUpdateConversationTuple = createMutation<
+  unknown,
+  {
+    id: string
+    tuple: {
+      agentId?: string
+      modelId?: string | null
+      workspacePath?: string | null
+      reasoningEffort?: string | null
+    }
+  }
+>({
+  mutationFn: ({ id, tuple }) =>
+    $patch({ param: { id }, json: tuple }).then(parseResponse),
+  onSuccess: invalidateConversationDetails,
+  onError: toastApiError('Could not save composer selection'),
+})
+
 export const useDeleteConversation = createMutation<unknown, { id: string }>({
   mutationFn: ({ id }) => $delete({ param: { id } }).then(parseResponse),
   onSuccess: (_data, vars) => {

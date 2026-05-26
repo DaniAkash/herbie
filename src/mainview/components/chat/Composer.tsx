@@ -3,7 +3,6 @@ import {
   ClockIcon,
   PaperclipIcon,
   StopCircleIcon,
-  TriangleAlertIcon,
 } from 'lucide-react'
 import {
   type ChangeEvent,
@@ -34,10 +33,11 @@ import {
   type StagedAttachment,
   stagedKey,
 } from './Composer.staging'
-import { type ComposerTuple, tuplesEqual } from './composer.types'
+import type { ComposerTuple } from './composer.types'
 import { ModelPicker } from './ModelPicker'
 import { ReasoningPicker } from './ReasoningPicker'
 import { SendToTelegramButton } from './SendToTelegramButton'
+import { SwitchWarning } from './SwitchWarning'
 import { WorkspacePicker } from './WorkspacePicker'
 
 export interface ComposerProps {
@@ -203,9 +203,16 @@ export function Composer({
     setStaged((prev) => prev.filter((item) => stagedKey(item) !== key))
   }
 
-  const tupleChanged = !tuplesEqual(tuple, initialTuple)
+  // Mirror the bun-side providerKeyEqual (src/bun/chat/tuple.ts): the
+  // warning only fires for changes that actually trigger Path A
+  // (provider rebuild + transcript replay). Model and reasoning
+  // changes take Path C — no replay, no banner.
+  const wouldTriggerReplay =
+    !!initialTuple &&
+    (tuple.agentId !== initialTuple.agentId ||
+      tuple.workspacePath !== initialTuple.workspacePath)
   const showSwitchWarning =
-    hasPriorTurns && tupleChanged && !warningDismissed && !isStreaming
+    hasPriorTurns && wouldTriggerReplay && !warningDismissed && !isStreaming
 
   return (
     <form
@@ -213,8 +220,15 @@ export function Composer({
       className="bg-gradient-to-t from-background via-background to-background/0 px-6 pt-6 pb-5"
     >
       <div className="mx-auto max-w-3xl">
-        {showSwitchWarning && (
-          <SwitchWarning onDismiss={() => setWarningDismissed(true)} />
+        {showSwitchWarning && initialTuple && (
+          // Undo reverts to the user's landing tuple — including any
+          // model / reasoning fields the agent change cascaded to null
+          // — and flows through onTupleChange so the parent's eager
+          // PATCH wrapper persists the revert.
+          <SwitchWarning
+            onUndo={() => onTupleChange(initialTuple)}
+            onDismiss={() => setWarningDismissed(true)}
+          />
         )}
         {staged.length > 0 && (
           <div className="mb-2 flex flex-wrap gap-2">
@@ -334,26 +348,5 @@ export function Composer({
         </div>
       </div>
     </form>
-  )
-}
-
-function SwitchWarning({ onDismiss }: { onDismiss: () => void }) {
-  return (
-    <div className="mb-2 flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-amber-700 text-xs dark:text-amber-400">
-      <TriangleAlertIcon className="mt-0.5 size-4 shrink-0" />
-      <p className="flex-1 leading-relaxed">
-        Switching agent / model / workspace replays the full conversation to the
-        new context. The new agent's first response loses prompt cache and some
-        context nuance.
-      </p>
-      <button
-        type="button"
-        onClick={onDismiss}
-        aria-label="Dismiss warning"
-        className="text-amber-700/70 hover:text-amber-700 dark:text-amber-400/70 dark:hover:text-amber-400"
-      >
-        ✕
-      </button>
-    </div>
   )
 }

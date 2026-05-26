@@ -18,6 +18,7 @@ import { useUploadAttachment } from '@/modules/api/attachments.hooks'
 import {
   useCreateConversation,
   useMarkConversationSeen,
+  useUpdateConversationTuple,
 } from '@/modules/api/chat.hooks'
 import { useDefaultAgent } from '@/modules/api/settings.hooks'
 import type { AgentId } from '@/modules/data/herbie-data.types'
@@ -200,6 +201,35 @@ function ExistingChatBody({
     reasoningEffort: conversation.reasoningEffort,
   })
   const [tuple, setTuple] = useState<ComposerTuple>(initialTupleRef.current)
+  // Synchronous mirror of the latest tuple — diff against this instead
+  // of the closure-captured `tuple` so rapid clicks (A→B→A before a
+  // re-render) compute the right diff. Without the ref the second
+  // call sees the stale render-time tuple and silently drops its
+  // PATCH, leaving the row out of sync with the UI.
+  const tupleRef = useRef<ComposerTuple>(initialTupleRef.current)
+  const updateTuple = useUpdateConversationTuple()
+
+  // Eagerly PATCHes any changed tuple fields back to the conversation
+  // row, so picker selections persist across navigate-away. Without
+  // this the row only updated on send (via ChatSession.persistTuple),
+  // and the picked-but-not-yet-sent value lived purely in local React
+  // state — lost on unmount.
+  function handleTupleChange(next: ComposerTuple) {
+    const prev = tupleRef.current
+    tupleRef.current = next
+    setTuple(next)
+    const diff: Partial<ComposerTuple> = {}
+    if (next.agentId !== prev.agentId) diff.agentId = next.agentId
+    if (next.modelId !== prev.modelId) diff.modelId = next.modelId
+    if (next.workspacePath !== prev.workspacePath) {
+      diff.workspacePath = next.workspacePath
+    }
+    if (next.reasoningEffort !== prev.reasoningEffort) {
+      diff.reasoningEffort = next.reasoningEffort
+    }
+    if (Object.keys(diff).length === 0) return
+    void updateTuple.mutateAsync({ id: conversationId, tuple: diff })
+  }
 
   function handleSubmit(text: string, attachments: ComposerSubmitAttachments) {
     // Existing chats always have a conversationId, so the Composer's
@@ -270,7 +300,7 @@ function ExistingChatBody({
         hasPriorTurns={data.messages.length > 0}
         isStreaming={data.isStreaming}
         conversationId={conversationId}
-        onTupleChange={setTuple}
+        onTupleChange={handleTupleChange}
         onSubmit={handleSubmit}
         onCancel={handleCancel}
         onSchedule={handleSchedule}
