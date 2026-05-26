@@ -3,25 +3,28 @@ import { desc, eq, isNull, sql } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
 import { nanoid } from 'nanoid'
-import { z } from 'zod'
 import { chatEvents } from '../../db/schema/chat-events.sql'
 import { conversations } from '../../db/schema/conversations.sql'
 import { validateAgentId } from '../agents/registry'
 import { TurnInProgressError } from '../chat/ChatSession'
+import { resolvePending as resolvePermission } from '../chat/permission-callback'
 import { getSessionManager } from '../chat/sessionManager'
 import { getDb } from '../db-singleton'
 import { mirrorAppTurnToTelegram } from '../telegram/outbound'
 import { removeConversationAttachments } from './attachments'
 import { buildPatchUpdate } from './chat.patch-helpers'
+import {
+  cancelSchema,
+  conversationQuery,
+  createSchema,
+  patchSchema,
+  permissionDecisionSchema,
+  sendSchema,
+} from './chat.schemas'
 import { loadConvAttachments, mergeSendTuple } from './chat.send-helpers'
 import { loadEvents, parseAfter, runChatStream } from './chat.stream'
 import { loadTelegramLinks } from './chat.telegram-links'
-
-// agentId is free-form at the schema level; runtime validation against
-// the live registry happens inside each handler via the shared
-// validateAgentId helper so Phase 2's custom agents are accepted
-// without revisiting these validators.
-const agentIdField = z.string().min(1)
+import { readSettings } from './settings'
 
 type ConversationRow = typeof conversations.$inferSelect
 
@@ -38,74 +41,12 @@ function serializeConversation(row: ConversationRow) {
   }
 }
 
-// Tuple fields are optional on every endpoint — clients may omit them
-// (e.g. /chat without modelId) and we fall back to the agent default or
-// the conversation row's persisted value.
-const tupleFields = {
-  modelId: z.string().min(1).nullish(),
-  workspacePath: z.string().min(1).nullish(),
-  reasoningEffort: z.string().min(1).nullish(),
-} as const
-
-const createSchema = z
-  .object({
-    agentId: agentIdField,
-    title: z.string().min(1).max(200).optional(),
-    ...tupleFields,
-  })
-  .strict()
-
-const sendSchema = z
-  .object({
-    text: z.string().min(1),
-    agentId: agentIdField.optional(),
-    // Already-uploaded attachment ids from POST /attachments. The
-    // handler revalidates that each id belongs to this conversation
-    // before threading them into the turn.
-    attachmentIds: z.array(z.string().min(1)).default([]),
-    ...tupleFields,
-  })
-  .strict()
-const cancelSchema = z.object({ reason: z.string().optional() }).strict()
-const conversationQuery = z
-  .object({ afterSeq: z.string().optional() })
-  .optional()
-
-// PATCH /chat/:id accepts a title rename, a pin/unpin toggle, or any
-// subset of the composer tuple fields. At least one field must be
-// present — an empty patch is rejected so callers don't accidentally
-// bump updatedAt with nothing to change. Tuple-field nulls are the
-// "agent default / unset" sentinel (matches the conversation row's
-// nullable columns); agentId is non-null in the schema so it can't
-// be cleared.
-const patchSchema = z
-  .object({
-    title: z.string().trim().min(1).max(200).optional(),
-    pinned: z.boolean().optional(),
-    agentId: agentIdField.optional(),
-    // Spread the shared tupleFields (min(1).nullish) instead of
-    // redeclaring — keeps PATCH validation aligned with POST /chat
-    // and POST /chat/:id/messages. Empty strings are rejected (would
-    // otherwise persist as bogus tuple values).
-    ...tupleFields,
-  })
-  .strict()
-  .refine(
-    (v) =>
-      v.title !== undefined ||
-      v.pinned !== undefined ||
-      v.agentId !== undefined ||
-      v.modelId !== undefined ||
-      v.workspacePath !== undefined ||
-      v.reasoningEffort !== undefined,
-    { message: 'patch must include at least one field' },
-  )
-
 export const chatRoute = new Hono()
   .post('/chat', zValidator('json', createSchema), async (c) => {
     const body = c.req.valid('json')
     const agentError = await validateAgentId(body.agentId)
     if (agentError) return c.json({ error: agentError }, 400)
+    const settings = await readSettings()
     const now = new Date()
     const row = {
       id: nanoid(),
@@ -114,6 +55,13 @@ export const chatRoute = new Hono()
       modelId: body.modelId ?? null,
       workspacePath: body.workspacePath ?? null,
       reasoningEffort: body.reasoningEffort ?? null,
+      // Honor the client's explicit pick (the composer picker on the
+      // new-chat surface), falling back to the settings default. After
+      // creation the conversation owns its own permission_mode column;
+      // bumping the settings default later won't retroactively change
+      // existing conversations.
+      permissionMode:
+        body.permissionMode ?? settings.general.defaultPermissionMode,
       acpxSessionId: null,
       acpxRecordId: null,
       agentSessionId: null,
@@ -297,6 +245,22 @@ export const chatRoute = new Hono()
     await session.cancel(reason)
     return c.json({ ok: true })
   })
+  // Hands a user's approval / denial back to the in-flight
+  // onPermissionRequest callback that's awaiting in permission-registry.
+  // 409 when the requestId is unknown — either a double-click race
+  // (the registry entry was already drained) or a turn.cancel beat us.
+  .post(
+    '/chat/:id/permission/:requestId',
+    zValidator('json', permissionDecisionSchema),
+    async (c) => {
+      const id = c.req.param('id')
+      const requestId = c.req.param('requestId')
+      const { outcome } = c.req.valid('json')
+      const ok = resolvePermission(id, requestId, { outcome })
+      if (!ok) return c.json({ error: 'request not pending' }, 409)
+      return c.json({ ok: true })
+    },
+  )
   .get('/chat/:id/stream', (c) => {
     const id = c.req.param('id')
     const after = parseAfter(

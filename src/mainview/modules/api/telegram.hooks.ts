@@ -161,8 +161,7 @@ export const usePollTelegramLink = createQuery<
   // Stop polling once the token is no longer pending. Otherwise the
   // dialog keeps hitting the endpoint every 2s forever while the
   // user reads the expired-or-done message.
-  refetchInterval: (q) =>
-    q.state.data?.status === 'pending' ? 2000 : false,
+  refetchInterval: (q) => (q.state.data?.status === 'pending' ? 2000 : false),
 })
 
 // Reassign an existing Special Purpose bot to a different conversation.

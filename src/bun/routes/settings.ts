@@ -5,51 +5,26 @@ import type { ResultSet } from '@libsql/client'
 import type { ExtractTablesWithRelations } from 'drizzle-orm'
 import type { SQLiteTransaction } from 'drizzle-orm/sqlite-core'
 import { Hono } from 'hono'
-import { z } from 'zod'
+import type { z } from 'zod'
 import type * as schema from '../../db/schema/schema'
 import { settings as settingsTable } from '../../db/schema/settings.sql'
 import { listAllAgentIds } from '../agents/registry'
 import { getDb } from '../db-singleton'
 import { setLoginItem } from '../loginItems'
+import type { AgentCapability } from './settings.agent-capability.schema'
 import {
-  type AgentCapability,
-  agentCapabilitySchema,
-} from './settings.agent-capability.schema'
-import { agentsSchema } from './settings.custom-agent.schema'
-import { mcpSchema } from './settings.mcp.schema'
+  DOMAINS,
+  PERMISSION_MODES,
+  patchSchema,
+  settingsSchema,
+} from './settings.schemas'
 
 // Adding a new setting: extend the relevant domain schema, ship a
 // default in SETTINGS_DEFAULTS, no migration. New domain: add to
 // DOMAINS too. Storage is one KV row per top-level domain.
 
-const THEME_MODES = ['light', 'dark', 'system'] as const
-
-const generalSchema = z.object({
-  launchAtLogin: z.boolean(),
-  minimizeToMenubarOnClose: z.boolean(),
-})
-
-const appearanceSchema = z.object({
-  theme: z.enum(THEME_MODES),
-})
-
-const composerSchema = z.object({
-  workspaces: z.object({
-    default: z.string().min(1),
-    recent: z.array(z.string().min(1)),
-  }),
-  agentCapabilities: z.record(z.string(), agentCapabilitySchema),
-})
-
-const settingsSchema = z.object({
-  general: generalSchema,
-  agents: agentsSchema,
-  appearance: appearanceSchema,
-  composer: composerSchema,
-  mcp: mcpSchema,
-})
-
-const DOMAINS = ['general', 'agents', 'appearance', 'composer', 'mcp'] as const
+export type { PermissionMode } from './settings.schemas'
+export { PERMISSION_MODES }
 
 type Settings = z.infer<typeof settingsSchema>
 type Domain = keyof Settings
@@ -73,7 +48,11 @@ type DbLike =
 const DEFAULT_WORKSPACE_PATH = path.join(homedir(), 'herbie-workspace')
 
 const SETTINGS_DEFAULTS: Settings = {
-  general: { launchAtLogin: false, minimizeToMenubarOnClose: true },
+  general: {
+    launchAtLogin: false,
+    minimizeToMenubarOnClose: true,
+    defaultPermissionMode: 'auto-approve-reads',
+  },
   agents: { defaultAgent: 'claude', customAgents: [] },
   appearance: { theme: 'system' },
   composer: {
@@ -82,30 +61,6 @@ const SETTINGS_DEFAULTS: Settings = {
   },
   mcp: { servers: [] },
 }
-
-// PATCH-body schemas: validation only, no defaults — defaults belong to
-// SETTINGS_DEFAULTS, otherwise `.partial()` would silently inflate a
-// single-field PATCH to the full domain. Same constraint binds the
-// inner customAgents field (no `.default([])`) — see custom-agent.schema.
-const composerPatchSchema = z.object({
-  workspaces: z
-    .object({
-      default: z.string().min(1).optional(),
-      recent: z.array(z.string().min(1)).optional(),
-    })
-    .optional(),
-  agentCapabilities: z.record(z.string(), agentCapabilitySchema).optional(),
-})
-
-const patchSchema = z
-  .object({
-    general: generalSchema.partial().optional(),
-    agents: agentsSchema.partial().optional(),
-    appearance: appearanceSchema.partial().optional(),
-    composer: composerPatchSchema.optional(),
-    mcp: mcpSchema.partial().optional(),
-  })
-  .strict()
 
 async function readAll(db: DbLike): Promise<Settings> {
   const rows = await db.select().from(settingsTable).all()

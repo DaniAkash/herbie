@@ -2,6 +2,7 @@ import { stat } from 'node:fs/promises'
 import type { AcpxProvider } from 'acpx-ai-provider'
 import type { DB } from '../../db'
 import {
+  type PermissionMode,
   readAgentCapability,
   readSettings,
   removeRecentWorkspace,
@@ -14,6 +15,15 @@ export interface ProviderResolverDeps {
   db: DB
   conversationId: string
   writeProtocolEvent: (event: ProtocolEvent) => Promise<void>
+  // Permission policy for this conversation (resolved upstream by
+  // ChatSession from conv.permission_mode ?? settings default).
+  // Plumbed through buildAcpxProvider into the onPermissionRequest
+  // callback.
+  permissionMode: PermissionMode
+  // Closure into ChatSession's activeTurn — the callback uses this
+  // to stamp the active turn's requestId onto permission.request
+  // payloads so the renderer can group cards by turn during replay.
+  getActiveTurnRequestId: () => string | null
 }
 
 /**
@@ -41,6 +51,9 @@ export async function buildProvider(
     workspacePath: cwd,
     sessionKey: `conv::${deps.conversationId}::${tupleKey(tuple)}`,
     mcpServers,
+    permissionMode: deps.permissionMode,
+    writeProtocolEvent: deps.writeProtocolEvent,
+    getActiveTurnRequestId: deps.getActiveTurnRequestId,
   })
 }
 

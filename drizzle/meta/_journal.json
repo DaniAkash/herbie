@@ -127,6 +127,13 @@
       "when": 1779374195989,
       "tag": "0017_unique_kid_colt",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1779776007871,
+      "tag": "0018_known_maestro",
+      "breakpoints": true
     }
   ]
 }

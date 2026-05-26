@@ -44,6 +44,17 @@ export async function spinUpTaskRunProvider(
     workspacePath: args.tuple.workspacePath ?? undefined,
     sessionKey,
     mcpServers,
+    // Scheduled tasks run unattended — there's no human to click an
+    // approval card. `read-only` is the safest default: reads pass,
+    // writes / shell / delete auto-reject. A future per-task picker
+    // can let the user opt into broader trust for specific tasks.
+    permissionMode: 'read-only',
+    // No-op emit + active-turn lookup: task runs use a separate
+    // task_run_events stream, not chat_events. `read-only` mode
+    // auto-decides every request so the callback never escalates
+    // and the no-op emit is never called.
+    writeProtocolEvent: async () => {},
+    getActiveTurnRequestId: () => null,
   })
   await provider.prepare()
   if (args.tuple.modelId) {

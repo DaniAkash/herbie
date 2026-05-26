@@ -58,6 +58,31 @@ export function useDefaultAgent(): {
 // stale union.
 export type ThemeMode = SettingsResponse['appearance']['theme']
 
+// Default permission mode applied to NEW conversations. Existing
+// conversations keep whatever they were created with — that value
+// lives on the conversation row, not in settings.
+export type DefaultPermissionMode =
+  SettingsResponse['general']['defaultPermissionMode']
+
+export function useDefaultPermissionMode(): {
+  defaultPermissionMode: DefaultPermissionMode
+  setDefaultPermissionMode: (mode: DefaultPermissionMode) => void
+} {
+  const { data } = useSettings()
+  const { mutate } = useUpdateSettings()
+  const setDefaultPermissionMode = useCallback(
+    (mode: DefaultPermissionMode) => {
+      mutate({ general: { defaultPermissionMode: mode } })
+    },
+    [mutate],
+  )
+  return {
+    defaultPermissionMode:
+      data?.general.defaultPermissionMode ?? 'auto-approve-reads',
+    setDefaultPermissionMode,
+  }
+}
+
 export function useTheme(): {
   theme: ThemeMode
   setTheme: (theme: ThemeMode) => void
