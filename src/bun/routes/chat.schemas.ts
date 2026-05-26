@@ -21,6 +21,7 @@ export const createSchema = z
     agentId: agentIdField,
     title: z.string().min(1).max(200).optional(),
     ...tupleFields,
+    permissionMode: z.enum(PERMISSION_MODES).optional(),
   })
   .strict()
 

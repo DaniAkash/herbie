@@ -55,11 +55,13 @@ export const chatRoute = new Hono()
       modelId: body.modelId ?? null,
       workspacePath: body.workspacePath ?? null,
       reasoningEffort: body.reasoningEffort ?? null,
-      // Snapshot the user's current default at creation time. After
+      // Honor the client's explicit pick (the composer picker on the
+      // new-chat surface), falling back to the settings default. After
       // creation the conversation owns its own permission_mode column;
       // bumping the settings default later won't retroactively change
       // existing conversations.
-      permissionMode: settings.general.defaultPermissionMode,
+      permissionMode:
+        body.permissionMode ?? settings.general.defaultPermissionMode,
       acpxSessionId: null,
       acpxRecordId: null,
       agentSessionId: null,

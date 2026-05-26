@@ -78,6 +78,7 @@ function NewChat() {
       modelId: tuple.modelId,
       workspacePath: tuple.workspacePath,
       reasoningEffort: tuple.reasoningEffort,
+      permissionMode: tuple.permissionMode,
     })
     let uploadedIds = attachments.uploadedIds
     if (attachments.pendingFiles.length > 0) {
@@ -245,6 +246,9 @@ function ExistingChatBody({
     }
     if (next.reasoningEffort !== prev.reasoningEffort) {
       diff.reasoningEffort = next.reasoningEffort
+    }
+    if (next.permissionMode !== prev.permissionMode) {
+      diff.permissionMode = next.permissionMode
     }
     if (Object.keys(diff).length === 0) return
     void updateTuple.mutateAsync({ id: conversationId, tuple: diff })

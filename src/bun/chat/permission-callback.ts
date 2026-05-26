@@ -70,11 +70,10 @@ export function buildPermissionCallback(
     const kind = normaliseKind(req.inferredKind)
     const decision = decideAutomatically(deps.permissionMode, kind)
     if (decision !== undefined) {
-      // Auto-resolved — emit a synthetic resolved event so the
-      // renderer can show a compact breadcrumb without ever needing
-      // a pending card. Skip the request event entirely; an
-      // 'auto'-resolved entry without a prior 'pending' row is the
-      // sentinel for "no card was ever shown".
+      // Auto-resolved. emitResolved emits both a request + resolved
+      // pair so the reducer has the tool metadata; the renderer keys
+      // off resolvedBy === 'auto' to render the compact breadcrumb
+      // instead of a pending card.
       const requestId = nanoid(8)
       await emitResolved(deps, requestId, kind, req, decision, 'auto')
       return decision
@@ -186,26 +185,32 @@ function waitForUser(
       if (settled) return
       settled = true
       signal.removeEventListener('abort', onAbort)
-      await emitResolved(deps, requestId, kind, req, decision, resolvedBy)
-      resolveOuter(decision)
+      // Always resolve the outer promise: if emitResolved throws
+      // (EventSink DB write failure), the provider would otherwise
+      // hang waiting forever for a decision.
+      try {
+        await emitResolved(deps, requestId, kind, req, decision, resolvedBy)
+      } finally {
+        resolveOuter(decision)
+      }
     }
     const onAbort = () => {
       // turn.cancel landed while waiting. Mirror the cancelAll path
       // so the registry stays consistent even when the abort fires
       // before cancelAll has run.
       if (!settled) {
-        void finalize({ outcome: 'cancel' }, 'cancel')
+        finalize({ outcome: 'cancel' }, 'cancel').catch(() => undefined)
       }
     }
     if (signal.aborted) {
-      void finalize({ outcome: 'cancel' }, 'cancel')
+      finalize({ outcome: 'cancel' }, 'cancel').catch(() => undefined)
       return
     }
     signal.addEventListener('abort', onAbort, { once: true })
     register(deps.conversationId, requestId, {
       resolve: (decision) => {
         // User-driven path: HTTP endpoint hands us the decision.
-        void finalize(decision, 'user')
+        finalize(decision, 'user').catch(() => undefined)
       },
     })
   })

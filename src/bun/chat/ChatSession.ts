@@ -38,19 +38,18 @@ export class TurnInProgressError extends Error {
 interface ActiveTurn {
   requestId: string
   controller: AbortController
-  // Holds every event emitted during the turn for mid-turn SSE reconnect.
-  buffer: PersistedEvent[]
+  buffer: PersistedEvent[] // every emitted event, for mid-turn SSE reconnect
   textSegments: SegmentBuffer
   reasoningSegments: SegmentBuffer
   provider: AcpxProvider
 }
 
-function tupleFromConversation(conv: Conversation): ChatTuple {
+function tupleFromConversation(c: Conversation): ChatTuple {
   return {
-    agentId: conv.agentId,
-    modelId: conv.modelId,
-    workspacePath: conv.workspacePath,
-    reasoningEffort: conv.reasoningEffort,
+    agentId: c.agentId,
+    modelId: c.modelId,
+    workspacePath: c.workspacePath,
+    reasoningEffort: c.reasoningEffort,
   }
 }
 
@@ -88,9 +87,7 @@ export class ChatSession {
       .from(conversations)
       .where(eq(conversations.id, conversationId))
       .get()
-    if (!conv) {
-      throw new Error(`conversation not found: ${conversationId}`)
-    }
+    if (!conv) throw new Error(`conversation not found: ${conversationId}`)
 
     const last = await db
       .select({ seq: chatEvents.seq })
@@ -119,6 +116,10 @@ export class ChatSession {
   ): Promise<{ requestId: string }> {
     if (this.activeTurn)
       throw new TurnInProgressError('turn already in progress')
+
+    // Refresh from DB so mid-session PATCHes (e.g. permission picker
+    // eager-PATCH) take effect on this turn.
+    await this.refreshConversation()
 
     const requestId = nanoid(8)
     const controller = new AbortController()
@@ -213,15 +214,12 @@ export class ChatSession {
   async cancel(reason?: string): Promise<void> {
     const turn = this.activeTurn
     if (!turn) return
-    // Drain permission registry before abort so the race with the
-    // callback's abort handler is harmless.
+    // Drain registry before abort so the callback's abort race is harmless.
     cancelAllPendingPermissions(this.conversation.id)
     turn.controller.abort()
     try {
       await turn.provider.cancel(reason)
-    } catch {
-      // provider.cancel can race with stream completion; non-fatal.
-    }
+    } catch {} // races with stream completion; non-fatal.
     await this.events.writeProtocolEvent({
       type: 'turn.cancel',
       payload: { requestId: turn.requestId, reason },
@@ -231,21 +229,15 @@ export class ChatSession {
   }
 
   async dispose(): Promise<void> {
-    if (this.activeTurn) {
-      try {
-        this.activeTurn.controller.abort()
-      } catch {}
-    }
+    try {
+      this.activeTurn?.controller.abort()
+    } catch {}
     const provider = this.routeState.provider
     this.routeState.provider = null
     this.routeState.providerBootstrapped = false
-    if (provider) {
-      try {
-        await provider.close('session disposed')
-      } catch {
-        // best-effort
-      }
-    }
+    try {
+      await provider?.close('session disposed')
+    } catch {} // best-effort
   }
 
   private async runTurn(
@@ -286,6 +278,15 @@ export class ChatSession {
   private async setStatus(status: Conversation['status']): Promise<void> {
     const next = await setConversationStatus(this.db, this.conversation, status)
     this.conversation = next
+  }
+
+  private async refreshConversation(): Promise<void> {
+    const fresh = await this.db
+      .select()
+      .from(conversations)
+      .where(eq(conversations.id, this.conversation.id))
+      .get()
+    if (fresh) this.conversation = fresh
   }
 
   private async persistAcpxIds(provider: AcpxProvider): Promise<void> {
