@@ -184,6 +184,7 @@ function ExistingChat({ conversationId }: { conversationId: string }) {
 
   return (
     <ExistingChatBody
+      key={conversationId}
       conversationId={conversationId}
       conversation={data.conversation}
       data={data}
