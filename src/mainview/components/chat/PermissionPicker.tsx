@@ -65,33 +65,61 @@ interface PermissionPickerProps {
   value: PermissionMode
   onChange: (mode: PermissionMode) => void
   disabled?: boolean
+  // 'composer' (default) renders a compact ghost button sized for the
+  // below-composer action row. 'settings' renders a full-width outline
+  // trigger that visually matches an input/select in a settings card.
+  variant?: 'composer' | 'settings'
 }
 
 export function PermissionPicker({
   value,
   onChange,
   disabled,
+  variant = 'composer',
 }: PermissionPickerProps) {
   const active = OPTIONS.find((o) => o.value === value) ?? OPTIONS[0]
   const ActiveIcon = active.icon
+  const isSettings = variant === 'settings'
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
         disabled={disabled}
-        render={<Button variant="ghost" size="sm" />}
+        render={
+          isSettings ? (
+            <Button
+              variant="outline"
+              size="default"
+              className="w-full justify-between font-normal"
+            />
+          ) : (
+            <Button variant="ghost" size="sm" />
+          )
+        }
       >
-        <ActiveIcon
-          data-icon="inline-start"
-          className={cn(active.danger && 'text-amber-600 dark:text-amber-500')}
-        />
-        <span
-          className={cn(active.danger && 'text-amber-600 dark:text-amber-500')}
-        >
-          {active.label}
+        <span className="flex items-center gap-2">
+          <ActiveIcon
+            data-icon="inline-start"
+            className={cn(
+              active.danger && 'text-amber-600 dark:text-amber-500',
+            )}
+          />
+          <span
+            className={cn(
+              active.danger && 'text-amber-600 dark:text-amber-500',
+            )}
+          >
+            {active.label}
+          </span>
         </span>
         <ChevronDownIcon data-icon="inline-end" className="opacity-60" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-72">
+      <DropdownMenuContent
+        align="start"
+        // Composer trigger is narrow; pin the content to a fixed width.
+        // Settings trigger is full-width, so the dropdown's built-in
+        // w-(--anchor-width) baseline matches it naturally.
+        className={cn(!isSettings && 'w-72')}
+      >
         {OPTIONS.map((opt, idx) => {
           const Icon = opt.icon
           const needsSeparator = opt.danger && idx > 0

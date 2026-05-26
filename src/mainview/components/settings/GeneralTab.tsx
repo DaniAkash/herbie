@@ -1,11 +1,4 @@
-import type { PermissionMode } from '@/components/chat/composer.types'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { PermissionPicker } from '@/components/chat/PermissionPicker'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
@@ -14,20 +7,6 @@ import {
   useSettings,
   useUpdateSettings,
 } from '@/modules/api/settings.hooks'
-
-const PERMISSION_LABELS: Record<PermissionMode, string> = {
-  'auto-approve-reads': 'Auto-approve reads',
-  manual: 'Approve each request',
-  'read-only': 'Read-only',
-  'allow-all': 'Allow everything',
-}
-
-const PERMISSION_DESCRIPTIONS: Record<PermissionMode, string> = {
-  'auto-approve-reads': 'Reads pass; writes & shell prompt you',
-  manual: 'Every gate prompts you',
-  'read-only': 'Reads pass; writes & shell auto-denied',
-  'allow-all': 'Agent runs unattended — use with care',
-}
 
 export function GeneralTab() {
   const { data, isLoading } = useSettings()
@@ -91,33 +70,15 @@ export function GeneralTab() {
               Applied when a new chat is created. Existing chats keep whatever
               they were started with.
             </p>
-            <Select
-              value={data.general.defaultPermissionMode}
-              onValueChange={(v) => {
-                if (!v) return
-                mutate({
-                  general: { defaultPermissionMode: v as PermissionMode },
-                })
-              }}
-            >
-              <SelectTrigger className="mt-1 w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {(Object.keys(PERMISSION_LABELS) as PermissionMode[]).map(
-                  (mode) => (
-                    <SelectItem key={mode} value={mode}>
-                      <div className="flex flex-col">
-                        <span>{PERMISSION_LABELS[mode]}</span>
-                        <span className="text-[10px] text-muted-foreground">
-                          {PERMISSION_DESCRIPTIONS[mode]}
-                        </span>
-                      </div>
-                    </SelectItem>
-                  ),
-                )}
-              </SelectContent>
-            </Select>
+            <div className="mt-1">
+              <PermissionPicker
+                variant="settings"
+                value={data.general.defaultPermissionMode}
+                onChange={(defaultPermissionMode) =>
+                  mutate({ general: { defaultPermissionMode } })
+                }
+              />
+            </div>
           </div>
         </div>
       </section>
