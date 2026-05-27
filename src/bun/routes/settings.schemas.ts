@@ -65,9 +65,16 @@ const composerPatchSchema = z.object({
   agentCapabilities: z.record(z.string(), agentCapabilitySchema).optional(),
 })
 
+// `general.notifications` is a nested object; `generalSchema.partial()`
+// only partials the top level. Override that one field so renderer can
+// PATCH a single notification toggle without blanking the others.
+export const generalPatchSchema = generalSchema
+  .partial()
+  .extend({ notifications: notificationsSchema.partial().optional() })
+
 export const patchSchema = z
   .object({
-    general: generalSchema.partial().optional(),
+    general: generalPatchSchema.optional(),
     agents: agentsSchema.partial().optional(),
     appearance: appearanceSchema.partial().optional(),
     composer: composerPatchSchema.optional(),
