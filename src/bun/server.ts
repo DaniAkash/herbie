@@ -3,6 +3,7 @@ import { cors } from 'hono/cors'
 import { agentsRoute } from './routes/agents'
 import { attachmentsRoute } from './routes/attachments'
 import { chatRoute } from './routes/chat'
+import { focusRoute } from './routes/focus'
 import { inboxRoute } from './routes/inbox'
 import { internalRoute } from './routes/internal'
 import { settingsRoute } from './routes/settings'
@@ -37,6 +38,7 @@ const routes = app
   .route('/', skillsRoute)
   .route('/', telegramRoute)
   .route('/', telegramLinksRoute)
+  .route('/', focusRoute)
 
 export type AppType = typeof routes
 export default routes

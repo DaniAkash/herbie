@@ -2,6 +2,7 @@ import { createRootRoute, Outlet, useLocation } from '@tanstack/react-router'
 import { useEffect } from 'react'
 import { AppShell } from '@/components/layout/AppShell'
 import { STORAGE_KEYS } from '@/modules/storage/keys'
+import { useFocusReporter } from '@/modules/system/useFocusReporter'
 import { useTrayIntent } from '@/modules/system/useTrayIntent'
 
 // Writes pathname+search to localStorage on every route change so the
@@ -39,6 +40,9 @@ function RootComponent() {
   // Mounted once at the app root so tray-click navigation works
   // regardless of which screen is in the Outlet.
   useTrayIntent()
+  // Reports focused-conversation state to bun. Drives notification
+  // suppression and unread clearing.
+  useFocusReporter()
   return (
     <AppShell>
       <LocationPersister />

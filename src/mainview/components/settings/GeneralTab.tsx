@@ -60,6 +60,36 @@ export function GeneralTab() {
       </section>
 
       <section className="flex flex-col gap-3">
+        <h2 className="font-medium text-sm">Notifications</h2>
+        <div className="divide-y divide-border rounded-lg border bg-card">
+          <SettingRow
+            label="Notify on agent activity"
+            description="Shows a macOS notification when an agent replies or needs an allow/deny decision in a chat that is not currently focused. Telegram chats are skipped."
+            checked={data.general.notifications.agentActivity}
+            onChange={(v) =>
+              mutate({ general: { notifications: { agentActivity: v } } })
+            }
+          />
+          <SettingRow
+            label="Notify when scheduled tasks complete"
+            description="Shows a macOS notification when a scheduled task finishes, whether it succeeded or failed."
+            checked={data.general.notifications.taskResults}
+            onChange={(v) =>
+              mutate({ general: { notifications: { taskResults: v } } })
+            }
+          />
+          <SettingRow
+            label="Notification sound"
+            description="Plays the macOS Glass sound on each notification. Turn off for silent toasts. macOS may prompt for notification permission the first time; allow under System Settings, Notifications, Herbie."
+            checked={data.general.notifications.sound}
+            onChange={(v) =>
+              mutate({ general: { notifications: { sound: v } } })
+            }
+          />
+        </div>
+      </section>
+
+      <section className="flex flex-col gap-3">
         <h2 className="font-medium text-sm">Conversation defaults</h2>
         <div className="rounded-lg border bg-card">
           <div className="flex flex-col gap-2 px-5 py-4">

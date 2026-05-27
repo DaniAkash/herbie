@@ -1,7 +1,10 @@
 import type { InferRequestType, InferResponseType } from 'hono/client'
 import { useEffect, useRef } from 'react'
 import { createMutation, createQuery } from 'react-query-kit'
-import { useConversations } from '@/modules/api/chat.hooks'
+import {
+  useConversations,
+  useMarkConversationSeen,
+} from '@/modules/api/chat.hooks'
 import { api } from '@/modules/api/client'
 import { parseResponse } from '@/modules/api/parseResponse'
 import { queryClient } from '@/modules/api/queryClient'
@@ -69,6 +72,8 @@ function writeCursor(id: string, seq: number): void {
 
 export function useChatLiveStream(conversationId: string | null): void {
   const lastSeqRef = useRef(-1)
+  const markSeen = useMarkConversationSeen()
+  const markSeenAsync = markSeen.mutateAsync
 
   useEffect(() => {
     if (!conversationId) return
@@ -91,11 +96,32 @@ export function useChatLiveStream(conversationId: string | null): void {
         if (ev.type.startsWith('turn.')) {
           queryClient.invalidateQueries({ queryKey: useConversations.getKey() })
         }
+        // Eagerly bump lastSeenAt when a turn-boundary event lands on
+        // a conversation the user is actively viewing. Without this
+        // the sidebar unread dot stays lit until the user navigates
+        // away and back, because mark-seen only fires on Chat mount.
+        // Gated to non-stream.* events because stream deltas fire
+        // dozens to hundreds of times per turn, and each markSeen
+        // POST invalidates the conversation list query — that's
+        // pure waste during streaming and meaningful bumps only
+        // happen at turn boundaries anyway.
+        if (
+          !ev.type.startsWith('stream.') &&
+          document.visibilityState === 'visible' &&
+          document.hasFocus() &&
+          isViewingChat(conversationId)
+        ) {
+          void markSeenAsync({ id: conversationId }).catch(() => undefined)
+        }
       },
     })
 
     return () => handle.close()
-  }, [conversationId])
+  }, [conversationId, markSeenAsync])
+}
+
+function isViewingChat(conversationId: string): boolean {
+  return window.location.pathname === `/chat/${conversationId}`
 }
 
 function appendEventToCache(

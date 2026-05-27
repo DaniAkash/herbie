@@ -11,6 +11,7 @@ import { getSessionManager } from './chat/sessionManager'
 import { setDb } from './db-singleton'
 import { fixMacOsPath } from './fix-macos-path'
 import { setLoginItem } from './loginItems'
+import { initNotificationDispatcher } from './notifications/dispatcher'
 import app from './server'
 import { recoverInterruptedRuns } from './tasks/recovery'
 import { getTaskScheduler } from './tasks/scheduler'
@@ -36,9 +37,7 @@ fixMacOsPath()
 const { db } = await initializeDatabase()
 setDb(db)
 
-// macOS-only for now — the menu definition assumes the NSResponder-chain
-// model. Win/Linux menus will need their own shape when those targets
-// actually ship; revisit this guard then.
+// macOS-only: the menu definition assumes the NSResponder-chain model.
 if (process.platform === 'darwin') setupApplicationMenu()
 
 const generalDefaults = { launchAtLogin: false, minimizeToMenubarOnClose: true }
@@ -87,6 +86,16 @@ await recoverInterruptedTurns(db)
 // the renderer doesn't render a phantom streaming message.
 await recoverInterruptedRuns(db)
 
+// Dispatcher must subscribe to chat + task event buses BEFORE any
+// producer fires; otherwise emit-then-listen drops boot catch-up
+// notifications. showMainWindow is hoisted; safe to close over here.
+initNotificationDispatcher({
+  navigateAndShow: (path) => {
+    setPendingIntent(path)
+    showMainWindow()
+  },
+})
+
 // Boot the task scheduler — registers a Cron job per active task and
 // applies the per-kind catch-up policy for runs missed while the app
 // was quit. Idempotent: stop() runs in the shutdown handler.
@@ -100,9 +109,7 @@ await taskScheduler.start()
 const telegramManager = getTelegramManager()
 await telegramManager.startAll()
 
-// idleTimeout: 0 disables Bun's per-connection 10s reaper. SSE chat streams
-// can sit idle for minutes during a long agent thinking pause; the default
-// would close them mid-turn.
+// idleTimeout: 0 keeps SSE chat streams alive during long thinking pauses.
 Bun.serve({
   port: API_PORT,
   hostname: '127.0.0.1',
@@ -174,9 +181,7 @@ function createMainWindow(): BrowserWindow {
   win.on('close', () => {
     mainWindow = null
     void readGeneralSettings().then((row) => {
-      if (row && row.minimizeToMenubarOnClose === false) {
-        Utils.quit()
-      }
+      if (row?.minimizeToMenubarOnClose === false) Utils.quit()
     })
   })
 
@@ -193,17 +198,11 @@ function showMainWindow(): void {
   }
 }
 
-// tray-clicked dispatches all menu interactions. Electrobun wraps
-// the FFI payload in an ElectrobunEvent, so the real `{ id, action,
-// data }` lives at `event.data`.
-//
-// Submenu parent items (e.g. "More ▶") get an empty action string
-// from Electrobun's menu serializer, so a click on them shows up
-// here as `action === ''`. macOS expands the submenu natively — we
-// must NOT show the window in that case or the menu collapses and
-// the user has no way to drill in. So: never show the window on an
-// unknown / empty action. Each navigable action shows the window
-// explicitly after stashing its pending intent.
+// tray-clicked dispatches all menu interactions. Electrobun wraps the
+// FFI payload in an ElectrobunEvent; the real `{ action, data }` is at
+// event.data. Submenu parents come through with action === '' so we
+// must NOT show the window then (it would collapse the open submenu).
+// Each navigable action calls showMainWindow explicitly.
 tray.on('tray-clicked', (event) => {
   const evt = event as {
     data?: { action?: string; data?: { id?: string } | null }
@@ -250,6 +249,12 @@ tray.on('tray-clicked', (event) => {
         showMainWindow()
       }
       return
+    case 'open-task':
+      if (data?.id) {
+        setPendingIntent(`/tasks/${data.id}`)
+        showMainWindow()
+      }
+      return
     default:
       // Empty action = submenu parent; section headers (`enabled:
       // false`) shouldn't fire at all but if they did, no-op too.
@@ -263,9 +268,8 @@ tray.on('tray-clicked', (event) => {
 await refreshTray(tray, db)
 initTrayBinding(tray, db)
 
-// 5s safety-net poll. Middleware + bridge refresh covers the common
-// paths; this catches state changes that bypass both (e.g. scheduled
-// task fires writing inbox rows directly from the run manager).
+// 5s safety-net poll for tray state changes that bypass middleware
+// and the telegram bridge (e.g. scheduled task runs writing inbox).
 const TRAY_REFRESH_INTERVAL_MS = 5000
 setInterval(() => {
   void refreshTray(tray, db).catch((err: unknown) => {
@@ -274,13 +278,10 @@ setInterval(() => {
   })
 }, TRAY_REFRESH_INTERVAL_MS)
 
-// Best-effort cleanup on quit. Electrobun's quit sequence emits this
-// synchronously and won't await async listeners, but acpx persists session
-// state to disk so a half-finished close still leaves resumable state for
-// the next launch via resumeSessionId.
-Electrobun.events.on('before-quit', () => {
-  void shutdown()
-})
+// before-quit fires synchronously and won't await async listeners.
+// acpx persists session state to disk so half-finished shutdowns
+// leave resumable state for next launch via resumeSessionId.
+Electrobun.events.on('before-quit', () => void shutdown())
 
 async function shutdown(): Promise<void> {
   // Stop all cron jobs so no in-flight fire interleaves with the

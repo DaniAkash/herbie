@@ -14,6 +14,7 @@ import { setLoginItem } from '../loginItems'
 import type { AgentCapability } from './settings.agent-capability.schema'
 import {
   DOMAINS,
+  type generalPatchSchema,
   PERMISSION_MODES,
   patchSchema,
   settingsSchema,
@@ -52,6 +53,11 @@ const SETTINGS_DEFAULTS: Settings = {
     launchAtLogin: false,
     minimizeToMenubarOnClose: true,
     defaultPermissionMode: 'auto-approve-reads',
+    notifications: {
+      agentActivity: true,
+      taskResults: true,
+      sound: true,
+    },
   },
   agents: { defaultAgent: 'claude', customAgents: [] },
   appearance: { theme: 'system' },
@@ -60,6 +66,20 @@ const SETTINGS_DEFAULTS: Settings = {
     agentCapabilities: {},
   },
   mcp: { servers: [] },
+}
+
+type GeneralPatch = z.infer<typeof generalPatchSchema>
+
+// `notifications` is nested; a shallow spread of {notifications:{sound:false}}
+// would blank the other toggles. Merge field-wise instead.
+function mergeGeneral(
+  current: Settings['general'],
+  patch: GeneralPatch,
+): Settings['general'] {
+  const mergedNotifications = patch.notifications
+    ? { ...current.notifications, ...patch.notifications }
+    : current.notifications
+  return { ...current, ...patch, notifications: mergedNotifications }
 }
 
 async function readAll(db: DbLike): Promise<Settings> {
@@ -200,10 +220,11 @@ export const settingsRoute = new Hono()
     const next = await getDb().transaction(async (tx) => {
       const current = await readAll(tx)
       if (patch.general) {
-        await writeDomain(tx, 'general', {
-          ...current.general,
-          ...patch.general,
-        })
+        await writeDomain(
+          tx,
+          'general',
+          mergeGeneral(current.general, patch.general),
+        )
       }
       if (patch.agents) {
         await writeDomain(tx, 'agents', {

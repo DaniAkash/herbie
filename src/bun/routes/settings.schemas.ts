@@ -16,10 +16,20 @@ export const PERMISSION_MODES = [
 ] as const
 export type PermissionMode = (typeof PERMISSION_MODES)[number]
 
+// Single toggle covers both turn.finish and permission.request system
+// notifications. The toast title and body differ but the user-facing
+// concept is the same: "something needs my attention in a chat".
+export const notificationsSchema = z.object({
+  agentActivity: z.boolean(),
+  taskResults: z.boolean(),
+  sound: z.boolean(),
+})
+
 export const generalSchema = z.object({
   launchAtLogin: z.boolean(),
   minimizeToMenubarOnClose: z.boolean(),
   defaultPermissionMode: z.enum(PERMISSION_MODES),
+  notifications: notificationsSchema,
 })
 
 export const appearanceSchema = z.object({
@@ -55,9 +65,16 @@ const composerPatchSchema = z.object({
   agentCapabilities: z.record(z.string(), agentCapabilitySchema).optional(),
 })
 
+// `general.notifications` is a nested object; `generalSchema.partial()`
+// only partials the top level. Override that one field so renderer can
+// PATCH a single notification toggle without blanking the others.
+export const generalPatchSchema = generalSchema
+  .partial()
+  .extend({ notifications: notificationsSchema.partial().optional() })
+
 export const patchSchema = z
   .object({
-    general: generalSchema.partial().optional(),
+    general: generalPatchSchema.optional(),
     agents: agentsSchema.partial().optional(),
     appearance: appearanceSchema.partial().optional(),
     composer: composerPatchSchema.optional(),
