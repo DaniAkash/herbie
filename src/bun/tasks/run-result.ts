@@ -3,6 +3,7 @@ import type { DB } from '../../db'
 import { taskRunEvents } from '../../db/schema/task-run-events.sql'
 import type { TaskRunOutputSource } from '../../db/schema/task-runs.sql'
 import { taskRuns } from '../../db/schema/task-runs.sql'
+import { emitTaskFinalized } from '../notifications/task-watch'
 
 // Pulls the assistant text out of a stream part — invoked per part by
 // TaskRunSession so we can persist a single concatenated `resultText`
@@ -86,4 +87,5 @@ export async function writeFinalRow(
     })
     .where(eq(taskRuns.id, runId))
     .run()
+  emitTaskFinalized({ runId, status: fields.status })
 }
