@@ -86,6 +86,16 @@ await recoverInterruptedTurns(db)
 // the renderer doesn't render a phantom streaming message.
 await recoverInterruptedRuns(db)
 
+// Dispatcher must subscribe to chat + task event buses BEFORE any
+// producer fires; otherwise emit-then-listen drops boot catch-up
+// notifications. showMainWindow is hoisted; safe to close over here.
+initNotificationDispatcher({
+  navigateAndShow: (path) => {
+    setPendingIntent(path)
+    showMainWindow()
+  },
+})
+
 // Boot the task scheduler — registers a Cron job per active task and
 // applies the per-kind catch-up policy for runs missed while the app
 // was quit. Idempotent: stop() runs in the shutdown handler.
@@ -99,9 +109,7 @@ await taskScheduler.start()
 const telegramManager = getTelegramManager()
 await telegramManager.startAll()
 
-// idleTimeout: 0 disables Bun's per-connection 10s reaper. SSE chat streams
-// can sit idle for minutes during a long agent thinking pause; the default
-// would close them mid-turn.
+// idleTimeout: 0 keeps SSE chat streams alive during long thinking pauses.
 Bun.serve({
   port: API_PORT,
   hostname: '127.0.0.1',
@@ -259,13 +267,6 @@ tray.on('tray-clicked', (event) => {
 // debounced rebuilds without threading the tray object around.
 await refreshTray(tray, db)
 initTrayBinding(tray, db)
-
-initNotificationDispatcher({
-  navigateAndShow: (path) => {
-    setPendingIntent(path)
-    showMainWindow()
-  },
-})
 
 // 5s safety-net poll for tray state changes that bypass middleware
 // and the telegram bridge (e.g. scheduled task runs writing inbox).
