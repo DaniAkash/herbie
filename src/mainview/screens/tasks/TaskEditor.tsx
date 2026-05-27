@@ -1,9 +1,10 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useNavigate } from '@tanstack/react-router'
-import { ArrowLeftIcon } from 'lucide-react'
+import { ArrowLeftIcon, OctagonAlertIcon } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { LinkButton } from '@/components/ui/link-button'
 import { useDefaultAgent } from '@/modules/api/settings.hooks'
 import {
@@ -205,6 +206,7 @@ function EditorBody({
           <div className="flex-1 overflow-y-auto">
             <div className="mx-auto max-w-2xl px-6 py-8">
               <TaskFormFields form={form} />
+              <FullPermissionsNotice />
             </div>
           </div>
           <EditorFooter
@@ -241,5 +243,19 @@ function EditorBody({
         />
       )}
     </div>
+  )
+}
+
+function FullPermissionsNotice() {
+  return (
+    <Alert className="mt-6 border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-500">
+      <OctagonAlertIcon />
+      <AlertTitle>Scheduled tasks run with full permissions</AlertTitle>
+      <AlertDescription className="text-amber-700/80 dark:text-amber-500/80">
+        There is no human in the loop while a scheduled run executes, so every
+        tool gate auto-approves. Only schedule prompts you trust to act on your
+        machine without supervision.
+      </AlertDescription>
+    </Alert>
   )
 }

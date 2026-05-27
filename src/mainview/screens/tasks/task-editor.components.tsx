@@ -254,11 +254,11 @@ export function EditorSidebar({
       modelId: v.modelId,
       workspacePath: v.workspacePath,
       reasoningEffort: v.reasoningEffort,
-      // Scheduled tasks force read-only at runtime (see
-      // src/bun/tasks/task-run-provider.ts). Stamp the same value on
-      // the draft so the sidebar's tuple display is accurate; this
-      // field is not editable from the task editor today.
-      permissionMode: 'read-only' as const,
+      // Scheduled tasks force allow-all at runtime so they can run
+      // unattended without getting stuck on permission gates. The
+      // editor surfaces an amber warning so the creator knows.
+      // This field is not user-editable.
+      permissionMode: 'allow-all' as const,
     },
   }
   if (taskId != null) {

@@ -44,15 +44,17 @@ export async function spinUpTaskRunProvider(
     workspacePath: args.tuple.workspacePath ?? undefined,
     sessionKey,
     mcpServers,
-    // Scheduled tasks run unattended — there's no human to click an
-    // approval card. `read-only` is the safest default: reads pass,
-    // writes / shell / delete auto-reject. A future per-task picker
-    // can let the user opt into broader trust for specific tasks.
-    permissionMode: 'read-only',
+    // Scheduled tasks run unattended with no human in the loop, so
+    // every gate auto-approves. A 'read-only' default looked safe but
+    // blanket-blocks the herbie__task_result delivery tool and any
+    // non-read MCP call, which silently breaks the task's ability to
+    // submit its output. The task creator already chose to schedule
+    // this prompt; the editor surfaces an amber warning so they know.
+    permissionMode: 'allow-all',
     // No-op emit + active-turn lookup: task runs use a separate
-    // task_run_events stream, not chat_events. `read-only` mode
-    // auto-decides every request so the callback never escalates
-    // and the no-op emit is never called.
+    // task_run_events stream, not chat_events. allow-all auto-decides
+    // every request so the callback never escalates and the no-op
+    // emit is never called.
     writeProtocolEvent: async () => {},
     getActiveTurnRequestId: () => null,
   })
