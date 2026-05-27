@@ -61,4 +61,16 @@ export function useFocusReporter(): void {
     lastReported.current = focusedConversationId
     mutate({ conversationId: focusedConversationId })
   }, [focusedConversationId, mutate])
+
+  // Heartbeat while focused. The bun side considers focus stale after
+  // 10s of no updates; without this loop a user reading a single chat
+  // for >10s would have notifications start firing as if blurred.
+  useEffect(() => {
+    if (focusedConversationId === null) return
+    const HEARTBEAT_MS = 5_000
+    const id = setInterval(() => {
+      mutate({ conversationId: focusedConversationId })
+    }, HEARTBEAT_MS)
+    return () => clearInterval(id)
+  }, [focusedConversationId, mutate])
 }
