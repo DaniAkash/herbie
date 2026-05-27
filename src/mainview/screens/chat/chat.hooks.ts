@@ -96,11 +96,17 @@ export function useChatLiveStream(conversationId: string | null): void {
         if (ev.type.startsWith('turn.')) {
           queryClient.invalidateQueries({ queryKey: useConversations.getKey() })
         }
-        // Eagerly bump lastSeenAt whenever an event lands on a
-        // conversation the user is actively viewing. Without this the
-        // sidebar unread dot stays lit until the user navigates away
-        // and back, because mark-seen only fires on Chat mount today.
+        // Eagerly bump lastSeenAt when a turn-boundary event lands on
+        // a conversation the user is actively viewing. Without this
+        // the sidebar unread dot stays lit until the user navigates
+        // away and back, because mark-seen only fires on Chat mount.
+        // Gated to non-stream.* events because stream deltas fire
+        // dozens to hundreds of times per turn, and each markSeen
+        // POST invalidates the conversation list query — that's
+        // pure waste during streaming and meaningful bumps only
+        // happen at turn boundaries anyway.
         if (
+          !ev.type.startsWith('stream.') &&
           document.visibilityState === 'visible' &&
           document.hasFocus() &&
           isViewingChat(conversationId)
