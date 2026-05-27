@@ -173,9 +173,7 @@ function createMainWindow(): BrowserWindow {
   win.on('close', () => {
     mainWindow = null
     void readGeneralSettings().then((row) => {
-      if (row && row.minimizeToMenubarOnClose === false) {
-        Utils.quit()
-      }
+      if (row?.minimizeToMenubarOnClose === false) Utils.quit()
     })
   })
 
@@ -243,6 +241,12 @@ tray.on('tray-clicked', (event) => {
         showMainWindow()
       }
       return
+    case 'open-task-run':
+      if (data?.id) {
+        setPendingIntent(`/tasks/${data.id}`)
+        showMainWindow()
+      }
+      return
     default:
       // Empty action = submenu parent; section headers (`enabled:
       // false`) shouldn't fire at all but if they did, no-op too.
@@ -263,9 +267,8 @@ initNotificationDispatcher({
   },
 })
 
-// 5s safety-net poll. Middleware + bridge refresh covers the common
-// paths; this catches state changes that bypass both (e.g. scheduled
-// task fires writing inbox rows directly from the run manager).
+// 5s safety-net poll for tray state changes that bypass middleware
+// and the telegram bridge (e.g. scheduled task runs writing inbox).
 const TRAY_REFRESH_INTERVAL_MS = 5000
 setInterval(() => {
   void refreshTray(tray, db).catch((err: unknown) => {
@@ -274,13 +277,10 @@ setInterval(() => {
   })
 }, TRAY_REFRESH_INTERVAL_MS)
 
-// Best-effort cleanup on quit. Electrobun's quit sequence emits this
-// synchronously and won't await async listeners, but acpx persists session
-// state to disk so a half-finished close still leaves resumable state for
-// the next launch via resumeSessionId.
-Electrobun.events.on('before-quit', () => {
-  void shutdown()
-})
+// before-quit fires synchronously and won't await async listeners.
+// acpx persists session state to disk so half-finished shutdowns
+// leave resumable state for next launch via resumeSessionId.
+Electrobun.events.on('before-quit', () => void shutdown())
 
 async function shutdown(): Promise<void> {
   // Stop all cron jobs so no in-flight fire interleaves with the

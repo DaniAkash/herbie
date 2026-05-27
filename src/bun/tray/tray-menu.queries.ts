@@ -1,10 +1,14 @@
-import { and, desc, eq, isNull, sql } from 'drizzle-orm'
+import { and, desc, eq, gte, isNull, sql } from 'drizzle-orm'
 import type { DB } from '../../db'
 import { chatEvents } from '../../db/schema/chat-events.sql'
 import { conversations } from '../../db/schema/conversations.sql'
 import { inboxItems } from '../../db/schema/inbox-items.sql'
+import { taskRuns } from '../../db/schema/task-runs.sql'
+import { tasks } from '../../db/schema/tasks.sql'
 import { telegramChats } from '../../db/schema/telegram-chats.sql'
 import { telegramConnections } from '../../db/schema/telegram-connections.sql'
+
+const TASK_TODAY_MS = 24 * 60 * 60 * 1000
 
 // Three independent reads + a count. Run in parallel so the tray
 // rebuild round-trip is a single Promise.all() at the call site.
@@ -136,14 +140,23 @@ export type ChatRow = {
   id: string
   title: string
   workspacePath: string | null
+  unread: boolean
 }
 
 export async function fetchRecentChats(db: DB): Promise<ChatRow[]> {
-  return db
+  const rows = await db
     .select({
       id: conversations.id,
       title: conversations.title,
       workspacePath: conversations.workspacePath,
+      lastSeenAt: conversations.lastSeenAt,
+      lastEventAt: sql<number | null>`(
+        SELECT ${chatEvents.createdAt}
+        FROM ${chatEvents}
+        WHERE ${chatEvents.conversationId} = ${conversations.id}
+        ORDER BY ${chatEvents.seq} DESC
+        LIMIT 1
+      )`,
     })
     .from(conversations)
     .where(
@@ -152,4 +165,55 @@ export async function fetchRecentChats(db: DB): Promise<ChatRow[]> {
     .orderBy(desc(conversations.updatedAt))
     .limit(TOTAL)
     .all()
+  return rows.map(({ id, title, workspacePath, lastSeenAt, lastEventAt }) => ({
+    id,
+    title,
+    workspacePath,
+    unread:
+      lastEventAt != null &&
+      (lastSeenAt == null || lastEventAt > lastSeenAt.getTime()),
+  }))
+}
+
+export async function countChatUnread(db: DB): Promise<number> {
+  const row = await db
+    .select({ n: sql<number>`COUNT(*)` })
+    .from(conversations)
+    .where(
+      and(
+        isNull(conversations.archivedAt),
+        sql`(
+          SELECT MAX(${chatEvents.createdAt})
+          FROM ${chatEvents}
+          WHERE ${chatEvents.conversationId} = ${conversations.id}
+        ) > COALESCE(${conversations.lastSeenAt}, 0)`,
+      ),
+    )
+    .get()
+  return Number(row?.n ?? 0)
+}
+
+export type TaskRunRow = {
+  runId: string
+  taskName: string
+  status: 'running' | 'completed' | 'cancelled' | 'error'
+  finishedAt: Date | null
+}
+
+export async function fetchRecentTaskRuns(db: DB): Promise<TaskRunRow[]> {
+  const cutoff = new Date(Date.now() - TASK_TODAY_MS)
+  const rows = await db
+    .select({
+      runId: taskRuns.id,
+      status: taskRuns.status,
+      finishedAt: taskRuns.finishedAt,
+      taskName: tasks.name,
+    })
+    .from(taskRuns)
+    .innerJoin(tasks, eq(tasks.id, taskRuns.taskId))
+    .where(gte(taskRuns.startedAt, cutoff))
+    .orderBy(desc(taskRuns.startedAt))
+    .limit(TOTAL)
+    .all()
+  return rows
 }

@@ -8,11 +8,14 @@ import {
 } from './tray-menu.format'
 import {
   type ChatRow,
+  countChatUnread,
   countInboxUnread,
   fetchRecentChats,
   fetchRecentInbox,
+  fetchRecentTaskRuns,
   fetchTelegramBots,
   type InboxRow,
+  type TaskRunRow,
   type TelegramBotRow,
   TOP_LIMIT,
 } from './tray-menu.queries'
@@ -42,26 +45,35 @@ type MenuConfig =
     }
 
 export async function refreshTray(tray: Tray, db: DB): Promise<void> {
-  const [inboxItemsList, inboxUnread, telegramBots, recentChats] =
-    await Promise.all([
-      fetchRecentInbox(db),
-      countInboxUnread(db),
-      fetchTelegramBots(db),
-      fetchRecentChats(db),
-    ])
+  const [
+    inboxItemsList,
+    inboxUnread,
+    telegramBots,
+    recentChats,
+    chatUnread,
+    recentTaskRuns,
+  ] = await Promise.all([
+    fetchRecentInbox(db),
+    countInboxUnread(db),
+    fetchTelegramBots(db),
+    fetchRecentChats(db),
+    countChatUnread(db),
+    fetchRecentTaskRuns(db),
+  ])
 
   const telegramUnreadTotal = telegramBots.reduce(
     (n, b) => n + b.unreadCount,
     0,
   )
 
-  tray.setTitle(formatBadge(inboxUnread + telegramUnreadTotal))
+  tray.setTitle(formatBadge(inboxUnread + telegramUnreadTotal + chatUnread))
   tray.setMenu(
     buildMenu({
       inboxItemsList,
       inboxUnread,
       telegramBots,
       recentChats,
+      recentTaskRuns,
     }),
   )
 }
@@ -71,11 +83,13 @@ function buildMenu(input: {
   inboxUnread: number
   telegramBots: TelegramBotRow[]
   recentChats: ChatRow[]
+  recentTaskRuns: TaskRunRow[]
 }): MenuConfig[] {
   const items: MenuConfig[] = []
   appendInboxSection(items, input.inboxItemsList, input.inboxUnread)
   appendTelegramSection(items, input.telegramBots)
   appendChatsSection(items, input.recentChats)
+  appendTasksSection(items, input.recentTaskRuns)
 
   // Quick actions are always present.
   items.push({ type: 'divider' })
@@ -207,13 +221,45 @@ function appendChatsSection(items: MenuConfig[], rows: ChatRow[]): void {
 }
 
 function chatItemMenu(row: ChatRow): MenuConfig {
+  const baseLabel = formatLabel(
+    row.title || 'Untitled',
+    basenameOrNull(row.workspacePath),
+  )
   return {
     type: 'normal',
-    label: formatLabel(
-      row.title || 'Untitled',
-      basenameOrNull(row.workspacePath),
-    ),
+    // Leading dot is visible in NSMenu via Unicode; the macOS menu
+    // renderer treats it as part of the label so we get a per-row
+    // unread indicator without an icon asset.
+    label: row.unread ? `• ${baseLabel}` : `  ${baseLabel}`,
     action: 'open-conversation',
     data: { id: row.id },
+  }
+}
+
+function appendTasksSection(items: MenuConfig[], rows: TaskRunRow[]): void {
+  if (rows.length === 0) return
+  items.push({ type: 'normal', label: 'Recent tasks', enabled: false })
+  for (const row of rows.slice(0, TOP_LIMIT)) items.push(taskRunMenu(row))
+  const more = rows.slice(TOP_LIMIT)
+  if (more.length > 0) {
+    const submenu: MenuConfig[] = more.map(taskRunMenu)
+    submenu.push({ type: 'divider' })
+    submenu.push({ type: 'normal', label: 'Open Tasks', action: 'open-tasks' })
+    items.push({ type: 'normal', label: 'More', submenu })
+  }
+}
+
+function taskRunMenu(row: TaskRunRow): MenuConfig {
+  const suffix =
+    row.status === 'error'
+      ? ' (failed)'
+      : row.status === 'completed'
+        ? ''
+        : ` (${row.status})`
+  return {
+    type: 'normal',
+    label: `${truncate(row.taskName, 45)}${suffix}`,
+    action: 'open-task-run',
+    data: { id: row.runId },
   }
 }
