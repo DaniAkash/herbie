@@ -52,6 +52,11 @@ const SETTINGS_DEFAULTS: Settings = {
     launchAtLogin: false,
     minimizeToMenubarOnClose: true,
     defaultPermissionMode: 'auto-approve-reads',
+    notifications: {
+      agentActivity: true,
+      taskResults: true,
+      sound: true,
+    },
   },
   agents: { defaultAgent: 'claude', customAgents: [] },
   appearance: { theme: 'system' },

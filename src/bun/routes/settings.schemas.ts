@@ -16,10 +16,20 @@ export const PERMISSION_MODES = [
 ] as const
 export type PermissionMode = (typeof PERMISSION_MODES)[number]
 
+// Single toggle covers both turn.finish and permission.request system
+// notifications. The toast title and body differ but the user-facing
+// concept is the same: "something needs my attention in a chat".
+export const notificationsSchema = z.object({
+  agentActivity: z.boolean(),
+  taskResults: z.boolean(),
+  sound: z.boolean(),
+})
+
 export const generalSchema = z.object({
   launchAtLogin: z.boolean(),
   minimizeToMenubarOnClose: z.boolean(),
   defaultPermissionMode: z.enum(PERMISSION_MODES),
+  notifications: notificationsSchema,
 })
 
 export const appearanceSchema = z.object({

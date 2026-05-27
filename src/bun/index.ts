@@ -11,6 +11,7 @@ import { getSessionManager } from './chat/sessionManager'
 import { setDb } from './db-singleton'
 import { fixMacOsPath } from './fix-macos-path'
 import { setLoginItem } from './loginItems'
+import { initNotificationDispatcher } from './notifications/dispatcher'
 import app from './server'
 import { recoverInterruptedRuns } from './tasks/recovery'
 import { getTaskScheduler } from './tasks/scheduler'
@@ -36,9 +37,7 @@ fixMacOsPath()
 const { db } = await initializeDatabase()
 setDb(db)
 
-// macOS-only for now — the menu definition assumes the NSResponder-chain
-// model. Win/Linux menus will need their own shape when those targets
-// actually ship; revisit this guard then.
+// macOS-only: the menu definition assumes the NSResponder-chain model.
 if (process.platform === 'darwin') setupApplicationMenu()
 
 const generalDefaults = { launchAtLogin: false, minimizeToMenubarOnClose: true }
@@ -193,17 +192,11 @@ function showMainWindow(): void {
   }
 }
 
-// tray-clicked dispatches all menu interactions. Electrobun wraps
-// the FFI payload in an ElectrobunEvent, so the real `{ id, action,
-// data }` lives at `event.data`.
-//
-// Submenu parent items (e.g. "More ▶") get an empty action string
-// from Electrobun's menu serializer, so a click on them shows up
-// here as `action === ''`. macOS expands the submenu natively — we
-// must NOT show the window in that case or the menu collapses and
-// the user has no way to drill in. So: never show the window on an
-// unknown / empty action. Each navigable action shows the window
-// explicitly after stashing its pending intent.
+// tray-clicked dispatches all menu interactions. Electrobun wraps the
+// FFI payload in an ElectrobunEvent; the real `{ action, data }` is at
+// event.data. Submenu parents come through with action === '' so we
+// must NOT show the window then (it would collapse the open submenu).
+// Each navigable action calls showMainWindow explicitly.
 tray.on('tray-clicked', (event) => {
   const evt = event as {
     data?: { action?: string; data?: { id?: string } | null }
@@ -262,6 +255,13 @@ tray.on('tray-clicked', (event) => {
 // debounced rebuilds without threading the tray object around.
 await refreshTray(tray, db)
 initTrayBinding(tray, db)
+
+initNotificationDispatcher({
+  navigateAndShow: (path) => {
+    setPendingIntent(path)
+    showMainWindow()
+  },
+})
 
 // 5s safety-net poll. Middleware + bridge refresh covers the common
 // paths; this catches state changes that bypass both (e.g. scheduled
