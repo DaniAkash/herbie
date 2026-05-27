@@ -3,6 +3,7 @@ import { chatEvents } from '../../db/schema/chat-events.sql'
 import { conversations } from '../../db/schema/conversations.sql'
 import { inboxItems } from '../../db/schema/inbox-items.sql'
 import { taskRuns } from '../../db/schema/task-runs.sql'
+import { tasks } from '../../db/schema/tasks.sql'
 import { getDisplayMeta } from '../agents/agent-display'
 import { getEventBus } from '../chat/eventBus'
 import type { PersistedEvent } from '../chat/events.types'
@@ -152,16 +153,21 @@ async function handleChatEvent(event: PersistedEvent): Promise<void> {
 async function handleTaskFinalized(event: TaskFinalizedEvent): Promise<void> {
   // biome-ignore lint/suspicious/noConsole: breadcrumb for diagnosing missing task toasts
   console.log('[notify] task-finalized received', event)
-  const run = await getDb()
-    .select()
+  const row = await getDb()
+    .select({
+      run: taskRuns,
+      taskName: tasks.name,
+    })
     .from(taskRuns)
+    .innerJoin(tasks, eq(tasks.id, taskRuns.taskId))
     .where(eq(taskRuns.id, event.runId))
     .get()
-  if (!run) {
+  if (!row) {
     // biome-ignore lint/suspicious/noConsole: breadcrumb
     console.log('[notify] task run row missing at fire time', event.runId)
     return
   }
+  const { run, taskName } = row
   const settings = await readSettings()
   if (!settings.general.notifications.taskResults) {
     // biome-ignore lint/suspicious/noConsole: breadcrumb
@@ -169,14 +175,23 @@ async function handleTaskFinalized(event: TaskFinalizedEvent): Promise<void> {
     return
   }
   const succeeded = event.status === 'completed'
-  const body = run.resultText
-    ? truncate(run.resultText, BODY_PREVIEW_CHARS)
-    : (run.errorMessage ?? '')
+  // Successful tool-delivery runs populate resultMarkdown and leave
+  // resultText null (output_source='tool'). Read both in priority
+  // order, fall back to the error string, and finally a stub so the
+  // notify call never lands on an empty message (node-notifier
+  // throws on empty body strings).
+  const preview =
+    run.resultMarkdown ?? run.resultText ?? run.errorMessage ?? null
+  const body = preview
+    ? truncate(preview, BODY_PREVIEW_CHARS)
+    : succeeded
+      ? 'Task completed.'
+      : 'Task failed.'
   const notificationId = `task:${run.id}`
   rememberClick(notificationId, { type: 'open-task', taskRunId: run.id })
   notify({
     id: notificationId,
-    title: `${run.taskId} ${succeeded ? 'done' : 'failed'}`,
+    title: `${taskName} ${succeeded ? 'done' : 'failed'}`,
     body,
     silent: !settings.general.notifications.sound,
     category: 'task',
