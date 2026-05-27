@@ -17,17 +17,25 @@ export interface NotifyArgs {
 }
 
 export function notify({ id, title, body, silent }: NotifyArgs): void {
-  notifier.notify({
-    title,
-    message: body,
-    sound: silent ? false : 'Glass',
-    sender: SENDER_BUNDLE_ID,
-    wait: false,
-    // node-notifier surfaces this back on the 'click' event so we can
-    // route to the right action without parsing title/body.
-    // biome-ignore lint/suspicious/noExplicitAny: terminal-notifier extras are loose
-    ...({ id } as any),
-  })
+  notifier.notify(
+    {
+      title,
+      message: body,
+      sound: silent ? false : 'Glass',
+      sender: SENDER_BUNDLE_ID,
+      wait: false,
+      // node-notifier surfaces this back on the 'click' event so we
+      // can route to the right action without parsing title/body.
+      // biome-ignore lint/suspicious/noExplicitAny: terminal-notifier extras are loose
+      ...({ id } as any),
+    },
+    (err) => {
+      if (err) {
+        // biome-ignore lint/suspicious/noConsole: surface terminal-notifier failures (perm denied, spawn failed)
+        console.error('[notify] terminal-notifier failed:', err)
+      }
+    },
+  )
 }
 
 type ClickHandler = (id: string) => void

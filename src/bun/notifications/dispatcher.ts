@@ -150,14 +150,24 @@ async function handleChatEvent(event: PersistedEvent): Promise<void> {
 }
 
 async function handleTaskFinalized(event: TaskFinalizedEvent): Promise<void> {
+  // biome-ignore lint/suspicious/noConsole: breadcrumb for diagnosing missing task toasts
+  console.log('[notify] task-finalized received', event)
   const run = await getDb()
     .select()
     .from(taskRuns)
     .where(eq(taskRuns.id, event.runId))
     .get()
-  if (!run) return
+  if (!run) {
+    // biome-ignore lint/suspicious/noConsole: breadcrumb
+    console.log('[notify] task run row missing at fire time', event.runId)
+    return
+  }
   const settings = await readSettings()
-  if (!settings.general.notifications.taskResults) return
+  if (!settings.general.notifications.taskResults) {
+    // biome-ignore lint/suspicious/noConsole: breadcrumb
+    console.log('[notify] taskResults toggle is off; skipping')
+    return
+  }
   const succeeded = event.status === 'completed'
   const body = run.resultText
     ? truncate(run.resultText, BODY_PREVIEW_CHARS)
