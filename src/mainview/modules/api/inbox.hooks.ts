@@ -14,9 +14,17 @@ export type InboxListResponse = InferResponseType<typeof $list>
 export type InboxItemDto = InboxListResponse[number]
 type PatchInput = { id: string } & InferRequestType<typeof $patch>['json']
 
+// Scheduled task runs create inbox rows server-side via the run
+// scheduler; there is no per-mutation invalidation trigger in the
+// renderer for those background writes. Poll every 5s while the
+// query is observed and refetch on window focus so a freshly
+// finished task appears without a manual reload. Matches the cadence
+// of the tray-refresh safety-net poll on the bun side.
 export const useInboxItems = createQuery<InboxListResponse>({
   queryKey: ['inbox', 'list'],
   fetcher: () => $list().then(parseResponse<InboxListResponse>),
+  refetchInterval: 5000,
+  refetchOnWindowFocus: true,
 })
 
 export const useUpdateInboxItem = createMutation<InboxItemDto, PatchInput>({
