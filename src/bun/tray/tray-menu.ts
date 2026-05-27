@@ -259,7 +259,10 @@ function taskRunMenu(row: TaskRunRow): MenuConfig {
   return {
     type: 'normal',
     label: `${truncate(row.taskName, 45)}${suffix}`,
-    action: 'open-task-run',
-    data: { id: row.runId },
+    // Click target chosen at render time: the inbox row is the row
+    // that carries the run's deliverable; fall back to the task
+    // editor for still-running rows where no inbox row exists yet.
+    action: row.inboxItemId ? 'open-inbox-item' : 'open-task',
+    data: { id: row.inboxItemId ?? row.taskId },
   }
 }

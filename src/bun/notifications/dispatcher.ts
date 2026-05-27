@@ -1,6 +1,7 @@
 import { desc, eq } from 'drizzle-orm'
 import { chatEvents } from '../../db/schema/chat-events.sql'
 import { conversations } from '../../db/schema/conversations.sql'
+import { inboxItems } from '../../db/schema/inbox-items.sql'
 import { taskRuns } from '../../db/schema/task-runs.sql'
 import { getDisplayMeta } from '../agents/agent-display'
 import { getEventBus } from '../chat/eventBus'
@@ -23,6 +24,9 @@ const CLICK_TTL_MS = 30 * 60 * 1000
 type ClickAction =
   | { type: 'open-chat'; conversationId: string }
   | { type: 'open-permission'; conversationId: string }
+  // taskRunId is what we know at notification fire time. The inbox row
+  // for this run is created by the scheduler right after writeFinalRow
+  // emits, so resolving runId -> inboxItemId happens at click time.
   | { type: 'open-task'; taskRunId: string }
 
 interface ClickEntry {
@@ -65,7 +69,7 @@ export function initNotificationDispatcher(deps: DispatcherDeps): void {
         deps.navigateAndShow(`/chat/${entry.action.conversationId}`)
         return
       case 'open-task':
-        deps.navigateAndShow(`/tasks/${entry.action.taskRunId}`)
+        void resolveAndOpenTask(entry.action.taskRunId, deps)
         return
     }
   })
@@ -209,4 +213,25 @@ let tokenCounter = 0
 function nowToken(): string {
   tokenCounter += 1
   return `${Date.now().toString(36)}-${tokenCounter.toString(36)}`
+}
+
+// The inbox row carries the actual deliverable for a scheduled run.
+// Scheduler creates it right after writeFinalRow emits, so by the time
+// the user clicks the toast (seconds to minutes later) the row exists.
+// Fall back to the tasks index if the lookup misses (e.g. the user
+// rapid-clicked the toast inside the few-ms write race).
+async function resolveAndOpenTask(
+  taskRunId: string,
+  deps: DispatcherDeps,
+): Promise<void> {
+  const row = await getDb()
+    .select({ id: inboxItems.id })
+    .from(inboxItems)
+    .where(eq(inboxItems.taskRunId, taskRunId))
+    .get()
+  if (row) {
+    deps.navigateAndShow(`/inbox/${row.id}`)
+    return
+  }
+  deps.navigateAndShow('/tasks')
 }

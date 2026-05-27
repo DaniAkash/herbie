@@ -241,7 +241,7 @@ tray.on('tray-clicked', (event) => {
         showMainWindow()
       }
       return
-    case 'open-task-run':
+    case 'open-task':
       if (data?.id) {
         setPendingIntent(`/tasks/${data.id}`)
         showMainWindow()

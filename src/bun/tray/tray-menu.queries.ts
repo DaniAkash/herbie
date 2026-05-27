@@ -1,4 +1,5 @@
 import { and, desc, eq, gte, isNull, sql } from 'drizzle-orm'
+import { alias } from 'drizzle-orm/sqlite-core'
 import type { DB } from '../../db'
 import { chatEvents } from '../../db/schema/chat-events.sql'
 import { conversations } from '../../db/schema/conversations.sql'
@@ -199,22 +200,31 @@ export async function countChatUnread(db: DB): Promise<number> {
 
 export type TaskRunRow = {
   runId: string
+  taskId: string
   taskName: string
   status: 'running' | 'completed' | 'cancelled' | 'error'
   finishedAt: Date | null
+  // The inbox row created by the scheduler after a run finalizes.
+  // Null while the run is still in flight or if the row creation
+  // raced behind this read.
+  inboxItemId: string | null
 }
 
 export async function fetchRecentTaskRuns(db: DB): Promise<TaskRunRow[]> {
   const cutoff = new Date(Date.now() - TASK_TODAY_MS)
+  const inbox = alias(inboxItems, 'inbox')
   const rows = await db
     .select({
       runId: taskRuns.id,
+      taskId: taskRuns.taskId,
       status: taskRuns.status,
       finishedAt: taskRuns.finishedAt,
       taskName: tasks.name,
+      inboxItemId: inbox.id,
     })
     .from(taskRuns)
     .innerJoin(tasks, eq(tasks.id, taskRuns.taskId))
+    .leftJoin(inbox, eq(inbox.taskRunId, taskRuns.id))
     .where(gte(taskRuns.startedAt, cutoff))
     .orderBy(desc(taskRuns.startedAt))
     .limit(TOTAL)
