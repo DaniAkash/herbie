@@ -176,11 +176,15 @@ export async function fetchRecentChats(db: DB): Promise<ChatRow[]> {
 }
 
 export async function countChatUnread(db: DB): Promise<number> {
+  // Scoped to origin='chat' to mirror fetchRecentChats. Telegram
+  // unread is counted separately via fetchTelegramBots; omitting
+  // this filter double-counts telegram convs in the tray badge.
   const row = await db
     .select({ n: sql<number>`COUNT(*)` })
     .from(conversations)
     .where(
       and(
+        eq(conversations.origin, 'chat'),
         isNull(conversations.archivedAt),
         sql`(
           SELECT MAX(${chatEvents.createdAt})
