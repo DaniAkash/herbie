@@ -248,7 +248,7 @@ export class ChatSession {
     let usage: LanguageModelUsage | undefined
     let finishReason: TurnFinishReason = 'unknown'
     try {
-      for await (const part of result.fullStream) {
+      for await (const part of result.stream) {
         await this.events.writeStreamEvent(part)
       }
       finishReason = (await result.finishReason) as TurnFinishReason
