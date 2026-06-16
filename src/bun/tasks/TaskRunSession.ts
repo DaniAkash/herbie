@@ -208,7 +208,7 @@ export class TaskRunSession {
         messages: [{ role: 'user', content: wrappedPrompt }],
         abortSignal: this.controller.signal,
       })
-      for await (const part of result.fullStream) {
+      for await (const part of result.stream) {
         await this.events.writeStreamEvent(part)
         this.captureAssistantText(part)
       }
