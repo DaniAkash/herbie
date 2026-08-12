@@ -38,7 +38,7 @@
     "acpx": "^0.8.0",
     "acpx-ai-provider": "^0.0.6",
     "agent-skills-manager": "0.0.1",
-    "ai": "7.0.0-beta.178",
+    "ai": "^7.0.62",
     "ansi-to-react": "^6.2.6",
     "chat": "4.27.0",
     "class-variance-authority": "^0.7.1",
