@@ -3,7 +3,7 @@ import { createAgentRegistry } from 'acpx/runtime'
 import { readSettings } from '../routes/settings'
 import { type AcpAgentDisplayMeta, getDisplayMeta } from './agent-display'
 import { probeNpxCache } from './npx-cache'
-import { AGENT_REGISTRY_OVERRIDES } from './registry'
+import { AGENT_REGISTRY_OVERRIDES, toArgv } from './registry'
 
 export type AcpInstallState = 'installed' | 'npx-available' | 'not-installed'
 
@@ -90,17 +90,17 @@ async function probeAgent(
   timeoutMs: number,
 ): Promise<AcpAgentDetection> {
   const overlay = getDisplayMeta(agentId)
-  let command: string
+  let argv: string[]
   try {
-    command = registry.resolve(agentId)
+    argv = toArgv(registry.resolve(agentId))
   } catch {
     return buildResult(agentId, overlay, 'not-installed', null, false)
   }
 
-  const parsed = parseSpawnCommand(command)
+  const parsed = parseSpawnCommand(argv)
 
   if (parsed.npxBased) {
-    const pkg = parseNpxPackageName(command)
+    const pkg = parseNpxPackageName(argv)
     const cached = pkg ? await npxProbe(pkg).catch(() => false) : false
     return buildResult(
       agentId,
@@ -214,21 +214,19 @@ interface ParsedSpawnCommand {
   bin: string
 }
 
-function parseSpawnCommand(command: string): ParsedSpawnCommand {
-  const tokens = command.trim().split(/\s+/)
-  const head = tokens[0] ?? ''
+function parseSpawnCommand(argv: readonly string[]): ParsedSpawnCommand {
+  const head = argv[0] ?? ''
   if (head === 'npx') return { npxBased: true, bin: head }
   return { npxBased: false, bin: head }
 }
 
-function parseNpxPackageName(command: string): string | null {
-  const tokens = command.trim().split(/\s+/)
-  if (tokens[0] !== 'npx') return null
-  const pkgIndex = tokens.findIndex(
+function parseNpxPackageName(argv: readonly string[]): string | null {
+  if (argv[0] !== 'npx') return null
+  const pkgIndex = argv.findIndex(
     (token, idx) => idx > 0 && !token.startsWith('-'),
   )
   if (pkgIndex < 0) return null
-  const raw = tokens[pkgIndex] ?? ''
+  const raw = argv[pkgIndex] ?? ''
   if (!raw) return null
   // Strip trailing `@<spec>` version pin; leading `@` of scoped names is at index 0.
   const lastAt = raw.lastIndexOf('@')

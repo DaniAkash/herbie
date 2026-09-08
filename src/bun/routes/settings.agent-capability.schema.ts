@@ -35,6 +35,11 @@ const promptCapabilitiesSchema = z.object({
 
 export const agentCapabilitySchema = z.object({
   models: z.array(probedModelSchema),
+  // Config key the model selector is actually registered under. Agents
+  // expose it under either the `model` or the `model_config` category,
+  // so `setConfigOption` has to be told which. Null when the agent
+  // advertises no selector; callers fall back to "model".
+  modelConfigId: z.string().min(1).nullable().optional(),
   reasoning: reasoningCapabilitySchema.nullable().optional(),
   // What the agent says it can accept in user-message content. Drives
   // the composer's attachment affordance + per-message validation.
@@ -50,15 +55,29 @@ export const agentCapabilitySchema = z.object({
   discoveredAt: z.number().int().nonnegative(),
   // Cache-shape version. Bumped when the normalisation in
   // `resultToCapability` changes in a way that would make stored rows
-  // misleading (e.g. switching the picker source from availableModels
-  // to configOptions.model.options). `capabilityIsFresh` treats any
-  // row without this field as legacy and forces a re-probe.
-  schemaVersion: z.literal(2).optional(),
+  // misleading. `capabilityIsFresh` treats any row below the current
+  // version as legacy and forces a re-probe. Version 3 exists because
+  // the probe now derives models from the settable selector: rows
+  // written before it can hold advertised-only ids that
+  // `setConfigOption` rejects, which strands a conversation on a model
+  // the agent will not honour.
+  schemaVersion: z.literal(3).optional(),
 })
 
-export const CAPABILITY_SCHEMA_VERSION = 2 as const
+export const CAPABILITY_SCHEMA_VERSION = 3 as const
 
 export type AgentProbedModel = z.infer<typeof probedModelSchema>
 export type AgentPromptCapabilities = z.infer<typeof promptCapabilitiesSchema>
 export type AgentReasoningCapability = z.infer<typeof reasoningCapabilitySchema>
 export type AgentCapability = z.infer<typeof agentCapabilitySchema>
+
+/**
+ * Config key to pass to `setConfigOption` when changing the model.
+ * Falls back to the historical literal for rows written before the
+ * selector key was probed, and for agents that advertise no selector.
+ */
+export function modelConfigKey(
+  cap: Pick<AgentCapability, 'modelConfigId'> | null | undefined,
+): string {
+  return cap?.modelConfigId ?? 'model'
+}

@@ -1,3 +1,4 @@
+import { splitArgv } from 'acp-probe'
 import { createAgentRegistry } from 'acpx/runtime'
 import { readSettings } from '../routes/settings'
 
@@ -14,15 +15,25 @@ const builtinRegistry = createAgentRegistry({
 })
 
 /**
- * Resolve an agent id (built-in or custom) to the command-line a
- * child process should run. Customs shadow built-ins on id collision,
- * matching detect.ts and acpxProvider's merge order.
+ * Resolve an agent id (built-in or custom) to the argv a child process
+ * should run. Customs shadow built-ins on id collision, matching
+ * detect.ts and acpxProvider's merge order.
  */
-export async function resolveAgentCommand(agentId: string): Promise<string> {
+export async function resolveAgentArgv(agentId: string): Promise<string[]> {
   const customs = await readCustomAgents()
   const custom = customs.find((c) => c.id === agentId)
-  if (custom) return custom.command
-  return builtinRegistry.resolve(agentId)
+  if (custom) return splitArgv(custom.command)
+  return toArgv(builtinRegistry.resolve(agentId))
+}
+
+/**
+ * Normalise a registry entry to argv. The registry hands back a
+ * pre-split array for agents whose launch needs exact argument
+ * boundaries and a plain string otherwise; re-splitting the array form
+ * would undo boundaries the registry deliberately set.
+ */
+export function toArgv(resolved: string | string[]): string[] {
+  return Array.isArray(resolved) ? [...resolved] : splitArgv(resolved)
 }
 
 /**

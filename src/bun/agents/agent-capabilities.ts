@@ -6,7 +6,7 @@ import {
   readAgentCapability,
 } from '../routes/settings'
 import { CAPABILITY_SCHEMA_VERSION } from '../routes/settings.agent-capability.schema'
-import { resolveAgentCommand } from './registry'
+import { resolveAgentArgv } from './registry'
 
 // Cached capabilities are considered stale when older than this window
 // OR when their stored shape predates a field we now need. The schema
@@ -30,13 +30,14 @@ async function discoverCapabilities(
   agentId: string,
   cwd: string,
 ): Promise<AgentCapability> {
-  // Resolve to the actual command first so a built-in agent and a
-  // custom one (Phase 2) go through the same `probeAgent({ command })`
-  // entry point. Keeps the probe side ignorant of where the mapping
-  // lives.
-  const command = await resolveAgentCommand(agentId)
+  // Resolve to argv first so a built-in agent and a custom one go
+  // through the same `probeAgent({ argv })` entry point. Keeps the
+  // probe side ignorant of where the mapping lives, and passing argv
+  // rather than a joined string means no quoting round-trip can lose
+  // an argument boundary the registry set deliberately.
+  const argv = await resolveAgentArgv(agentId)
   const result = await probeAgent({
-    command,
+    argv,
     cwd,
     // Surface authMethods but don't gate the probe — gemini and
     // others advertise auth methods but `session/new` works without
@@ -56,13 +57,11 @@ async function discoverCapabilities(
 }
 
 function resultToCapability(r: AgentProbeResult): AgentCapability {
-  // Source the picker's model list from `modelConfig.values` — the ids
-  // `setConfigOption('model', X)` will actually accept. The parallel
-  // `models[]` array is a *declarative* surface (`availableModels`); on
-  // some adapters (codex) it lists model+effort combinations that
-  // `setConfigOption` rejects, which silently breaks the next prompt.
-  // Reuse the rich name/description from `models[]` where the id
-  // overlaps so the picker still shows nice labels.
+  // Both `models[]` and `modelConfig.values` now describe the settable
+  // selector, so the ids here are exactly what `setConfigOption` will
+  // accept. Prefer `modelConfig.values` as the id source and reuse the
+  // richer name/description from `models[]` where an id overlaps, so
+  // the picker still shows readable labels.
   const richModels = new Map(r.models.map((m) => [m.id, m]))
   const modelIds = r.modelConfig?.values ?? r.models.map((m) => m.id)
   const models = modelIds.map((id) => {
@@ -75,6 +74,10 @@ function resultToCapability(r: AgentProbeResult): AgentCapability {
   })
   return {
     models,
+    // The selector's own key. Agents expose it under either the
+    // `model` or the `model_config` category, so it cannot be assumed
+    // to be the literal string "model" the way it once could.
+    modelConfigId: r.modelConfig?.configId ?? null,
     reasoning: r.reasoning
       ? {
           key: r.reasoning.configId,
