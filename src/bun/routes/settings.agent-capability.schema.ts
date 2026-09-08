@@ -55,13 +55,17 @@ export const agentCapabilitySchema = z.object({
   discoveredAt: z.number().int().nonnegative(),
   // Cache-shape version. Bumped when the normalisation in
   // `resultToCapability` changes in a way that would make stored rows
-  // misleading. `capabilityIsFresh` treats any row below the current
-  // version as legacy and forces a re-probe. Version 3 exists because
-  // the probe now derives models from the settable selector: rows
-  // written before it can hold advertised-only ids that
-  // `setConfigOption` rejects, which strands a conversation on a model
-  // the agent will not honour.
-  schemaVersion: z.literal(3).optional(),
+  // misleading. Version 3 exists because the probe now derives models
+  // from the settable selector: rows written before it can hold
+  // advertised-only ids that `setConfigOption` rejects, which strands a
+  // conversation on a model the agent will not honour.
+  //
+  // Deliberately any non-negative int rather than a literal. This
+  // schema validates persisted settings through an unguarded parse, so
+  // pinning it to the current version would make every row written by
+  // an older build throw on load instead of re-probing. Staleness is
+  // `capabilityIsFresh`'s job; this field only has to round-trip.
+  schemaVersion: z.number().int().nonnegative().optional(),
 })
 
 export const CAPABILITY_SCHEMA_VERSION = 3 as const
