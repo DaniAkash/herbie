@@ -9,6 +9,11 @@
 # Every version is held for 3 days after publication before Dependabot will
 # propose it, which matches the release-age floor used for local installs.
 #
+# The labels below have to already exist in the repository. Dependabot
+# applies labels but does not create them, and it drops any name it cannot
+# find without warning, so a renamed or deleted label silently produces
+# unlabelled PRs.
+#
 # Note there is no pull-request CI in this repo (the release workflow is
 # tag-triggered), so each of these PRs needs `bun install`, `bun run
 # typecheck`, `bun run lint`, and `bun run build` run locally before merge.
