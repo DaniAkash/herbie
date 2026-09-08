@@ -1,0 +1,100 @@
+# Weekly dependency PRs for the bun dependency tree and the GitHub Actions
+# workflows.
+#
+# Majors are opt-in only: routine PRs are limited to minor + patch, grouped
+# so the queue stays reviewable. Security updates are unaffected, because
+# `ignore` rules do not apply to them, so an advisory that requires a major
+# bump still gets its own PR.
+#
+# Every version is held for 3 days after publication before Dependabot will
+# propose it, which matches the release-age floor used for local installs.
+#
+# The labels below have to already exist in the repository. Dependabot
+# applies labels but does not create them, and it drops any name it cannot
+# find without warning, so a renamed or deleted label silently produces
+# unlabelled PRs.
+#
+# Note there is no pull-request CI in this repo (the release workflow is
+# tag-triggered), so each of these PRs needs `bun install`, `bun run
+# typecheck`, `bun run lint`, and `bun run build` run locally before merge.
+
+version: 2
+
+updates:
+  - package-ecosystem: "bun"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Kolkata"
+    open-pull-requests-limit: 10
+    cooldown:
+      default-days: 3
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
+      # Load-bearing pre-1.0 packages. Under the semver-0 convention a minor
+      # is the breaking channel, and a caret range on 0.x already pins the
+      # minor, so these bumps are adopted by hand alongside whatever code
+      # change they require. A new 0.x dependency of similar weight needs its
+      # own entry here, otherwise a breaking minor arrives labelled routine.
+      #
+      # acpx drives every agent process, and has changed the agent registry's
+      # resolve() return type across a minor before.
+      - dependency-name: "acpx"
+        update-types:
+          - "version-update:semver-minor"
+      # Ships the native binary that has to be bundled into the packaged app.
+      - dependency-name: "@libsql/client"
+        update-types:
+          - "version-update:semver-minor"
+      # Schema and migration layer; the two move together or not at all.
+      - dependency-name: "drizzle-orm"
+        update-types:
+          - "version-update:semver-minor"
+      - dependency-name: "drizzle-kit"
+        update-types:
+          - "version-update:semver-minor"
+      - dependency-name: "@hono/zod-validator"
+        update-types:
+          - "version-update:semver-minor"
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    labels:
+      - "dependencies"
+
+  # Actions used by release.yml. Lower cap than the bun tree since the
+  # surface is a single workflow file.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Kolkata"
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 3
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    commit-message:
+      prefix: "chore(ci)"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "github-actions"
