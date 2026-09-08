@@ -7,6 +7,7 @@ import {
   readSettings,
   removeRecentWorkspace,
 } from '../routes/settings'
+import { modelConfigKey } from '../routes/settings.agent-capability.schema'
 import { buildAcpxProvider } from './acpxProvider'
 import type { ProtocolEvent } from './events.types'
 import { type ChatTuple, tupleKey } from './tuple'
@@ -79,7 +80,13 @@ export async function bootstrapNewProvider(
   // means no turn.
   await provider.prepare()
 
+  const cap =
+    tuple.modelId || tuple.reasoningEffort
+      ? await readAgentCapability(db, tuple.agentId)
+      : null
+
   if (tuple.modelId) {
+    const modelKey = modelConfigKey(cap)
     try {
       // TODO(acpx#30): silently no-ops on gemini-cli. The adapter doesn't
       // implement `session/set_config_option`, so the call throws and the
@@ -87,10 +94,13 @@ export async function bootstrapNewProvider(
       // gemini stays on its default. Switch to `provider.setModel(...)`
       // once acpx-ai-provider exposes the dedicated `session/set_model`
       // path. https://github.com/DaniAkash/acpx/issues/30
-      await provider.setConfigOption('model', tuple.modelId)
+      await provider.setConfigOption(modelKey, tuple.modelId)
     } catch (err) {
       // biome-ignore lint/suspicious/noConsole: non-fatal — agent stays on its default model
-      console.warn('[provider-resolver] setConfigOption(model) failed:', err)
+      console.warn(
+        `[provider-resolver] setConfigOption(${modelKey}) failed:`,
+        err,
+      )
     }
   }
 
@@ -99,7 +109,6 @@ export async function bootstrapNewProvider(
     // The picker hides the control when the cap is missing, so a
     // reasoning value paired with a missing cap means a stale
     // conversation row — skip silently.
-    const cap = await readAgentCapability(db, tuple.agentId)
     const reasoningKey = cap?.reasoning?.key
     if (reasoningKey) {
       try {
@@ -129,9 +138,13 @@ export async function applyConfigDelta(
   oldTuple: ChatTuple,
   newTuple: ChatTuple,
 ): Promise<void> {
+  // Same-agent guarantee from providerKeyEqual: one capability lookup
+  // serves both deltas.
+  const cap = await readAgentCapability(db, newTuple.agentId)
+
   if (newTuple.modelId && newTuple.modelId !== oldTuple.modelId) {
     try {
-      await provider.setConfigOption('model', newTuple.modelId)
+      await provider.setConfigOption(modelConfigKey(cap), newTuple.modelId)
     } catch (err) {
       // biome-ignore lint/suspicious/noConsole: non-fatal — see bootstrapNewProvider
       console.warn('[provider-resolver] in-place model change failed:', err)
@@ -141,9 +154,6 @@ export async function applyConfigDelta(
     newTuple.reasoningEffort &&
     newTuple.reasoningEffort !== oldTuple.reasoningEffort
   ) {
-    // Same-agent guarantee from providerKeyEqual — capability lookup
-    // is identical for old and new tuples.
-    const cap = await readAgentCapability(db, newTuple.agentId)
     const reasoningKey = cap?.reasoning?.key
     if (reasoningKey) {
       try {

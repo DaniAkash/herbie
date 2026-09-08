@@ -3,6 +3,7 @@ import type { DB } from '../../db'
 import { API_BASE_URL } from '../api-port'
 import { buildAcpxProvider } from '../chat/acpxProvider'
 import { readAgentCapability } from '../routes/settings'
+import { modelConfigKey } from '../routes/settings.agent-capability.schema'
 import {
   getTaskResultCapture,
   type RegisteredCapture,
@@ -59,11 +60,14 @@ export async function spinUpTaskRunProvider(
     getActiveTurnRequestId: () => null,
   })
   await provider.prepare()
+  const cap =
+    args.tuple.modelId || args.tuple.reasoningEffort
+      ? await readAgentCapability(db, args.tuple.agentId)
+      : null
   if (args.tuple.modelId) {
-    await provider.setConfigOption('model', args.tuple.modelId)
+    await provider.setConfigOption(modelConfigKey(cap), args.tuple.modelId)
   }
   if (args.tuple.reasoningEffort) {
-    const cap = await readAgentCapability(db, args.tuple.agentId)
     const reasoningKey = cap?.reasoning?.key
     if (reasoningKey) {
       await provider.setConfigOption(reasoningKey, args.tuple.reasoningEffort)
