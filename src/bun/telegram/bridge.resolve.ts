@@ -15,6 +15,7 @@ import {
   ensureTelegramChatRow,
 } from './bridge.write'
 import { upsertActivePointer } from './commands.queries'
+import { decodeThreadId, findTopicByThread, recordTopic } from './topics'
 
 // chat-sdk's handler signatures give us Message<unknown>; the adapter
 // fills in TelegramMessage as the raw payload. Narrow at the boundary
@@ -38,6 +39,21 @@ export async function resolveConversationId(
 ): Promise<string | null> {
   const db = getDb()
   const telegramChatId = String(message.raw.chat.id)
+
+  // Topic routing comes first and is self-contained: when the message
+  // carries a topic, that topic alone decides the conversation. The
+  // bot kind, the active pointer and the slash commands all exist to
+  // work around having a single addressable conversation per chat, so
+  // none of them apply once the address is the topic itself.
+  const topicConversationId = await resolveByTopic(
+    db,
+    connection,
+    message,
+    telegramChatId,
+    firstText,
+    thread,
+  )
+  if (topicConversationId) return topicConversationId
 
   if (connection.kind === 'special_purpose') {
     return resolveSpecialPurpose(
@@ -203,4 +219,85 @@ async function resolveRemoteControl(
   )
   await upsertActivePointer(db, connection.id, telegramChatId, conversationId)
   return conversationId
+}
+
+/**
+ * Conversation addressed by the message's forum topic, or null when
+ * topic routing does not apply.
+ *
+ * Null covers three cases that all fall through to the pre-topics
+ * path: the connection has no topics, the adapter handed us a thread
+ * id we cannot decode, and the message arrived outside any topic.
+ * That last one matters because the General topic is where messages
+ * land in a chat whose topics were only just switched on, and
+ * stealing those would strand the conversation the user was already
+ * talking to.
+ */
+async function resolveByTopic(
+  db: DB,
+  connection: TelegramConnection,
+  message: TelegramMessageLike,
+  telegramChatId: string,
+  firstText: string,
+  thread: Thread,
+): Promise<string | null> {
+  if (!connection.topicsEnabled) return null
+
+  const decoded = decodeThreadId(thread.id)
+  if (!decoded || decoded.messageThreadId === null) return null
+
+  const existing = await findTopicByThread(db, connection.id, decoded)
+  if (existing) {
+    const conv = await db
+      .select()
+      .from(conversations)
+      .where(eq(conversations.id, existing.conversationId))
+      .get()
+    if (conv && !conv.archivedAt) return conv.id
+    if (conv?.archivedAt) {
+      await thread.post(
+        `⚠ "${conv.title}" is archived.\n` +
+          'Restore it from the desktop app to keep using this topic.',
+      )
+      return null
+    }
+    // The conversation is gone but the row survived. Fall through and
+    // adopt the topic again rather than dead-ending the message.
+  }
+
+  // A topic Herbie has never seen: the user created it on the phone.
+  // Adopt it as a new conversation, named after the topic when
+  // Telegram tells us the name.
+  const topicName = topicNameFromServiceMessage(message.raw)
+  const conversationId = await createTelegramConversation(
+    db,
+    connection,
+    message,
+    telegramChatId,
+    topicName ?? firstText,
+  )
+  await recordTopic(db, {
+    conversationId,
+    connectionId: connection.id,
+    telegramChatId,
+    messageThreadId: decoded.messageThreadId,
+    topicTitle: topicName ?? null,
+    syncState: 'live',
+  })
+  return conversationId
+}
+
+// Telegram announces a new topic with a `forum_topic_created` service
+// message, which the first user message in that topic replies to. The
+// adapter's TelegramMessage does not model the forum service
+// messages, so narrow structurally rather than widening its type.
+function topicNameFromServiceMessage(raw: object): string | null {
+  if (!('reply_to_message' in raw)) return null
+  const reply = raw.reply_to_message
+  if (typeof reply !== 'object' || reply === null) return null
+  if (!('forum_topic_created' in reply)) return null
+  const created = reply.forum_topic_created
+  if (typeof created !== 'object' || created === null) return null
+  if (!('name' in created)) return null
+  return typeof created.name === 'string' ? created.name : null
 }

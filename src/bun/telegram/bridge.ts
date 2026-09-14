@@ -1,7 +1,10 @@
 import type { Message, Thread } from 'chat'
 import { eq } from 'drizzle-orm'
 import { conversations } from '../../db/schema/conversations.sql'
-import type { TelegramConnection } from '../../db/schema/telegram-connections.sql'
+import {
+  type TelegramConnection,
+  telegramConnections,
+} from '../../db/schema/telegram-connections.sql'
 import { TurnInProgressError } from '../chat/ChatSession'
 import { getSessionManager } from '../chat/sessionManager'
 import { getDb } from '../db-singleton'
@@ -11,6 +14,7 @@ import {
   type TelegramMessageLike,
 } from './bridge.resolve'
 import { handleBotCommand } from './commands'
+import { applyLearnedFields } from './connection-learn'
 import { streamTurnToThread } from './forwarder'
 import { conversationTurnTuple } from './turn-tuple'
 
@@ -35,6 +39,17 @@ export async function handleIncomingTelegramMessage(
     return
   }
 
+  // Fold in what this message reveals about the connection (the DM's
+  // chat id, whether topics are on) before anything routes, so the
+  // very first message can already take the topic path.
+  await applyLearnedFields(getDb(), connection, message.raw)
+  const freshConnection =
+    (await getDb()
+      .select()
+      .from(telegramConnections)
+      .where(eq(telegramConnections.id, connection.id))
+      .get()) ?? connection
+
   // Bot-command interception: /help, /list, /switch, /new, /current,
   // /archive, /unarchive. Commands run before the AI turn pipeline so
   // a /new doesn't accidentally land as user text in the previous
@@ -52,7 +67,7 @@ export async function handleIncomingTelegramMessage(
   }
 
   const conversationId = await resolveConversationId(
-    connection,
+    freshConnection,
     message,
     text,
     thread,
