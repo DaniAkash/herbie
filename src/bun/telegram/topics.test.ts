@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { truncateTopicName } from './api'
+import { rateLimitDelayMs, TelegramApiError, truncateTopicName } from './api'
 import { isManagementCommand } from './commands.format'
 import { decodeThreadId } from './topics'
 
@@ -86,5 +86,33 @@ describe('isManagementCommand', () => {
 
   test('ignores ordinary text', () => {
     expect(isManagementCommand('list the files')).toBe(false)
+  })
+})
+
+describe('rateLimitDelayMs', () => {
+  function apiError(retryAfter?: string): TelegramApiError {
+    const headers = new Headers()
+    if (retryAfter !== undefined) headers.set('retry-after', retryAfter)
+    return new TelegramApiError(
+      'createForumTopic',
+      'Too Many Requests',
+      429,
+      new Response(null, { headers }),
+    )
+  }
+
+  // This is what separates "wait and try again" from "this will never
+  // work", and the backfill only pauses when it returns a number.
+  test('reports the wait Telegram asked for, in milliseconds', () => {
+    expect(rateLimitDelayMs(apiError('7'))).toBe(7000)
+  })
+
+  test('reports nothing when Telegram sent no retry-after', () => {
+    expect(rateLimitDelayMs(apiError())).toBeNull()
+  })
+
+  test('reports nothing for failures that are not from the Bot API', () => {
+    expect(rateLimitDelayMs(new Error('socket hang up'))).toBeNull()
+    expect(rateLimitDelayMs(null)).toBeNull()
   })
 })
