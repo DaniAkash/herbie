@@ -9,6 +9,7 @@ import { TurnInProgressError } from '../chat/ChatSession'
 import { getSessionManager } from '../chat/sessionManager'
 import { getDb } from '../db-singleton'
 import { getTrayBinding } from '../tray/binding'
+import { backfillTopics } from './backfill'
 import {
   resolveConversationId,
   type TelegramMessageLike,
@@ -51,6 +52,13 @@ export async function handleIncomingTelegramMessage(
       .from(telegramConnections)
       .where(eq(telegramConnections.id, connection.id))
       .get()) ?? connection
+
+  // The moment topics become usable, give every conversation one so the
+  // topic list matches the sidebar. Self-throttling and single-flight,
+  // so repeat messages during a long backfill are no-ops.
+  if (freshConnection.topicsEnabled && freshConnection.dmChatId) {
+    void backfillTopics(freshConnection)
+  }
 
   // Bot-command interception: /help, /list, /switch, /new, /current,
   // /archive, /unarchive. Commands run before the AI turn pipeline so

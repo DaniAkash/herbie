@@ -11,6 +11,7 @@ import { resolvePending as resolvePermission } from '../chat/permission-callback
 import { getSessionManager } from '../chat/sessionManager'
 import { getDb } from '../db-singleton'
 import { mirrorAppTurnToTelegram } from '../telegram/outbound'
+import { syncTopicDeleted, syncTopicTitle } from '../telegram/topic-sync'
 import { removeConversationAttachments } from './attachments'
 import { buildPatchUpdate } from './chat.patch-helpers'
 import {
@@ -145,6 +146,9 @@ export const chatRoute = new Hono()
     // so unlink the per-conversation directory explicitly before
     // dropping the conv row.
     await removeConversationAttachments(id)
+    // Before the row goes: the topic mapping cascades away with it and
+    // takes the thread id this needs.
+    await syncTopicDeleted(id)
     await getDb().delete(conversations).where(eq(conversations.id, id)).run()
     return c.json({ ok: true })
   })
@@ -169,6 +173,7 @@ export const chatRoute = new Hono()
       .set(buildPatchUpdate(body))
       .where(eq(conversations.id, id))
       .run()
+    if (body.title !== undefined) void syncTopicTitle(id, body.title)
     return c.json({ ok: true })
   })
   // Bumps lastSeenAt to "now" so the sidebar's unread badge clears.
