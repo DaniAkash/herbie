@@ -23,8 +23,11 @@ export function learnedConnectionFields(
   const patch: Partial<Pick<TelegramConnection, 'dmChatId' | 'topicsEnabled'>> =
     {}
 
+  // First private chat only. Rebinding on any later one would let a
+  // second person move topic creation to their chat and strand every
+  // mapping already pointing at the original.
   const chatId = privateChatId(raw)
-  if (chatId && connection.dmChatId !== chatId) patch.dmChatId = chatId
+  if (chatId && connection.dmChatId === null) patch.dmChatId = chatId
 
   if (!connection.topicsEnabled && chatHasTopics(raw)) {
     patch.topicsEnabled = true

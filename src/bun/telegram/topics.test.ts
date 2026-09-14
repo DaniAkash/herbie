@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { truncateTopicName } from './api'
+import { isManagementCommand } from './commands.format'
 import { decodeThreadId } from './topics'
 
 describe('decodeThreadId', () => {
@@ -64,5 +65,26 @@ describe('truncateTopicName', () => {
   test('counts astral characters as single characters', () => {
     const out = truncateTopicName('🙂'.repeat(200))
     expect([...out]).toHaveLength(128)
+  })
+})
+
+describe('isManagementCommand', () => {
+  test('recognises the pointer-based commands', () => {
+    for (const cmd of ['/new', '/list', '/switch 2', '/archive']) {
+      expect(isManagementCommand(cmd)).toBe(true)
+    }
+  })
+
+  test('tolerates the @botname suffix Telegram adds in groups', () => {
+    expect(isManagementCommand('/list@herbie_bot')).toBe(true)
+  })
+
+  // /help targets no conversation, so it stays usable inside a topic.
+  test('leaves /help alone', () => {
+    expect(isManagementCommand('/help')).toBe(false)
+  })
+
+  test('ignores ordinary text', () => {
+    expect(isManagementCommand('list the files')).toBe(false)
   })
 })

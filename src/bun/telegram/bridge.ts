@@ -14,8 +14,10 @@ import {
   type TelegramMessageLike,
 } from './bridge.resolve'
 import { handleBotCommand } from './commands'
+import { isManagementCommand } from './commands.format'
 import { applyLearnedFields } from './connection-learn'
 import { streamTurnToThread } from './forwarder'
+import { decodeThreadId } from './topics'
 import { conversationTurnTuple } from './turn-tuple'
 
 // One inbound Telegram message → one ChatSession turn → streamed reply
@@ -55,6 +57,19 @@ export async function handleIncomingTelegramMessage(
   // a /new doesn't accidentally land as user text in the previous
   // active conversation.
   const telegramChatId = String(message.raw.chat.id)
+  // The management commands all operate on the chat-level active
+  // pointer, which is not what addresses a conversation inside a
+  // topic. Rather than act on the wrong conversation, say so: topics
+  // make these commands unnecessary anyway, since the topic itself is
+  // the selection.
+  const inTopic = decodeThreadId(thread.id)?.messageThreadId != null
+  if (inTopic && isManagementCommand(text)) {
+    await thread.post(
+      'This topic is its own conversation, so there is nothing to switch. ' +
+        'Use the desktop app to create, rename or archive conversations.',
+    )
+    return
+  }
   const handled = await handleBotCommand(
     connection,
     thread,
