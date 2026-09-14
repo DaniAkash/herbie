@@ -125,6 +125,16 @@ export class TelegramApiError extends Error {
   }
 }
 
+/**
+ * How long Telegram asked us to wait, when the failure was a rate
+ * limit. Null for every other kind of failure, which is what
+ * separates "try again shortly" from "this will not work".
+ */
+export function rateLimitDelayMs(err: unknown): number | null {
+  if (!(err instanceof TelegramApiError)) return null
+  return err.retryAfter === undefined ? null : err.retryAfter * 1000
+}
+
 export async function createForumTopic(
   token: string,
   chatId: string,
@@ -185,7 +195,7 @@ export async function deleteForumTopic(
 
 // Telegram rejects topic names longer than 128 UTF-8 characters, and
 // conversation titles have no such limit.
-export const TOPIC_NAME_LIMIT = 128
+const TOPIC_NAME_LIMIT = 128
 
 export function truncateTopicName(name: string): string {
   const trimmed = name.trim() || 'Untitled'

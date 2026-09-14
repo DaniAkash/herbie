@@ -1,9 +1,9 @@
-import { and, asc, eq, isNull } from 'drizzle-orm'
+import { asc, eq, isNull } from 'drizzle-orm'
 import { conversations } from '../../db/schema/conversations.sql'
 import type { TelegramConnection } from '../../db/schema/telegram-connections.sql'
 import { telegramTopics } from '../../db/schema/telegram-topics.sql'
 import { getDb } from '../db-singleton'
-import { TelegramApiError } from './api'
+import { rateLimitDelayMs } from './api'
 import { ensureTopicForConversation } from './topics'
 
 // Telegram allows roughly 20 topic operations a minute per chat, and
@@ -62,7 +62,7 @@ export async function backfillTopics(
     let created = 0
     for (const [index, conv] of batch.entries()) {
       if (index > 0) await sleep(CREATE_INTERVAL_MS)
-      const topic = await ensureTopicForConversation(db, connection, conv.id)
+      const topic = await createHonouringBackoff(db, connection, conv.id)
       if (topic) created++
     }
 
@@ -80,32 +80,35 @@ export async function backfillTopics(
   }
 }
 
-/** Seconds Telegram asked us to wait, when it said so. */
-export function retryAfterMs(err: unknown): number | null {
-  if (!(err instanceof TelegramApiError)) return null
-  return err.retryAfter === undefined ? null : err.retryAfter * 1000
+/**
+ * Creates one topic, waiting out a rate limit and retrying the same
+ * conversation rather than skipping it.
+ *
+ * One retry only: if Telegram is still refusing after honouring its
+ * own requested delay, the batch has bigger problems than this row and
+ * pressing on would only deepen the limit.
+ */
+async function createHonouringBackoff(
+  db: ReturnType<typeof getDb>,
+  connection: TelegramConnection,
+  conversationId: string,
+): Promise<unknown> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      return await ensureTopicForConversation(db, connection, conversationId)
+    } catch (err) {
+      const wait = rateLimitDelayMs(err)
+      if (wait === null) throw err
+      // biome-ignore lint/suspicious/noConsole: a multi-second stall is worth explaining in the log
+      console.warn(
+        `[telegram:backfill] rate limited, waiting ${Math.round(wait / 1000)}s`,
+      )
+      await sleep(wait)
+    }
+  }
+  return null
 }
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
-/** Conversations that ought to have a topic but do not yet. */
-export async function countMissingTopics(): Promise<number> {
-  const db = getDb()
-  const rows = await db
-    .select({ id: conversations.id })
-    .from(conversations)
-    .leftJoin(
-      telegramTopics,
-      eq(telegramTopics.conversationId, conversations.id),
-    )
-    .where(
-      and(
-        isNull(conversations.archivedAt),
-        isNull(telegramTopics.conversationId),
-      ),
-    )
-    .all()
-  return rows.length
 }
