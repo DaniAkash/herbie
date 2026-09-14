@@ -185,7 +185,7 @@ export async function deleteForumTopic(
 
 // Telegram rejects topic names longer than 128 UTF-8 characters, and
 // conversation titles have no such limit.
-export const TOPIC_NAME_LIMIT = 128
+const TOPIC_NAME_LIMIT = 128
 
 export function truncateTopicName(name: string): string {
   const trimmed = name.trim() || 'Untitled'
