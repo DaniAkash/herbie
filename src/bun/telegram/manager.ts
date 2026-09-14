@@ -11,6 +11,7 @@ import {
 import { getDb } from '../db-singleton'
 import { decryptSecret } from '../security/secrets'
 import { setMyCommands, type TelegramBotCommand } from './api'
+import { APPROVE_ACTION, DENY_ACTION, resolveApproval } from './approvals'
 import { handleIncomingTelegramMessage } from './bridge'
 import { MemoryStateAdapter } from './state-adapter'
 
@@ -149,6 +150,18 @@ class TelegramManager {
     })
     chat.onSubscribedMessage(async (thread, message) => {
       await handleIncomingTelegramMessage(connection, thread, message)
+    })
+    // Approve / Deny taps on a permission card. The button carries the
+    // approval row id, which is the only thing that fits Telegram's
+    // 64-byte callback payload.
+    chat.onAction([APPROVE_ACTION, DENY_ACTION], async (event) => {
+      if (!event.value) return
+      const reply = await resolveApproval(
+        event.value,
+        event.actionId,
+        event.threadId,
+      )
+      await event.thread?.post(reply)
     })
 
     try {
