@@ -2,6 +2,11 @@ import type { Thread } from 'chat'
 import { getEventBus } from '../chat/eventBus'
 import type { PersistedEvent } from '../chat/events.types'
 import {
+  buildApprovalCard,
+  expireApprovals,
+  isPermissionRequest,
+} from './approvals'
+import {
   isTerminal,
   renderEvent,
   STREAM_BUDGET,
@@ -45,15 +50,15 @@ export interface TurnCapture {
  *
  * Subscribing after `appendUserMessage` loses whatever a fast provider
  * emits in between, and since nothing replays those events the stream
- * would then wait for a terminal event that already happened. Events
- * are buffered from this moment and filtered once the turn's id is
- * known.
+ * would then wait for a terminal event that already happened, or a
+ * permission card would never be offered. Events are buffered from
+ * this moment and filtered once the turn's id is known.
  */
 export function beginTurnCapture(
   conversationId: string,
   thread: Thread,
 ): TurnCapture {
-  const turn = collectTurn(conversationId)
+  const turn = collectTurn(conversationId, thread)
   return {
     abandon: () => turn.dispose(),
     bind: async (requestId: string) => {
@@ -68,6 +73,9 @@ export function beginTurnCapture(
         // delivery failure must not strand the caller.
       } finally {
         turn.dispose()
+        // Only this turn's cards. Expiring by conversation would cancel
+        // a request another turn is still waiting on.
+        await turn.expireOwnApprovals()
       }
     },
   }
@@ -75,6 +83,8 @@ export function beginTurnCapture(
 
 interface CollectedTurn {
   bind: (requestId: string) => void
+  /** Closes out only the approvals this turn offered. */
+  expireOwnApprovals: () => Promise<void>
   stream: () => AsyncIterable<string>
   /** Text that did not fit the streamed message, as postable chunks. */
   remainder: () => string[]
@@ -84,7 +94,7 @@ interface CollectedTurn {
 // Bridges the push-based event bus to the pull-based async iterable
 // `thread.post` consumes, buffering whatever arrives between pulls so a
 // fast agent cannot outrun the adapter's edit throttle and lose text.
-function collectTurn(conversationId: string): CollectedTurn {
+function collectTurn(conversationId: string, thread: Thread): CollectedTurn {
   const pending: string[] = []
   const tail: string[] = []
   let streamed = 0
@@ -95,6 +105,7 @@ function collectTurn(conversationId: string): CollectedTurn {
   // Events seen before the turn's id was known. Kept raw so they can be
   // filtered once it is.
   const early: PersistedEvent[] = []
+  const ownApprovals: string[] = []
 
   function add(text: string): void {
     // Once the first message is full every further delta belongs to a
@@ -111,6 +122,20 @@ function collectTurn(conversationId: string): CollectedTurn {
     wake = null
   }
 
+  function offerApproval(
+    payload: Parameters<typeof buildApprovalCard>[1],
+  ): void {
+    void buildApprovalCard(conversationId, payload)
+      .then(({ card, approvalId }) => {
+        ownApprovals.push(approvalId)
+        return thread.post(card)
+      })
+      .catch(() => {
+        // A card that cannot be delivered leaves the turn waiting on
+        // the desktop, which is the pre-existing behaviour.
+      })
+  }
+
   function accept(event: PersistedEvent): void {
     if (finished) return
     if (boundRequestId === null) {
@@ -120,17 +145,29 @@ function collectTurn(conversationId: string): CollectedTurn {
     if (!belongsToTurn(event, boundRequestId)) return
 
     if (isTerminal(event)) {
-      const notice = terminalNotice(event)
-      if (notice) add(notice)
-      finished = true
-      unsubscribe()
-      wake?.()
-      wake = null
+      closeOut(event)
+      return
+    }
+
+    // Permission cards are posted as they arrive rather than folded
+    // into the stream: they are interactive, and a card buried inside a
+    // growing message would be edited away by the next delta.
+    if (isPermissionRequest(event.type, event.payload)) {
+      offerApproval(event.payload)
       return
     }
 
     const text = renderEvent(event)
     if (text) add(text)
+  }
+
+  function closeOut(event: PersistedEvent): void {
+    const notice = terminalNotice(event)
+    if (notice) add(notice)
+    finished = true
+    unsubscribe()
+    wake?.()
+    wake = null
   }
 
   const unsubscribe = getEventBus().subscribe(conversationId, accept)
@@ -154,6 +191,7 @@ function collectTurn(conversationId: string): CollectedTurn {
         })
       }
     },
+    expireOwnApprovals: () => expireApprovals(ownApprovals),
     remainder: () => (tail.length === 0 ? [] : splitForTelegram(tail.join(''))),
     dispose: () => {
       if (finished) return
