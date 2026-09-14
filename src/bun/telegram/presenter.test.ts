@@ -27,17 +27,27 @@ describe('splitForTelegram', () => {
     }
   })
 
-  test('loses no content when splitting', () => {
-    const text = `${'a'.repeat(5000)}\n\n${'b'.repeat(5000)}`
-    const joined = splitForTelegram(text).join('').replace(/\s/g, '')
-    expect(joined).toBe(text.replace(/\s/g, ''))
+  // Comparing with whitespace stripped would hide exactly the bug this
+  // guards against: trimming each chunk eats indentation in code blocks
+  // and list continuations.
+  test('reproduces the input exactly when the chunks are concatenated', () => {
+    const text = `${'a'.repeat(5000)}\n    indented continuation\n${'b'.repeat(2000)}`
+    expect(splitForTelegram(text).join('')).toBe(text)
+  })
+
+  test('preserves indentation across a boundary', () => {
+    const body = `${'a'.repeat(4000)}\n        deeply indented\n${'b'.repeat(500)}`
+    expect(splitForTelegram(body).join('')).toBe(body)
   })
 
   test('prefers a paragraph boundary over a hard cut', () => {
     const head = 'a'.repeat(4000)
     const tail = 'b'.repeat(2000)
     const [first] = splitForTelegram(`${head}\n\n${tail}`)
-    expect(first).toBe(head)
+    // Breaks at the blank line, so the whole paragraph stays together
+    // and none of the next one leaks in.
+    expect(first?.startsWith(head)).toBe(true)
+    expect(first).not.toContain('b')
   })
 })
 

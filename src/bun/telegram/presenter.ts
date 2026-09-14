@@ -29,8 +29,13 @@ export function splitForTelegram(text: string): string[] {
     // No usable boundary means a single very long line; a hard cut is
     // the only option left.
     const cut = at > SPLIT_AT / 2 ? at : SPLIT_AT
-    chunks.push(rest.slice(0, cut).trimEnd())
-    rest = rest.slice(cut).trimStart()
+    // Pure slicing, so concatenating the chunks reproduces the input
+    // exactly. Trimming here would eat indentation in code blocks and
+    // list continuations, and dropping the boundary newline would make
+    // the split lossy for no real gain: Telegram does not render a
+    // leading newline anyway.
+    chunks.push(rest.slice(0, cut))
+    rest = rest.slice(cut)
   }
   if (rest.length > 0) chunks.push(rest)
   return chunks
