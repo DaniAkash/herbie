@@ -1,7 +1,10 @@
 import type { Message, Thread } from 'chat'
 import { eq } from 'drizzle-orm'
 import { conversations } from '../../db/schema/conversations.sql'
-import type { TelegramConnection } from '../../db/schema/telegram-connections.sql'
+import {
+  type TelegramConnection,
+  telegramConnections,
+} from '../../db/schema/telegram-connections.sql'
 import { TurnInProgressError } from '../chat/ChatSession'
 import { getSessionManager } from '../chat/sessionManager'
 import { getDb } from '../db-singleton'
@@ -11,7 +14,10 @@ import {
   type TelegramMessageLike,
 } from './bridge.resolve'
 import { handleBotCommand } from './commands'
+import { isManagementCommand } from './commands.format'
+import { applyLearnedFields } from './connection-learn'
 import { streamTurnToThread } from './forwarder'
+import { decodeThreadId } from './topics'
 import { conversationTurnTuple } from './turn-tuple'
 
 // One inbound Telegram message → one ChatSession turn → streamed reply
@@ -35,11 +41,35 @@ export async function handleIncomingTelegramMessage(
     return
   }
 
+  // Fold in what this message reveals about the connection (the DM's
+  // chat id, whether topics are on) before anything routes, so the
+  // very first message can already take the topic path.
+  await applyLearnedFields(getDb(), connection, message.raw)
+  const freshConnection =
+    (await getDb()
+      .select()
+      .from(telegramConnections)
+      .where(eq(telegramConnections.id, connection.id))
+      .get()) ?? connection
+
   // Bot-command interception: /help, /list, /switch, /new, /current,
   // /archive, /unarchive. Commands run before the AI turn pipeline so
   // a /new doesn't accidentally land as user text in the previous
   // active conversation.
   const telegramChatId = String(message.raw.chat.id)
+  // The management commands all operate on the chat-level active
+  // pointer, which is not what addresses a conversation inside a
+  // topic. Rather than act on the wrong conversation, say so: topics
+  // make these commands unnecessary anyway, since the topic itself is
+  // the selection.
+  const inTopic = decodeThreadId(thread.id)?.messageThreadId != null
+  if (inTopic && isManagementCommand(text)) {
+    await thread.post(
+      'This topic is its own conversation, so there is nothing to switch. ' +
+        'Use the desktop app to create, rename or archive conversations.',
+    )
+    return
+  }
   const handled = await handleBotCommand(
     connection,
     thread,
@@ -52,7 +82,7 @@ export async function handleIncomingTelegramMessage(
   }
 
   const conversationId = await resolveConversationId(
-    connection,
+    freshConnection,
     message,
     text,
     thread,

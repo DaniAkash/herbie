@@ -93,11 +93,19 @@ class TelegramManager {
   // Returns a Thread handle for posting outside the inbound handler
   // flow (e.g. mirroring app-typed user messages back to Telegram).
   // Null when the bot for that connection isn't running.
-  getThread(connectionId: string, telegramChatId: string): Thread | null {
+  // messageThreadId addresses a forum topic. Omitting it posts to the
+  // chat's General topic, which for a topic-backed conversation is the
+  // wrong place entirely.
+  getThread(
+    connectionId: string,
+    telegramChatId: string,
+    messageThreadId?: number | null,
+  ): Thread | null {
     const running = this.bots.get(connectionId)
     if (!running) return null
     const threadId = running.adapter.encodeThreadId({
       chatId: telegramChatId,
+      messageThreadId: messageThreadId ?? undefined,
     })
     return running.chat.thread(threadId)
   }
