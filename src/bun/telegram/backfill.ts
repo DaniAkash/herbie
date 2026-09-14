@@ -18,7 +18,9 @@ const CREATE_INTERVAL_MS = 3_500
 // closes.
 const TOPIC_BUDGET = 900
 
-let running = false
+// Keyed by connection: two connections are independent, and a shared
+// flag meant a long backfill on one silently skipped the other.
+const running = new Set<string>()
 
 /**
  * Gives every conversation that lacks one a topic.
@@ -30,12 +32,12 @@ let running = false
 export async function backfillTopics(
   connection: TelegramConnection,
 ): Promise<{ created: number; skipped: number }> {
-  if (running) return { created: 0, skipped: 0 }
+  if (running.has(connection.id)) return { created: 0, skipped: 0 }
   if (!connection.topicsEnabled || !connection.dmChatId) {
     return { created: 0, skipped: 0 }
   }
 
-  running = true
+  running.add(connection.id)
   try {
     const db = getDb()
     const existing = await db
@@ -74,7 +76,7 @@ export async function backfillTopics(
     }
     return { created, skipped }
   } finally {
-    running = false
+    running.delete(connection.id)
   }
 }
 

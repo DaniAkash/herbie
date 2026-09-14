@@ -11,7 +11,11 @@ import { resolvePending as resolvePermission } from '../chat/permission-callback
 import { getSessionManager } from '../chat/sessionManager'
 import { getDb } from '../db-singleton'
 import { mirrorAppTurnToTelegram } from '../telegram/outbound'
-import { syncTopicDeleted, syncTopicTitle } from '../telegram/topic-sync'
+import {
+  captureTopicForDeletion,
+  syncTopicDeleted,
+  syncTopicTitle,
+} from '../telegram/topic-sync'
 import { removeConversationAttachments } from './attachments'
 import { buildPatchUpdate } from './chat.patch-helpers'
 import {
@@ -146,10 +150,12 @@ export const chatRoute = new Hono()
     // so unlink the per-conversation directory explicitly before
     // dropping the conv row.
     await removeConversationAttachments(id)
-    // Before the row goes: the topic mapping cascades away with it and
-    // takes the thread id this needs.
-    await syncTopicDeleted(id)
+    // Read before the row goes, since the topic mapping cascades away
+    // with it. The Telegram call itself happens after the local delete
+    // so a slow reply never holds up the user's request.
+    const captured = await captureTopicForDeletion(id)
     await getDb().delete(conversations).where(eq(conversations.id, id)).run()
+    void syncTopicDeleted(captured)
     return c.json({ ok: true })
   })
   // Rename / pin / tuple update. Telegram-origin conversations are

@@ -30,7 +30,21 @@ interface ResolvedTopic {
   topicTitle: string | null
 }
 
+// Returns null rather than throwing: callers invoke these with `void`,
+// so a decrypt or database failure here would surface as an unhandled
+// rejection instead of the sidebar's error state.
 async function resolveTopic(
+  conversationId: string,
+): Promise<ResolvedTopic | null> {
+  try {
+    return await readTopic(conversationId)
+  } catch (err) {
+    await markTopicError(getDb(), conversationId, err).catch(() => {})
+    return null
+  }
+}
+
+async function readTopic(
   conversationId: string,
 ): Promise<ResolvedTopic | null> {
   const db = getDb()
@@ -119,27 +133,44 @@ export async function syncTopicArchived(
 }
 
 /**
- * Removes the topic for a conversation being deleted.
+ * Captures what is needed to remove a conversation's topic.
+ *
+ * The topic row cascades away with the conversation, taking the thread
+ * id with it, so this has to run first. It deliberately does no
+ * network work: the caller is serving a user's delete and should not
+ * wait on Telegram to answer.
+ */
+export async function captureTopicForDeletion(
+  conversationId: string,
+): Promise<ResolvedTopic | null> {
+  return await resolveTopic(conversationId)
+}
+
+/**
+ * Removes a topic whose conversation has been deleted.
  *
  * Deleting is the only operation that destroys Telegram-side history,
- * which is why archiving closes instead. It is also the only one that
- * returns quota against the per-chat topic ceiling.
- *
- * Must be called before the conversation row goes, since the topic row
- * cascades away with it and takes the thread id needed to make the
- * call.
+ * which is why archiving closes instead, and the only one that returns
+ * quota against the per-chat topic ceiling. A failure here leaves an
+ * orphaned topic that no longer has a row to record the error against,
+ * so it is logged rather than swallowed.
  */
-export async function syncTopicDeleted(conversationId: string): Promise<void> {
-  const resolved = await resolveTopic(conversationId)
-  if (!resolved) return
+export async function syncTopicDeleted(
+  captured: ResolvedTopic | null,
+): Promise<void> {
+  if (!captured) return
   try {
     await deleteForumTopic(
-      resolved.token,
-      resolved.chatId,
-      resolved.messageThreadId,
+      captured.token,
+      captured.chatId,
+      captured.messageThreadId,
     )
-  } catch {
-    // The conversation is going away regardless. A leftover topic is
-    // untidy; blocking the delete on Telegram would be worse.
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    // biome-ignore lint/suspicious/noConsole: the conversation is gone, so there is no row left to surface this on
+    console.error(
+      `[telegram:topic-sync] topic ${captured.messageThreadId} in chat ${captured.chatId} ` +
+        `was left behind and still holds a topic slot: ${message}`,
+    )
   }
 }
