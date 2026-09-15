@@ -30,6 +30,10 @@ function serializeConnection(row: TelegramConnection) {
     modelId: row.modelId,
     workspacePath: row.workspacePath,
     reasoningEffort: row.reasoningEffort,
+    // Both are learned from inbound traffic, and together they say
+    // whether this bot can address conversations by topic yet.
+    topicsEnabled: row.topicsEnabled,
+    dmChatId: row.dmChatId,
     status: row.status,
     lastError: row.lastError,
     createdAt: row.createdAt.getTime(),

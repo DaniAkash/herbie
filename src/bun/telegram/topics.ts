@@ -180,3 +180,26 @@ export async function ensureTopicForConversation(
     return null
   }
 }
+
+/**
+ * The topic a message should route to, or null when topic routing does
+ * not apply to it.
+ *
+ * Gated on capability rather than on the connection's kind. A
+ * special-purpose bot is contracted to one conversation because its
+ * chat has one address; topics give the chat many, so with them on the
+ * contract is met a better way and with them off nothing changes.
+ *
+ * The General topic is excluded deliberately. It is where messages
+ * land in a chat whose topics were only just switched on, and claiming
+ * those would strand the conversation already in use.
+ */
+export function topicRouteFor(
+  connection: Pick<TelegramConnection, 'topicsEnabled'>,
+  threadId: string,
+): DecodedThreadId | null {
+  if (!connection.topicsEnabled) return null
+  const decoded = decodeThreadId(threadId)
+  if (!decoded || decoded.messageThreadId === null) return null
+  return decoded
+}
