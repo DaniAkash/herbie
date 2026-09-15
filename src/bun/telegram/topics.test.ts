@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { rateLimitDelayMs, TelegramApiError, truncateTopicName } from './api'
 import { isManagementCommand } from './commands.format'
-import { decodeThreadId } from './topics'
+import { decodeThreadId, topicRouteFor } from './topics'
 
 describe('decodeThreadId', () => {
   test('reads a topic id off a threaded chat', () => {
@@ -114,5 +114,35 @@ describe('rateLimitDelayMs', () => {
   test('reports nothing for failures that are not from the Bot API', () => {
     expect(rateLimitDelayMs(new Error('socket hang up'))).toBeNull()
     expect(rateLimitDelayMs(null)).toBeNull()
+  })
+})
+
+describe('topicRouteFor', () => {
+  const withTopics = { topicsEnabled: true }
+  const withoutTopics = { topicsEnabled: false }
+
+  // The regression this exists to prevent. Gating on the connection's
+  // kind meant an existing special-purpose bot could never reach the
+  // feature, and kind cannot be changed after creation.
+  test('routes by topic for any connection that has topics on', () => {
+    expect(topicRouteFor(withTopics, 'telegram:42:7')).toEqual({
+      telegramChatId: '42',
+      messageThreadId: 7,
+    })
+  })
+
+  test('declines when the chat has no topics, leaving the old path', () => {
+    expect(topicRouteFor(withoutTopics, 'telegram:42:7')).toBeNull()
+  })
+
+  // The General topic is where messages land in a chat whose topics
+  // were only just switched on; claiming it would steal the
+  // conversation already in use.
+  test('declines a message that arrived outside any topic', () => {
+    expect(topicRouteFor(withTopics, 'telegram:42')).toBeNull()
+  })
+
+  test('declines a thread id from another adapter', () => {
+    expect(topicRouteFor(withTopics, 'discord:42:7')).toBeNull()
   })
 })
