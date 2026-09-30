@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./icon.iconset/icon_256x256.png" width="128" alt="Herbie" />
+  <img src="https://raw.githubusercontent.com/DaniAkash/herbie/main/assets/herbie-icon.svg" width="128" alt="Herbie" />
 
   # Herbie
 
