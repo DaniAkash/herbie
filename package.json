@@ -10,6 +10,7 @@
     "hmr": "vite --port 5173",
     "lint": "biome check",
     "typecheck": "tsc --noEmit",
+    "test": "bun test",
     "lint:fix": "biome check --write --unsafe",
     "build:release": "vite build && electrobun build --env=stable",
     "fallow": "fallow check",

@@ -1,8 +1,10 @@
 import type { Message, Thread } from 'chat'
+import { eq } from 'drizzle-orm'
+import { conversations } from '../../db/schema/conversations.sql'
 import type { TelegramConnection } from '../../db/schema/telegram-connections.sql'
 import { TurnInProgressError } from '../chat/ChatSession'
 import { getSessionManager } from '../chat/sessionManager'
-import type { ChatTuple } from '../chat/tuple'
+import { getDb } from '../db-singleton'
 import { getTrayBinding } from '../tray/binding'
 import {
   resolveConversationId,
@@ -10,6 +12,7 @@ import {
 } from './bridge.resolve'
 import { handleBotCommand } from './commands'
 import { streamTurnToThread } from './forwarder'
+import { conversationTurnTuple } from './turn-tuple'
 
 // One inbound Telegram message → one ChatSession turn → streamed reply
 // back to the Telegram thread. The bridge owns conversation/mapping
@@ -64,7 +67,7 @@ export async function handleIncomingTelegramMessage(
   // even starts streaming. (The Hono middleware can't see this path
   // — chat-sdk's handlers run outside the request cycle.)
   getTrayBinding().refresh()
-  const requestId = await startTurn(connection, conversationId, text, thread)
+  const requestId = await startTurn(conversationId, text, thread)
   if (!requestId) return
   await streamTurnToThread(conversationId, requestId, thread)
   // Second refresh after the turn settles so unread counts update.
@@ -72,18 +75,22 @@ export async function handleIncomingTelegramMessage(
 }
 
 async function startTurn(
-  connection: TelegramConnection,
   conversationId: string,
   text: string,
   thread: Thread,
 ): Promise<string | null> {
-  const session = await getSessionManager().getOrCreate(conversationId)
-  const tuple: ChatTuple = {
-    agentId: connection.agentId,
-    modelId: connection.modelId,
-    workspacePath: connection.workspacePath,
-    reasoningEffort: connection.reasoningEffort,
+  const conv = await getDb()
+    .select()
+    .from(conversations)
+    .where(eq(conversations.id, conversationId))
+    .get()
+  if (!conv) {
+    await thread.post("Couldn't find that conversation any more.")
+    return null
   }
+
+  const session = await getSessionManager().getOrCreate(conversationId)
+  const tuple = conversationTurnTuple(conv)
   try {
     const result = await session.appendUserMessage(text, tuple)
     return result.requestId
