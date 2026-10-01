@@ -7,7 +7,7 @@ import {
   telegramTopics,
 } from '../../db/schema/telegram-topics.sql'
 import { decryptSecret } from '../security/secrets'
-import { createForumTopic, TelegramApiError } from './api'
+import { createForumTopic, rateLimitDelayMs, TelegramApiError } from './api'
 
 // The adapter encodes a Telegram thread as `telegram:<chatId>` for a
 // plain chat and `telegram:<chatId>:<topicId>` when the message
@@ -153,6 +153,13 @@ export async function ensureTopicForConversation(
     })
     return (await findTopicByConversation(db, conversationId)) ?? null
   } catch (err) {
+    // A rate limit means the topic does not exist yet, not that it
+    // cannot. Rethrow so the caller can wait the time Telegram asked
+    // for and try again, and leave the row unflagged: recording it as
+    // an error here would also make the next attempt look like a
+    // retry of a permanent failure.
+    if (rateLimitDelayMs(err) !== null) throw err
+
     if (!existing) {
       await recordTopic(db, {
         conversationId,
