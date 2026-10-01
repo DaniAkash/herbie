@@ -11,6 +11,7 @@ import {
   listConversationsForChat,
   upsertActivePointer,
 } from './commands.queries'
+import { syncTopicArchived } from './topic-sync'
 
 export async function cmdSwitch(
   db: DB,
@@ -160,6 +161,7 @@ export async function cmdArchive(
     .set({ archivedAt: now, updatedAt: now })
     .where(eq(conversations.id, target.id))
     .run()
+  void syncTopicArchived(target.id, true)
   // No need to clear the active pointer manually — resolveConversationId
   // filters by archivedAt IS NULL, so an active row pointing at the
   // archived conversation simply falls through to the fallback chain.
@@ -256,6 +258,7 @@ export async function cmdUnarchive(
     .set({ archivedAt: null, updatedAt: now })
     .where(eq(conversations.id, row.conversationId))
     .run()
+  void syncTopicArchived(row.conversationId, false)
   await thread.post(
     `↩ Restored "${truncate(row.title, 50)}"\n\n/switch to it via /list.`,
   )

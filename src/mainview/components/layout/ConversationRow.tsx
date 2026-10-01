@@ -52,25 +52,72 @@ export function ConversationRow({
   )
 }
 
-// Renders the small Telegram brand mark (and an "active route" dot for
-// remote-control bots) when this conversation is reachable from a bot.
-// Read-only here — the active pointer is controlled from inside the
-// Telegram chat via /switch. Tooltip via the title attribute spells
-// out which bot, since the icon alone can't say.
-function TelegramLinkBadge({ conv }: { conv: ConversationSummary }) {
-  if (!conv.telegramLink) return null
-  const label = conv.telegramLink.botUsername
-    ? `@${conv.telegramLink.botUsername}`
-    : conv.telegramLink.botName
+// How a topic's sync state should read in the sidebar. Split out of
+// the badge so each piece stays a flat lookup: the badge decides what
+// kind of link this is, these decide how one looks.
+function topicPresentation(
+  topic: NonNullable<NonNullable<ConversationSummary['telegramLink']>['topic']>,
+  label: string,
+): { tone: string; tooltip: string } {
+  switch (topic.syncState) {
+    case 'error':
+      return {
+        tone: 'text-destructive',
+        tooltip: `Couldn't sync this topic on ${label}: ${topic.lastError ?? 'unknown error'}`,
+      }
+    case 'closed':
+      return {
+        tone: 'opacity-40',
+        tooltip: `Archived, so its topic on ${label} is closed.`,
+      }
+    case 'pending':
+      return {
+        tone: 'opacity-40',
+        tooltip: `Creating a topic on ${label}…`,
+      }
+    default:
+      return {
+        tone: 'opacity-70',
+        tooltip: `Open as its own topic on ${label}. Continue from your phone.`,
+      }
+  }
+}
+
+function pointerTooltip(
+  link: NonNullable<ConversationSummary['telegramLink']>,
+  label: string,
+  isActive: boolean,
+): string {
   const kindLabel =
-    conv.telegramLink.kind === 'remote_control'
-      ? 'Remote Control'
-      : 'dedicated bot'
-  const tooltip = conv.isActiveForTelegram
+    link.kind === 'remote_control' ? 'Remote Control' : 'dedicated bot'
+  return isActive
     ? `Active route from ${label} (${kindLabel}). Messages from there land here.`
     : `Linked to ${label} (${kindLabel}). Continue from your phone.`
+}
+
+// Telegram presence for this conversation. When it has a topic the
+// badge reports that topic's sync health, which is the only part the
+// user cannot see for themselves from the phone: a topic that failed
+// to create looks identical to one that was never wanted.
+function TelegramLinkBadge({ conv }: { conv: ConversationSummary }) {
+  const link = conv.telegramLink
+  if (!link) return null
+  const label = link.botUsername ? `@${link.botUsername}` : link.botName
+
+  if (link.topic) {
+    const { tone, tooltip } = topicPresentation(link.topic, label)
+    return (
+      <span className="flex shrink-0 items-center gap-1" title={tooltip}>
+        <TelegramBrandIcon className={`size-3.5 ${tone}`} />
+      </span>
+    )
+  }
+
   return (
-    <span className="flex shrink-0 items-center gap-1" title={tooltip}>
+    <span
+      className="flex shrink-0 items-center gap-1"
+      title={pointerTooltip(link, label, conv.isActiveForTelegram)}
+    >
       <TelegramBrandIcon className="size-3.5 opacity-70" />
       {conv.isActiveForTelegram && (
         <span aria-hidden className="size-1.5 rounded-full bg-primary/70" />

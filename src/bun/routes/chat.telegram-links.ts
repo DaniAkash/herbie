@@ -5,13 +5,26 @@ import {
   type TelegramConnectionKind,
   telegramConnections,
 } from '../../db/schema/telegram-connections.sql'
+import {
+  type TelegramTopicSyncState,
+  telegramTopics,
+} from '../../db/schema/telegram-topics.sql'
 import { getDb } from '../db-singleton'
+
+export interface TelegramTopicInfo {
+  syncState: TelegramTopicSyncState
+  messageThreadId: number | null
+  lastError: string | null
+}
 
 export interface TelegramLinkInfo {
   connectionId: string
   botUsername: string | null
   botName: string
   kind: TelegramConnectionKind
+  // Present once the conversation has a topic mapping. Absent means
+  // the conversation is reachable only through the pre-topics path.
+  topic: TelegramTopicInfo | null
 }
 
 export interface TelegramLinksLookup {
@@ -37,6 +50,40 @@ export async function loadTelegramLinks(
   const db = getDb()
   const byConversation = new Map<string, TelegramLinkInfo>()
 
+  // Topics first: a conversation that has one is addressed by it, so
+  // this mapping wins over both pointer-based paths below.
+  const topicRows = await db
+    .select({
+      conversationId: telegramTopics.conversationId,
+      syncState: telegramTopics.syncState,
+      messageThreadId: telegramTopics.messageThreadId,
+      lastError: telegramTopics.lastError,
+      connectionId: telegramConnections.id,
+      botUsername: telegramConnections.botUsername,
+      botName: telegramConnections.name,
+      kind: telegramConnections.kind,
+    })
+    .from(telegramTopics)
+    .innerJoin(
+      telegramConnections,
+      eq(telegramConnections.id, telegramTopics.connectionId),
+    )
+    .where(inArray(telegramTopics.conversationId, conversationIds))
+    .all()
+  for (const row of topicRows) {
+    byConversation.set(row.conversationId, {
+      connectionId: row.connectionId,
+      botUsername: row.botUsername,
+      botName: row.botName,
+      kind: row.kind,
+      topic: {
+        syncState: row.syncState,
+        messageThreadId: row.messageThreadId,
+        lastError: row.lastError,
+      },
+    })
+  }
+
   // Special-purpose: defaultConversationId is the pointer.
   // inArray on a nullable column quietly skips NULL rows — exactly
   // what we want.
@@ -53,11 +100,13 @@ export async function loadTelegramLinks(
     .all()
   for (const row of spRows) {
     if (!row.conversationId) continue
+    if (byConversation.has(row.conversationId)) continue
     byConversation.set(row.conversationId, {
       connectionId: row.connectionId,
       botUsername: row.botUsername,
       botName: row.botName,
       kind: row.kind,
+      topic: null,
     })
   }
 
@@ -88,6 +137,7 @@ export async function loadTelegramLinks(
       botUsername: row.botUsername,
       botName: row.botName,
       kind: row.kind,
+      topic: null,
     })
   }
 
