@@ -17,7 +17,7 @@ import {
 import { handleBotCommand } from './commands'
 import { isManagementCommand } from './commands.format'
 import { applyLearnedFields } from './connection-learn'
-import { streamTurnToThread } from './forwarder'
+import { beginTurnCapture } from './forwarder'
 import { decodeThreadId } from './topics'
 import { conversationTurnTuple } from './turn-tuple'
 
@@ -105,9 +105,15 @@ export async function handleIncomingTelegramMessage(
   // even starts streaming. (The Hono middleware can't see this path
   // — chat-sdk's handlers run outside the request cycle.)
   getTrayBinding().refresh()
+  // Listen before the turn starts. A fast provider can finish before a
+  // later subscription exists, and nothing replays those events.
+  const capture = beginTurnCapture(conversationId, thread)
   const requestId = await startTurn(conversationId, text, thread)
-  if (!requestId) return
-  await streamTurnToThread(conversationId, requestId, thread)
+  if (!requestId) {
+    capture.abandon()
+    return
+  }
+  await capture.bind(requestId)
   // Second refresh after the turn settles so unread counts update.
   getTrayBinding().refresh()
 }
