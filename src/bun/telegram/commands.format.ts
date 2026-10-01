@@ -18,3 +18,21 @@ export function formatRecency(updatedAt: Date): string {
   if (day < 7) return `${day}d ago`
   return `${Math.floor(day / 7)}w ago`
 }
+
+// The management commands all act on the chat-level active pointer, so
+// they have no meaning inside a topic, where the topic itself is the
+// selection. /help is not one of them: it targets no conversation.
+const MANAGEMENT_COMMANDS = new Set([
+  'new',
+  'list',
+  'switch',
+  'current',
+  'archive',
+  'unarchive',
+])
+
+export function isManagementCommand(text: string): boolean {
+  if (!text.startsWith('/')) return false
+  const name = text.slice(1).split(/[\s@]/)[0]?.toLowerCase()
+  return name !== undefined && MANAGEMENT_COMMANDS.has(name)
+}

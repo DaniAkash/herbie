@@ -109,6 +109,11 @@ export const telegramRoute = new Hono()
         modelId: body.modelId ?? null,
         workspacePath: body.workspacePath,
         reasoningEffort: body.reasoningEffort ?? null,
+        // Both are learned rather than supplied: the DM id arrives with
+        // the first inbound message, and topic support is probed once
+        // the bot is reachable.
+        dmChatId: null,
+        topicsEnabled: false,
         status: 'active' as const,
         lastError: null,
         createdAt: now,
