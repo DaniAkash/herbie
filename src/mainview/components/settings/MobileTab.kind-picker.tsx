@@ -28,6 +28,10 @@ export function BotKindPicker({
   return (
     <FieldSet>
       <FieldLegend variant="label">Bot type</FieldLegend>
+      <FieldDescription>
+        Both reach every conversation once topics are on. The difference is
+        where messages go when they are not.
+      </FieldDescription>
       <RadioGroup
         value={value}
         onValueChange={(next) => onChange(next as BotKind)}
@@ -37,8 +41,9 @@ export function BotKindPicker({
             <FieldContent>
               <FieldTitle>Special Purpose</FieldTitle>
               <FieldDescription>
-                Dedicated bot for a single conversation. You can have as many of
-                these as you need — one per project.
+                Starts pointed at one conversation. With topics on it still
+                reaches every conversation, one per thread. Have as many as you
+                like, one per project.
               </FieldDescription>
             </FieldContent>
             <RadioGroupItem id="kind-special_purpose" value="special_purpose" />
@@ -57,7 +62,7 @@ export function BotKindPicker({
               <FieldDescription>
                 {remoteControlTaken
                   ? 'You already have one Remote Control bot. Delete it first to add another.'
-                  : 'Manage many conversations from one bot — /new, /list, /switch, /archive. Limit: one per user.'}
+                  : 'Every conversation from one bot, each in its own Telegram topic. Limit: one per user.'}
               </FieldDescription>
             </FieldContent>
             <RadioGroupItem

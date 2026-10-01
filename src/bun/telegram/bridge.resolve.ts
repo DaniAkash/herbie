@@ -15,7 +15,7 @@ import {
   ensureTelegramChatRow,
 } from './bridge.write'
 import { upsertActivePointer } from './commands.queries'
-import { decodeThreadId, findTopicByThread, recordTopic } from './topics'
+import { findTopicByThread, recordTopic, topicRouteFor } from './topics'
 
 // chat-sdk's handler signatures give us Message<unknown>; the adapter
 // fills in TelegramMessage as the raw payload. Narrow at the boundary
@@ -241,14 +241,8 @@ async function resolveByTopic(
   firstText: string,
   thread: Thread,
 ): Promise<string | null> {
-  // A special-purpose bot is contracted to exactly one conversation.
-  // Letting a topic address a different one would break that, and
-  // would also leave stale topic mappings live across a reassignment.
-  if (connection.kind !== 'remote_control') return null
-  if (!connection.topicsEnabled) return null
-
-  const decoded = decodeThreadId(thread.id)
-  if (!decoded || decoded.messageThreadId === null) return null
+  const decoded = topicRouteFor(connection, thread.id)
+  if (!decoded) return null
 
   const existing = await findTopicByThread(db, connection.id, decoded)
   if (existing) {

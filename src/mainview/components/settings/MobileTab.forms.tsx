@@ -12,6 +12,8 @@ import {
   FieldDescription,
   FieldGroup,
   FieldLabel,
+  FieldLegend,
+  FieldSet,
 } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { useWorkspaces } from '@/modules/api/settings.hooks'
@@ -36,7 +38,7 @@ export function AddConnectionForm({ onDone }: { onDone: () => void }) {
   const hasRemoteControl = existingConnections.some(
     (c) => c.kind === 'remote_control',
   )
-  const [kind, setKind] = useState<BotKind>('special_purpose')
+  const [kind, setKind] = useState<BotKind>('remote_control')
   const [name, setName] = useState('')
   const [token, setToken] = useState('')
   const [showToken, setShowToken] = useState(false)
@@ -88,101 +90,117 @@ export function AddConnectionForm({ onDone }: { onDone: () => void }) {
       <DialogHeader>
         <DialogTitle>Add Telegram connection</DialogTitle>
         <DialogDescription>
-          The bot will use the agent + workspace you pick here for every chat it
-          receives. You can't change these later — delete and recreate the
-          connection if you need different settings.
+          Connect a Telegram bot to reach your conversations from your phone.
         </DialogDescription>
       </DialogHeader>
 
-      <FieldGroup>
-        <BotKindPicker
-          value={kind}
-          onChange={setKind}
-          remoteControlTaken={hasRemoteControl}
-        />
-
-        <Field>
-          <FieldLabel htmlFor="tg-name">Name</FieldLabel>
-          <Input
-            id="tg-name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Personal bot"
-            autoFocus
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        {/* Identity and credentials. */}
+        <FieldGroup>
+          <BotKindPicker
+            value={kind}
+            onChange={setKind}
+            remoteControlTaken={hasRemoteControl}
           />
-        </Field>
 
-        <Field>
-          <FieldLabel htmlFor="tg-token">Bot token</FieldLabel>
-          <div className="flex gap-2">
+          <Field>
+            <FieldLabel htmlFor="tg-name">Name</FieldLabel>
             <Input
-              id="tg-token"
-              type={showToken ? 'text' : 'password'}
-              value={token}
-              onChange={(e) => setToken(e.target.value)}
-              placeholder="123456:ABC-DEF…"
-              className="flex-1 font-mono"
-              autoComplete="off"
+              id="tg-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Personal bot"
+              autoFocus
             />
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              aria-label={showToken ? 'Hide token' : 'Show token'}
-              onClick={() => setShowToken((v) => !v)}
-            >
-              {showToken ? <EyeOffIcon /> : <EyeIcon />}
-            </Button>
-          </div>
-          <FieldDescription>
-            Create a bot with <span className="font-mono">@BotFather</span> on
-            Telegram and paste the token here.
-          </FieldDescription>
-        </Field>
+          </Field>
 
-        <Field>
-          <FieldLabel>Agent</FieldLabel>
-          <AgentSelect
-            value={agentId}
-            onChange={(next) => {
-              setAgentId(next)
-              setModelId(null)
-              setReasoning(null)
-            }}
-          />
-        </Field>
+          <Field>
+            <FieldLabel htmlFor="tg-token">Bot token</FieldLabel>
+            <div className="flex gap-2">
+              <Input
+                id="tg-token"
+                type={showToken ? 'text' : 'password'}
+                value={token}
+                onChange={(e) => setToken(e.target.value)}
+                placeholder="123456:ABC-DEF…"
+                className="flex-1 font-mono"
+                autoComplete="off"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label={showToken ? 'Hide token' : 'Show token'}
+                onClick={() => setShowToken((v) => !v)}
+              >
+                {showToken ? <EyeOffIcon /> : <EyeIcon />}
+              </Button>
+            </div>
+            <FieldDescription>
+              Create a bot with <span className="font-mono">@BotFather</span> on
+              Telegram and paste the token here. Turn on Threaded Mode there
+              too, so each conversation gets its own topic.
+            </FieldDescription>
+          </Field>
+        </FieldGroup>
 
-        <Field>
-          <FieldLabel>Model</FieldLabel>
-          <ModelSelect
-            agentId={agentId}
-            value={modelId}
-            onChange={setModelId}
-          />
-        </Field>
+        {/* Defaults, not a pin: an existing conversation always keeps
+            its own agent, model, workspace and effort. */}
+        <FieldGroup>
+          <FieldSet>
+            <FieldLegend variant="label">Defaults for new chats</FieldLegend>
+            <FieldDescription>
+              Used when a conversation is started from Telegram. Conversations
+              you already have keep their own settings.
+            </FieldDescription>
+          </FieldSet>
 
-        <Field>
-          <FieldLabel>Workspace</FieldLabel>
-          <WorkspaceSelect
-            value={workspacePath}
-            defaultPath={defaultPath}
-            onChange={setWorkspacePath}
-          />
-          {effectiveWorkspace && <WorkspaceWarning path={effectiveWorkspace} />}
-          {dupConnection && (
-            <DuplicateWorkspaceWarning otherName={dupConnection.name} />
-          )}
-        </Field>
+          <Field>
+            <FieldLabel>Agent</FieldLabel>
+            <AgentSelect
+              value={agentId}
+              onChange={(next) => {
+                setAgentId(next)
+                setModelId(null)
+                setReasoning(null)
+              }}
+            />
+          </Field>
 
-        <Field>
-          <FieldLabel>Reasoning</FieldLabel>
-          <ReasoningSelect
-            agentId={agentId}
-            value={reasoning}
-            onChange={setReasoning}
-          />
-        </Field>
-      </FieldGroup>
+          <Field>
+            <FieldLabel>Model</FieldLabel>
+            <ModelSelect
+              agentId={agentId}
+              value={modelId}
+              onChange={setModelId}
+            />
+          </Field>
+
+          <Field>
+            <FieldLabel>Workspace</FieldLabel>
+            <WorkspaceSelect
+              value={workspacePath}
+              defaultPath={defaultPath}
+              onChange={setWorkspacePath}
+            />
+            {effectiveWorkspace && (
+              <WorkspaceWarning path={effectiveWorkspace} />
+            )}
+            {dupConnection && (
+              <DuplicateWorkspaceWarning otherName={dupConnection.name} />
+            )}
+          </Field>
+
+          <Field>
+            <FieldLabel>Reasoning</FieldLabel>
+            <ReasoningSelect
+              agentId={agentId}
+              value={reasoning}
+              onChange={setReasoning}
+            />
+          </Field>
+        </FieldGroup>
+      </div>
 
       <div className="flex justify-end gap-2">
         <Button type="button" variant="ghost" onClick={onDone}>
