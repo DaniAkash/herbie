@@ -30,6 +30,10 @@ function serializeConnection(row: TelegramConnection) {
     modelId: row.modelId,
     workspacePath: row.workspacePath,
     reasoningEffort: row.reasoningEffort,
+    // Both are learned from inbound traffic, and together they say
+    // whether this bot can address conversations by topic yet.
+    topicsEnabled: row.topicsEnabled,
+    dmChatId: row.dmChatId,
     status: row.status,
     lastError: row.lastError,
     createdAt: row.createdAt.getTime(),
@@ -109,6 +113,11 @@ export const telegramRoute = new Hono()
         modelId: body.modelId ?? null,
         workspacePath: body.workspacePath,
         reasoningEffort: body.reasoningEffort ?? null,
+        // Both are learned rather than supplied: the DM id arrives with
+        // the first inbound message, and topic support is probed once
+        // the bot is reachable.
+        dmChatId: null,
+        topicsEnabled: false,
         status: 'active' as const,
         lastError: null,
         createdAt: now,

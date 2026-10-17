@@ -3,6 +3,7 @@ import { telegramChats } from '../../db/schema/telegram-chats.sql'
 import { getDb } from '../db-singleton'
 import { streamTurnToThread } from './forwarder'
 import { getTelegramManager } from './manager'
+import { findTopicByConversation } from './topics'
 
 // Mirrors an app-initiated turn back to the Telegram thread tied to
 // the conversation, if any. Called from POST /chat/:id/messages
@@ -23,16 +24,23 @@ export async function mirrorAppTurnToTelegram(
   requestId: string,
   userText: string,
 ): Promise<void> {
-  const mapping = await getDb()
-    .select()
-    .from(telegramChats)
-    .where(eq(telegramChats.conversationId, conversationId))
-    .get()
+  // The topic mapping is the conversation's real address once it has
+  // one. telegram_chats is the older chat-level record and is only
+  // consulted for conversations that predate topics.
+  const topic = await findTopicByConversation(getDb(), conversationId)
+  const mapping =
+    topic ??
+    (await getDb()
+      .select()
+      .from(telegramChats)
+      .where(eq(telegramChats.conversationId, conversationId))
+      .get())
   if (!mapping) return
 
   const thread = getTelegramManager().getThread(
     mapping.connectionId,
     mapping.telegramChatId,
+    topic?.messageThreadId,
   )
   if (!thread) return
 

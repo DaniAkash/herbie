@@ -61,7 +61,7 @@ export function MobileTab() {
             <PlusIcon data-icon="inline-start" />
             Add connection
           </DialogTrigger>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-3xl">
             <AddConnectionForm onDone={() => setAddOpen(false)} />
           </DialogContent>
         </Dialog>
@@ -195,6 +195,8 @@ function ConnectionCard({ connection }: { connection: TelegramConnection }) {
         </DropdownMenu>
       </div>
 
+      <TopicsStatus connection={connection} />
+
       <div className="grid grid-cols-2 gap-3 text-[11px]">
         <DetailRow label="Agent" value={agentLabel} />
         <DetailRow
@@ -234,5 +236,38 @@ function ConnectionCard({ connection }: { connection: TelegramConnection }) {
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+// Whether this bot can address conversations by topic yet, and what to
+// do about it when it cannot. Both inputs are learned from inbound
+// traffic, so there is nothing to poll: the connection row already
+// carries the answer.
+function TopicsStatus({ connection }: { connection: TelegramConnection }) {
+  if (connection.topicsEnabled) {
+    return (
+      <p className="text-[11px] text-muted-foreground">
+        <span className="font-medium text-foreground">Topics on.</span> Each
+        conversation has its own thread in Telegram.
+      </p>
+    )
+  }
+  if (!connection.dmChatId) {
+    return (
+      <p className="text-[11px] text-muted-foreground">
+        <span className="font-medium text-foreground">
+          Waiting for your first message.
+        </span>{' '}
+        Open the chat with this bot and say hello.
+      </p>
+    )
+  }
+  return (
+    <p className="text-[11px] text-muted-foreground">
+      <span className="font-medium text-foreground">Topics off.</span> Turn on
+      Threaded Mode for this bot in{' '}
+      <span className="font-mono">@BotFather</span>, then send it a message.
+      Until then every chat shares one conversation.
+    </p>
   )
 }

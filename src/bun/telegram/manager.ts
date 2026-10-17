@@ -11,6 +11,7 @@ import {
 import { getDb } from '../db-singleton'
 import { decryptSecret } from '../security/secrets'
 import { setMyCommands, type TelegramBotCommand } from './api'
+import { APPROVE_ACTION, DENY_ACTION, resolveApproval } from './approvals'
 import { handleIncomingTelegramMessage } from './bridge'
 import { MemoryStateAdapter } from './state-adapter'
 
@@ -93,11 +94,19 @@ class TelegramManager {
   // Returns a Thread handle for posting outside the inbound handler
   // flow (e.g. mirroring app-typed user messages back to Telegram).
   // Null when the bot for that connection isn't running.
-  getThread(connectionId: string, telegramChatId: string): Thread | null {
+  // messageThreadId addresses a forum topic. Omitting it posts to the
+  // chat's General topic, which for a topic-backed conversation is the
+  // wrong place entirely.
+  getThread(
+    connectionId: string,
+    telegramChatId: string,
+    messageThreadId?: number | null,
+  ): Thread | null {
     const running = this.bots.get(connectionId)
     if (!running) return null
     const threadId = running.adapter.encodeThreadId({
       chatId: telegramChatId,
+      messageThreadId: messageThreadId ?? undefined,
     })
     return running.chat.thread(threadId)
   }
@@ -141,6 +150,18 @@ class TelegramManager {
     })
     chat.onSubscribedMessage(async (thread, message) => {
       await handleIncomingTelegramMessage(connection, thread, message)
+    })
+    // Approve / Deny taps on a permission card. The button carries the
+    // approval row id, which is the only thing that fits Telegram's
+    // 64-byte callback payload.
+    chat.onAction([APPROVE_ACTION, DENY_ACTION], async (event) => {
+      if (!event.value) return
+      const reply = await resolveApproval(
+        event.value,
+        event.actionId,
+        event.threadId,
+      )
+      await event.thread?.post(reply)
     })
 
     try {

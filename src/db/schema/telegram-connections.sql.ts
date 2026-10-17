@@ -52,6 +52,16 @@ export const telegramConnections = sqliteTable('telegram_connections', {
   modelId: text('model_id'),
   workspacePath: text('workspace_path').notNull(),
   reasoningEffort: text('reasoning_effort'),
+  // The private chat this bot talks to the user in, captured from the
+  // first inbound message. Needed to address a topic without waiting
+  // for the user to speak first.
+  dmChatId: text('dm_chat_id'),
+  // Whether the bot's chat has forum topics turned on. Topic routing
+  // is gated on this; when false the bridge keeps using the single
+  // active-conversation pointer.
+  topicsEnabled: integer('topics_enabled', { mode: 'boolean' })
+    .notNull()
+    .default(false),
   status: text('status', { enum: TELEGRAM_CONNECTION_STATUSES })
     .notNull()
     .default('active'),
