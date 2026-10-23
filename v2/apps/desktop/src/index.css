@@ -1,5 +1,14 @@
-@import "tailwindcss";
+/*
+ * Every @import has to precede the first rule once they are inlined, so the
+ * font comes before the stylesheets that declare things.
+ *
+ * foundation.css imports tailwindcss itself, so nothing here does it again.
+ * The rest of the order is load bearing: foundation defines the tokens,
+ * bridge maps the shadcn names onto them, anything app specific comes after.
+ */
 @import "@fontsource-variable/outfit";
+@import "./styles/beautifui/foundation.css";
+@import "./styles/bridge.css";
 
 body {
   -webkit-font-smoothing: antialiased;

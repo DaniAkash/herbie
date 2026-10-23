@@ -18,7 +18,7 @@ export interface DbHandle {
   readonly path: string
 }
 
-export function databasePath(): string {
+function databasePath(): string {
   return join(stateDir(), 'herbie.sqlite')
 }
 

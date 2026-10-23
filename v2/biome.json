@@ -13,7 +13,12 @@
       "!**/routeTree.gen.ts",
       "!**/src-tauri/target",
       "!**/src-tauri/gen",
-      "!apps/desktop/public"
+      "!apps/desktop/public",
+      "!apps/desktop/src/components/atoms",
+      "!apps/desktop/src/components/primitives",
+      "!apps/desktop/src/components/motion",
+      "!apps/desktop/src/components/agents",
+      "!apps/desktop/src/styles/beautifui"
     ]
   },
   "formatter": {
@@ -43,7 +48,9 @@
       "complexity": {
         "noExcessiveCognitiveComplexity": {
           "level": "error",
-          "options": { "maxAllowedComplexity": 15 }
+          "options": {
+            "maxAllowedComplexity": 15
+          }
         }
       },
       "suspicious": {
@@ -54,7 +61,9 @@
         "noProcessEnv": "error",
         "noExcessiveLinesPerFile": {
           "level": "error",
-          "options": { "maxLines": 300 }
+          "options": {
+            "maxLines": 300
+          }
         }
       },
       "nursery": {
@@ -63,11 +72,17 @@
     }
   },
   "css": {
-    "parser": { "tailwindDirectives": true }
+    "parser": {
+      "tailwindDirectives": true
+    }
   },
   "assist": {
     "enabled": true,
-    "actions": { "source": { "organizeImports": "on" } }
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
   },
   "overrides": [
     {
@@ -100,26 +115,11 @@
         "apps/desktop/vite.config.ts",
         "apps/desktop/scripts/**"
       ],
-      "linter": { "rules": { "style": { "noProcessEnv": "off" } } }
-    },
-    {
-      "includes": [
-        "apps/desktop/src/components/atoms/**",
-        "apps/desktop/src/components/primitives/**",
-        "apps/desktop/src/components/motion/**",
-        "apps/desktop/src/components/agents/**",
-        "apps/desktop/src/components/ui/**"
-      ],
       "linter": {
         "rules": {
-          "style": { "noExcessiveLinesPerFile": "off" },
-          "complexity": { "noExcessiveCognitiveComplexity": "off" },
-          "suspicious": { "noExplicitAny": "off" },
-          "a11y": {
-            "useKeyWithClickEvents": "off",
-            "useSemanticElements": "off"
-          },
-          "nursery": { "useSortedClasses": "off" }
+          "style": {
+            "noProcessEnv": "off"
+          }
         }
       }
     }

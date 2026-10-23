@@ -3,8 +3,8 @@ import { createQuery } from 'react-query-kit'
 import { api } from '@/modules/api/client'
 import { parseResponse } from '@/modules/api/parse'
 
-type StatusResponse = InferResponseType<Client['api']['status']['$get']>
-type AgentsResponse = InferResponseType<Client['api']['agents']['$get']>
+export type StatusResponse = InferResponseType<Client['api']['status']['$get']>
+export type AgentsResponse = InferResponseType<Client['api']['agents']['$get']>
 
 type Client = Awaited<ReturnType<typeof api>>
 

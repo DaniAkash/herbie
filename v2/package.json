@@ -7,15 +7,16 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "bun run --filter '*' dev",
+    "dev": "bun run --filter '*' dev:app",
     "build": "bun run --filter '*' build",
-    "check": "concurrently --group --names biome,tsc,test,rust,fallow --prefix-colors auto \"bun run check:biome\" \"bun run check:tsc\" \"bun run check:test\" \"bun run check:rust\" \"bun run check:fallow\"",
+    "check": "concurrently --group --names biome,tsc,test,web,rust,fallow --prefix-colors auto \"bun run check:biome\" \"bun run check:tsc\" \"bun run check:test\" \"bun run check:web\" \"bun run check:rust\" \"bun run check:fallow\"",
     "check:biome": "biome check",
     "check:tsc": "bun run --filter '*' typecheck",
     "check:test": "bun run --filter '*' test",
     "check:rust": "bun run --filter '*' check:rust",
     "check:fallow": "fallow",
-    "check:fix": "concurrently --group --names biome,rust --prefix-colors auto \"biome check --write\" \"bun run --filter '*' fix:rust\""
+    "check:fix": "concurrently --group --names biome,rust --prefix-colors auto \"biome check --write\" \"bun run --filter '*' fix:rust\"",
+    "check:web": "bun run --filter '*' build"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.14",

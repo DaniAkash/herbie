@@ -24,7 +24,10 @@
   "overrides": [
     {
       "files": ["**/*.test.ts", "**/*.config.ts"],
-      "rules": { "unused-exports": "off", "unused-files": "off" }
+      "rules": {
+        "unused-exports": "off",
+        "unused-files": "off"
+      }
     },
     {
       "files": [
@@ -34,7 +37,8 @@
         "apps/desktop/src/components/agents/**",
         "apps/desktop/src/components/ui/**",
         "apps/desktop/src/lib/**",
-        "apps/desktop/src/routeTree.gen.ts"
+        "apps/desktop/src/routeTree.gen.ts",
+        "apps/desktop/src/styles/beautifui/**"
       ],
       "rules": {
         "unused-exports": "off",
@@ -46,7 +50,10 @@
   ],
   "boundaries": {
     "zones": [
-      { "name": "bun-lib", "patterns": ["apps/desktop/src-bun/lib/**"] },
+      {
+        "name": "bun-lib",
+        "patterns": ["apps/desktop/src-bun/lib/**"]
+      },
       {
         "name": "bun-contract",
         "patterns": [
@@ -58,18 +65,36 @@
         "name": "bun-modules",
         "patterns": ["apps/desktop/src-bun/modules/**"]
       },
-      { "name": "bun-server", "patterns": ["apps/desktop/src-bun/server/**"] },
-      { "name": "ui-lib", "patterns": ["apps/desktop/src/lib/**"] },
-      { "name": "ui-modules", "patterns": ["apps/desktop/src/modules/**"] },
+      {
+        "name": "bun-server",
+        "patterns": ["apps/desktop/src-bun/server/**"]
+      },
+      {
+        "name": "ui-lib",
+        "patterns": ["apps/desktop/src/lib/**"]
+      },
+      {
+        "name": "ui-modules",
+        "patterns": ["apps/desktop/src/modules/**"]
+      },
       {
         "name": "ui-components",
         "patterns": ["apps/desktop/src/components/**"]
       },
-      { "name": "ui-screens", "patterns": ["apps/desktop/src/screens/**"] },
-      { "name": "ui-routes", "patterns": ["apps/desktop/src/routes/**"] }
+      {
+        "name": "ui-screens",
+        "patterns": ["apps/desktop/src/screens/**"]
+      },
+      {
+        "name": "ui-routes",
+        "patterns": ["apps/desktop/src/routes/**"]
+      }
     ],
     "rules": [
-      { "from": "bun-lib", "allow": ["bun-lib"] },
+      {
+        "from": "bun-lib",
+        "allow": ["bun-lib"]
+      },
       {
         "from": "bun-contract",
         "allow": ["bun-contract", "bun-lib", "bun-modules", "bun-server"]
@@ -82,7 +107,10 @@
         "from": "bun-server",
         "allow": ["bun-server", "bun-modules", "bun-lib", "bun-contract"]
       },
-      { "from": "ui-lib", "allow": ["ui-lib"] },
+      {
+        "from": "ui-lib",
+        "allow": ["ui-lib"]
+      },
       {
         "from": "ui-modules",
         "allow": ["ui-modules", "ui-lib", "bun-contract"]
@@ -131,5 +159,10 @@
       "apps/desktop/src/components/agents/**",
       "apps/desktop/src/components/ui/**"
     ]
-  }
+  },
+  "ignoreDependencies": [
+    "@fontsource-variable/outfit",
+    "shadow-plugin",
+    "shadcn"
+  ]
 }
