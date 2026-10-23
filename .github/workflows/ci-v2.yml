@@ -1,0 +1,70 @@
+# CI for the Tauri workspace. The pre-Tauri app has its own history and is not
+# built here; `paths` keeps this off pull requests that do not touch it.
+#
+# The whole check surface runs through one `bun run check`, which fans out via
+# `concurrently --group` to biome, both typechecks, the tests, the web build,
+# cargo clippy and fallow. Local and CI parity is the design goal: whatever
+# `bun run check` does on a laptop is exactly what this does. No CI-only steps
+# and no laptop-only steps.
+
+name: CI (v2)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [main]
+    paths: ['v2/**', '.github/workflows/ci-v2.yml']
+  push:
+    # Cache-warming only. Actions cache scope lets a pull request restore from
+    # its own ref or its base branch, so without a main cache every new branch
+    # pays the full cold compile of the Tauri dependency graph on first run.
+    branches: [main]
+    paths: ['v2/**']
+  workflow_dispatch:
+
+concurrency:
+  group: ci-v2-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: v2
+
+jobs:
+  check:
+    name: Check
+    runs-on: macos-latest
+    timeout-minutes: 30
+    env:
+      RUST_BACKTRACE: '1'
+      # .cargo/config.toml points build-dir at CARGO_HOME so local worktrees
+      # share one copy of the dependency graph instead of each carrying its
+      # own. A runner is a single ephemeral checkout, so it gains nothing from
+      # that and would instead split intermediates out of target/, which is
+      # the only thing rust-cache caches and prunes.
+      CARGO_BUILD_BUILD_DIR: ${{ github.workspace }}/v2/apps/desktop/src-tauri/target
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # fallow's health hotspots rank files by git churn, which needs real
+          # history. The default shallow clone reports none.
+          fetch-depth: 0
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: v2/.bun-version
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: v2/apps/desktop/src-tauri -> target
+
+      - run: bun install --frozen-lockfile
+
+      - run: bun run check
