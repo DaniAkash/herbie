@@ -1,0 +1,36 @@
+[package]
+name = "herbie"
+version = "0.0.1"
+description = "A 24x7 agent that lives in your menu bar"
+authors = ["Dani Akash"]
+license = "MIT"
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+name = "herbie_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+# Declarative rather than a -D warnings flag on the check command. Plain
+# `cargo clippy` exits 0 with warnings present, so the flag form is the
+# difference between a gate and a formality. This also applies in
+# rust-analyzer, so the error shows up while the code is being written.
+# priority = -1 lets an individual lint be relaxed above the group.
+[lints.clippy]
+all = { level = "deny", priority = -1 }
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+log = "0.4"
+uuid = { version = "1", features = ["v4"] }
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-log = "2"
+tauri-plugin-shell = "2"
+tauri-plugin-single-instance = "2"
+tauri-plugin-notification = "2"
+tauri-plugin-http = "2"
+tauri-plugin-opener = "2"
