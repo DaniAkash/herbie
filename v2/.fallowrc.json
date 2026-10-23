@@ -1,0 +1,135 @@
+{
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+  "entry": [
+    "apps/desktop/src-bun/index.ts",
+    "apps/desktop/src/main.tsx",
+    "apps/desktop/scripts/build-sidecar.ts",
+    "apps/desktop/scripts/ui-add.ts",
+    "apps/desktop/src-bun/**/*.test.ts"
+  ],
+  "ignorePatterns": [
+    "**/*.d.ts",
+    "**/dist/**",
+    "**/target/**",
+    "**/gen/**",
+    "**/node_modules/**",
+    "**/*.css",
+    "**/routeTree.gen.ts"
+  ],
+  "rules": {
+    "private-type-leaks": "warn",
+    "unused-class-members": "off",
+    "circular-dependencies": "off"
+  },
+  "overrides": [
+    {
+      "files": ["**/*.test.ts", "**/*.config.ts"],
+      "rules": { "unused-exports": "off", "unused-files": "off" }
+    },
+    {
+      "files": [
+        "apps/desktop/src/components/atoms/**",
+        "apps/desktop/src/components/primitives/**",
+        "apps/desktop/src/components/motion/**",
+        "apps/desktop/src/components/agents/**",
+        "apps/desktop/src/components/ui/**",
+        "apps/desktop/src/lib/**",
+        "apps/desktop/src/routeTree.gen.ts"
+      ],
+      "rules": {
+        "unused-exports": "off",
+        "unused-files": "off",
+        "unused-types": "off",
+        "private-type-leaks": "off"
+      }
+    }
+  ],
+  "boundaries": {
+    "zones": [
+      { "name": "bun-lib", "patterns": ["apps/desktop/src-bun/lib/**"] },
+      {
+        "name": "bun-contract",
+        "patterns": [
+          "apps/desktop/src-bun/shared/**",
+          "apps/desktop/src-bun/server/client.ts"
+        ]
+      },
+      {
+        "name": "bun-modules",
+        "patterns": ["apps/desktop/src-bun/modules/**"]
+      },
+      { "name": "bun-server", "patterns": ["apps/desktop/src-bun/server/**"] },
+      { "name": "ui-lib", "patterns": ["apps/desktop/src/lib/**"] },
+      { "name": "ui-modules", "patterns": ["apps/desktop/src/modules/**"] },
+      {
+        "name": "ui-components",
+        "patterns": ["apps/desktop/src/components/**"]
+      },
+      { "name": "ui-screens", "patterns": ["apps/desktop/src/screens/**"] },
+      { "name": "ui-routes", "patterns": ["apps/desktop/src/routes/**"] }
+    ],
+    "rules": [
+      { "from": "bun-lib", "allow": ["bun-lib"] },
+      {
+        "from": "bun-contract",
+        "allow": ["bun-contract", "bun-lib", "bun-modules", "bun-server"]
+      },
+      {
+        "from": "bun-modules",
+        "allow": ["bun-modules", "bun-lib", "bun-contract"]
+      },
+      {
+        "from": "bun-server",
+        "allow": ["bun-server", "bun-modules", "bun-lib", "bun-contract"]
+      },
+      { "from": "ui-lib", "allow": ["ui-lib"] },
+      {
+        "from": "ui-modules",
+        "allow": ["ui-modules", "ui-lib", "bun-contract"]
+      },
+      {
+        "from": "ui-components",
+        "allow": ["ui-components", "ui-modules", "ui-lib"]
+      },
+      {
+        "from": "ui-screens",
+        "allow": ["ui-screens", "ui-components", "ui-modules", "ui-lib"]
+      },
+      {
+        "from": "ui-routes",
+        "allow": [
+          "ui-routes",
+          "ui-screens",
+          "ui-components",
+          "ui-modules",
+          "ui-lib"
+        ]
+      }
+    ]
+  },
+  "health": {
+    "maxCyclomatic": 15,
+    "maxCognitive": 65535,
+    "ignore": [
+      "**/dist/**",
+      "**/target/**",
+      "apps/desktop/src/components/atoms/**",
+      "apps/desktop/src/components/primitives/**",
+      "apps/desktop/src/components/motion/**",
+      "apps/desktop/src/components/agents/**",
+      "apps/desktop/src/components/ui/**",
+      "apps/desktop/src/routeTree.gen.ts"
+    ],
+    "maxUnitSize": 120,
+    "maxCrap": 240
+  },
+  "duplicates": {
+    "ignore": [
+      "apps/desktop/src/components/atoms/**",
+      "apps/desktop/src/components/primitives/**",
+      "apps/desktop/src/components/motion/**",
+      "apps/desktop/src/components/agents/**",
+      "apps/desktop/src/components/ui/**"
+    ]
+  }
+}
