@@ -1,0 +1,60 @@
+# git-cliff configuration. The release workflow uses it to turn the
+# conventional-commit history between two tags into grouped release notes.
+#
+# This repository still carries the pre-Tauri app alongside this workspace, so
+# a range between two tags contains commits from both. One scoping flag fixes
+# that, and it lives in the workflow rather than here because the value changes
+# as the layout does:
+#
+#   --include-path 'v2/**'              only this workspace's commits
+#
+# Once the old app is retired and this workspace moves to the repository root,
+# that becomes --include-path 'apps/desktop/**' and the flag starts scoping one
+# workspace member against the others instead.
+#
+# Local use, scoped the way the workflow does it:
+#   git-cliff --config v2/cliff.toml \
+#     --include-path 'v2/**' \
+#     --tag-pattern '^desktop-v[0-9].*' \
+#     desktop-v0.0.1..desktop-v0.0.2
+
+[changelog]
+header = ""
+body = """
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group | upper_first }}
+{% for commit in commits %}
+- {{ commit.message | upper_first }} ({{ commit.id | truncate(length=7, end="") }})
+{% endfor %}
+{% endfor %}
+"""
+trim = true
+footer = ""
+
+[git]
+# Parse as conventional commits and drop anything that is not, so the notes
+# stay free of stray fixups.
+conventional_commits = true
+filter_unconventional = true
+filter_commits = true
+
+# Every release tag carries its artifact as a prefix: `desktop-v0.0.2`.
+# Matching any `<name>-v<digit>` rather than an explicit list means this cannot
+# go stale when a second artifact is added.
+tag_pattern = "^([a-z0-9-]+-)?v[0-9].*"
+
+# How each prefix maps to a section. Order matters, first match wins.
+commit_parsers = [
+  { message = "^feat", group = "Features" },
+  { message = "^fix", group = "Bug Fixes" },
+  { message = "^perf", group = "Performance" },
+  { message = "^refactor", group = "Refactor" },
+  { message = "^docs?", group = "Documentation" },
+  { message = "^style", group = "Styling" },
+  { message = "^test", group = "Tests" },
+  { message = "^chore\\(release\\)", skip = true },
+  { message = "^chore\\(deps\\)", group = "Dependencies" },
+  { message = "^chore", group = "Miscellaneous" },
+  { message = "^ci", group = "CI" },
+  { message = "^revert", group = "Reverts" },
+]

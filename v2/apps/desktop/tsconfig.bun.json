@@ -1,0 +1,20 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.bun.tsbuildinfo",
+    // DOM is here despite this being a server: bun's global store puts every
+    // package's realpath outside the project, and tsc will not follow the
+    // `/// <reference types="..." />` chain from there. @types/bun is only a
+    // reference to bun-types, which references node, so without DOM in lib
+    // this project ends up with a partial Response and Request. Pinning types
+    // to ["bun"] is the other half. Neither can be simplified away.
+    "lib": ["ESNext", "DOM"],
+    "types": ["bun"],
+    "paths": {
+      "@bun/*": ["./src-bun/*"]
+    },
+    "resolveJsonModule": true
+  },
+  "include": ["src-bun"]
+}
