@@ -1,0 +1,6 @@
+@import "tailwindcss";
+@import "@fontsource-variable/outfit";
+
+body {
+  -webkit-font-smoothing: antialiased;
+}
