@@ -2,7 +2,6 @@
 name = "herbie"
 version = "0.0.1"
 description = "A 24x7 agent that lives in your menu bar"
-authors = ["Dani Akash"]
 license = "MIT"
 edition = "2021"
 rust-version = "1.77.2"
