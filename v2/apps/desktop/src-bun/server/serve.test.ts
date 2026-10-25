@@ -9,7 +9,7 @@ import { startServer, stopServer } from '@bun/server/serve'
 
 let dir: string
 
-function serve(token?: string) {
+function serve(token = 'a-secret') {
   const { db, sqlite, path } = openDb(join(dir, 'herbie.sqlite'))
   const app = createApp({
     db,
@@ -60,8 +60,42 @@ describe('the api', () => {
     })
   })
 
+  /**
+   * The regression this guards: the token used to be optional all the way
+   * down, so a run with no --token served every route openly.
+   */
+  test('mints a token when nothing passed one, so a bare run is never open', async () => {
+    const entry = join(import.meta.dir, '..', 'index.ts')
+    const child = Bun.spawn([process.execPath, entry, '--port', '0'], {
+      env: { HERBIE_STATE_DIR: dir, HERBIE_LOG_LEVEL: 'error' },
+      stdout: 'pipe',
+      stderr: 'ignore',
+    })
+    try {
+      // Only the first line, because the process stays up: reading the
+      // whole stream would wait for an exit that never comes.
+      const reader = child.stdout.getReader()
+      let text = ''
+      while (!text.includes('\n')) {
+        const { value, done } = await reader.read()
+        if (done) break
+        text += new TextDecoder().decode(value)
+      }
+      const { port } = JSON.parse(text.split('\n')[0] ?? '{}') as {
+        port: number
+      }
+      expect(port).toBeGreaterThan(0)
+      expect((await fetch(`http://127.0.0.1:${port}/api/status`)).status).toBe(
+        401,
+      )
+    } finally {
+      child.kill()
+    }
+  })
+
   test('does not serve anything outside /api', async () => {
     const { port } = serve()
+
     expect((await fetch(`http://127.0.0.1:${port}/`)).status).toBe(404)
   })
 })

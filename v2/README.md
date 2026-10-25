@@ -67,7 +67,17 @@ has to guess which lines are a contract. It also polls its parent pid, which
 covers the deaths a graceful shutdown never sees.
 
 `/api/health` is the one route reachable without the token, so a caller can
-tell a wrong token from a sidecar that is not running.
+tell a wrong token from a sidecar that is not running. A sidecar started by
+hand gets a generated token and logs it, so there is no way to run this
+process with its routes open.
+
+What the token is for, and what it is not for. It stops software that happens
+to reach `127.0.0.1` from driving the API: a web page, another local service,
+a stray request. It is not a defence against a process running as you, which
+can read the token out of the sidecar's command line, and could equally read
+the SQLite file under `~/.herbie-v2` without going through the API at all.
+Hardening the argument while the database sits there in the open would buy
+nothing.
 
 ## Interface
 

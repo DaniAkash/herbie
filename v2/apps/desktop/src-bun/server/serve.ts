@@ -8,7 +8,7 @@ const log = createLogger('server', logLevelName())
 
 export interface ServerHandle {
   readonly port: number
-  readonly token: string | null
+  readonly token: string
 }
 
 let running: ReturnType<typeof Bun.serve> | null = null
@@ -24,15 +24,16 @@ function authorised(request: Request, token: string): boolean {
  * desktop app must not squat a fixed port, and choosing one up front races:
  * another process can take it between the check and the bind.
  *
- * The token, when set, is required by every route except health. This process
- * drives coding agents with filesystem access and any local process can reach
- * 127.0.0.1, so an unauthenticated localhost port is a real hole rather than a
- * theoretical one.
+ * The token is required by every route except health, and it is not optional.
+ * This process drives coding agents with filesystem access and any local
+ * process can reach 127.0.0.1, so an unauthenticated localhost port is a real
+ * hole rather than a theoretical one. Callers that have no token generate one
+ * rather than passing nothing, so there is no code path that serves openly.
  */
 export function startServer(
   app: Pick<Hono, 'fetch'>,
   port: number,
-  token?: string,
+  token: string,
 ): ServerHandle {
   const server = Bun.serve({
     port,
@@ -43,11 +44,7 @@ export function startServer(
       if (!url.pathname.startsWith('/api')) {
         return new Response('herbie api\n', { status: 404 })
       }
-      if (
-        token &&
-        url.pathname !== '/api/health' &&
-        !authorised(request, token)
-      ) {
+      if (url.pathname !== '/api/health' && !authorised(request, token)) {
         return new Response('unauthorised\n', { status: 401 })
       }
       return app.fetch(request)
@@ -62,7 +59,7 @@ export function startServer(
 
   log.info('api ready', { url: `http://127.0.0.1:${bound}` })
   running = server
-  return { port: bound, token: token ?? null }
+  return { port: bound, token }
 }
 
 export function stopServer(): void {
@@ -94,7 +91,7 @@ export function startApi(input: {
   app: Pick<Hono, 'fetch'>
   defaultPort: number
   port?: string | undefined
-  token?: string | undefined
+  token: string
 }): ServerHandle {
   if (input.port !== undefined) {
     exitWithParent()

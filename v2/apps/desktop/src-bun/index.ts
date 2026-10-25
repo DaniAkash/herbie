@@ -36,12 +36,16 @@ function main(): void {
     startedAt,
   })
 
-  startApi({
-    app,
-    defaultPort: DEFAULT_PORT,
-    port: flag('port'),
-    token: flag('token'),
-  })
+  // A run with no shell still gets a token. Serving openly because an
+  // argument was missing is the one failure mode worth designing out: this
+  // process drives coding agents with filesystem access, and any local
+  // process can reach 127.0.0.1.
+  const token = flag('token') ?? crypto.randomUUID()
+  if (flag('token') === undefined) {
+    log.info('no token given, generated one', { token })
+  }
+
+  startApi({ app, defaultPort: DEFAULT_PORT, port: flag('port'), token })
 
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {
     process.on(signal, () => {
