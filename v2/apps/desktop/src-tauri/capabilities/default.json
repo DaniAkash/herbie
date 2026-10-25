@@ -6,15 +6,6 @@
   "permissions": [
     "core:default",
     {
-      "identifier": "shell:allow-spawn",
-      "allow": [
-        {
-          "name": "binaries/herbie-core",
-          "sidecar": true
-        }
-      ]
-    },
-    {
       "identifier": "http:default",
       "allow": [
         {

@@ -19,11 +19,7 @@ const API_TARGET = process.env.HERBIE_API_URL ?? 'http://127.0.0.1:4576'
 const API_TOKEN = process.env.HERBIE_API_TOKEN
 
 export default defineConfig({
-  plugins: [
-    tanstackRouter(),
-    react(),
-    tailwindcss(),
-  ],
+  plugins: [tanstackRouter(), react(), tailwindcss()],
   resolve: {
     alias: {
       '@': path.resolve(here, './src'),
