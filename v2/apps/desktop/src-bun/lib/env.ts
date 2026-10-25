@@ -17,3 +17,13 @@ export function stateDir(): string {
 export function logLevelName(): string {
   return process.env.HERBIE_LOG_LEVEL ?? 'info'
 }
+
+/**
+ * Where a self-started sidecar leaves its token for the vite proxy.
+ *
+ * Only written when nothing handed us one. A token from the desktop shell
+ * reaches the webview over ipc and never needs to touch the disk.
+ */
+export function tokenPath(): string {
+  return join(stateDir(), 'api-token')
+}

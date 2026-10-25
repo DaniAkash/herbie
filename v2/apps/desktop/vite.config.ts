@@ -1,3 +1,4 @@
+import { existsSync, readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -16,7 +17,22 @@ const here = path.dirname(fileURLToPath(import.meta.url))
  * listens on when nothing spawned it and lets an env var override.
  */
 const API_TARGET = process.env.HERBIE_API_URL ?? 'http://127.0.0.1:4576'
-const API_TOKEN = process.env.HERBIE_API_TOKEN
+
+/**
+ * The token a hand-started sidecar generated for itself.
+ *
+ * Read from the file rather than imported from the sidecar, because this
+ * config is the one place both sides are configured and an import here would
+ * be the first thread tying the browser build to bun-only code. The path is
+ * duplicated for that reason, not by accident.
+ */
+function tokenFromState(): string | undefined {
+  const dir = process.env.HERBIE_STATE_DIR ?? path.join(homedir(), '.herbie-v2')
+  const file = path.join(dir, 'api-token')
+  return existsSync(file) ? readFileSync(file, 'utf8').trim() : undefined
+}
+
+const API_TOKEN = process.env.HERBIE_API_TOKEN ?? tokenFromState()
 
 export default defineConfig({
   plugins: [tanstackRouter(), react(), tailwindcss()],

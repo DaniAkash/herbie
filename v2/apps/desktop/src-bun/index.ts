@@ -1,4 +1,5 @@
-import { logLevelName } from '@bun/lib/env'
+import { chmodSync, writeFileSync } from 'node:fs'
+import { logLevelName, tokenPath } from '@bun/lib/env'
 import { createLogger } from '@bun/lib/log'
 import { openDb } from '@bun/modules/db/db'
 import { ensureInstalledAt } from '@bun/modules/db/install'
@@ -40,9 +41,17 @@ function main(): void {
   // argument was missing is the one failure mode worth designing out: this
   // process drives coding agents with filesystem access, and any local
   // process can reach 127.0.0.1.
-  const token = flag('token') ?? crypto.randomUUID()
-  if (flag('token') === undefined) {
-    log.info('no token given, generated one', { token })
+  const given = flag('token')
+  const token = given ?? crypto.randomUUID()
+  if (given === undefined) {
+    // Left where the vite proxy can find it, so the browser development path
+    // works without copying a token by hand. Owner-only, next to the database
+    // it protects. chmod as well as the create mode, because the mode is
+    // ignored when the file is already there from a previous run.
+    const path = tokenPath()
+    writeFileSync(path, token, { mode: 0o600 })
+    chmodSync(path, 0o600)
+    log.info('no token given, generated one', { path })
   }
 
   startApi({ app, defaultPort: DEFAULT_PORT, port: flag('port'), token })

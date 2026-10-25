@@ -42,6 +42,10 @@ cd apps/desktop
 bun run src-bun/index.ts     # the sidecar alone, on its default port
 ```
 
+A sidecar started that way generates its own token and leaves it in the state
+directory, owner readable. The vite proxy picks it up, so the browser path
+needs no setup; `HERBIE_API_TOKEN` overrides it.
+
 ## Checks
 
 ```bash
