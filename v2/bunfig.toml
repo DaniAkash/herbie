@@ -1,0 +1,20 @@
+[install]
+# Global virtual store: install packages once into a shared store and link them
+# into node_modules as symlinks, instead of copying a full tree per project.
+# node_modules shrinks to a few MB of symlinks, which matters because this repo
+# is worked on in worktrees, and warm installs are much faster.
+#
+# Requires the isolated linker, which is already the workspace default; set
+# explicitly to make the intent clear. https://bun.com/docs/pm/global-store
+linker = "isolated"
+globalStore = true
+
+# Note for whoever hits a type error after touching this file.
+#
+# The isolated linker puts every package's realpath in the global store, and
+# TypeScript will not follow a `/// <reference types="..." />` chain from
+# there. @types/bun is only a reference to bun-types, which in turn references
+# node, so under this linker tsc ends up with a partial Response and Request.
+#
+# The fix lives in apps/desktop/tsconfig.bun.json: lib includes DOM and types
+# is pinned to ["bun"]. Do not "simplify" either of them away.

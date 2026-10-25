@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
+    "lib": ["ESNext", "DOM"],
+    "types": ["bun"]
+  },
+  "include": ["vite.config.ts", "scripts", "drizzle.config.ts"]
+}

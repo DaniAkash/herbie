@@ -1,0 +1,144 @@
+# Herbie, Tauri rewrite
+
+A bun workspace holding the rewrite of Herbie onto Tauri with a compiled Bun
+sidecar. It lives alongside the existing app rather than replacing it, so the
+current app keeps building and running untouched.
+
+Two things have to live outside this directory. The existing `biome.json`
+gains a `!v2` entry, because it declares itself a root and would otherwise
+apply its rules in here. And the workflow sits at `.github/workflows/ci-v2.yml`
+at the repository root, because GitHub only reads workflows from there; its
+`paths` filter keeps it off pull requests that do not touch this directory.
+
+## Layout
+
+```
+v2/
+├── packages/            empty. the glob is the point.
+└── apps/desktop/        the only member, all three runtimes
+    ├── src/             the webview          runs in a browser engine   @/*
+    ├── src-bun/         the sidecar          runs in Bun                @bun/*
+    └── src-tauri/       the shell            runs as Rust
+```
+
+One member today. The `apps/*` and `packages/*` globs exist so the second one
+is a `mkdir` rather than a migration of every config, import path and CI
+reference. A member appears when there is a second consumer or a separate
+shipping artifact, never before; see `packages/README.md`.
+
+## Running it
+
+```bash
+bun install
+bun run dev          # builds the sidecar, then tauri dev
+```
+
+`bun run --filter '*' dev:web` runs the same interface as a plain web page
+against a sidecar started by hand. That path exists so interface work does not
+wait on a cargo rebuild, and it is checked in CI for the same reason.
+
+```bash
+cd apps/desktop
+bun run src-bun/index.ts     # the sidecar alone, on its default port
+```
+
+A sidecar started that way generates its own token and leaves it in the state
+directory, owner readable. The vite proxy picks it up, so the browser path
+needs no setup; `HERBIE_API_TOKEN` overrides it.
+
+## Checks
+
+```bash
+bun run check        # biome, typecheck, tests, web build, clippy, fallow
+bun run check:fix    # formatting and clippy's own fixes
+```
+
+One command, identical on a laptop and on a runner. Every per-package step
+goes through `--filter '*'` even though the glob matches one member today, so
+a second member is picked up without editing the gate.
+
+## How the two processes find each other
+
+The shell spawns the sidecar with `--port 0` and a token generated for that
+launch. Port 0 because choosing one up front races with anything that binds
+between the check and the bind, and a desktop app must not squat a fixed port.
+The token because this process will drive coding agents with filesystem
+access, and any local process can reach `127.0.0.1`.
+
+The sidecar answers with one JSON line on stdout saying where it landed. That
+is the only thing it ever writes there; logs go to stderr, so the shell never
+has to guess which lines are a contract. It also polls its parent pid, which
+covers the deaths a graceful shutdown never sees.
+
+`/api/health` is the one route reachable without the token, so a caller can
+tell a wrong token from a sidecar that is not running. A sidecar started by
+hand gets a generated token and logs it, so there is no way to run this
+process with its routes open.
+
+What the token is for, and what it is not for. It stops software that happens
+to reach `127.0.0.1` from driving the API: a web page, another local service,
+a stray request. It is not a defence against a process running as you, which
+can read the token out of the sidecar's command line, and could equally read
+the SQLite file under `~/.herbie-v2` without going through the API at all.
+Hardening the argument while the database sits there in the open would buy
+nothing.
+
+## Interface
+
+Components come from two registries through the shadcn CLI: beautifui first,
+beUI for anything beautifui does not have.
+
+```bash
+cd apps/desktop
+bun run ui:add @beautifui/chat-composer
+bun run ui:add @beui/voice-orb
+```
+
+`ui:add` wraps `shadcn add` because beautifui's foundation hard-codes its
+stylesheet target to a Next.js `app/` directory, which lands outside `src/`
+here. The wrapper moves it to `src/styles/beautifui/` and says so.
+
+The two registries write to disjoint directories, so they coexist. Their
+design tokens are disjoint too, which is the problem: `src/styles/bridge.css`
+redefines the shadcn names beUI uses in terms of beautifui's, so one palette
+reaches both.
+
+Vendored component directories are excluded from biome rather than exempted
+inside it, because formatting them would produce a large diff every time the
+same component is pulled again.
+
+## Designed to be hoisted
+
+This workspace exists to replace the app above it, so there is a day when that
+app is deleted and this directory moves to the repository root. No path
+written inside here contains the string `v2`: every config path is relative,
+every script resolves from `import.meta.dir`, every alias is package-relative.
+On that day the move is a `git mv` rather than a find-and-replace across
+configs, CI and Rust at the moment the project is least stable.
+
+```bash
+grep -rn 'v2' . --exclude-dir=node_modules --exclude-dir=target \
+  --exclude-dir=dist --exclude-dir=gen --exclude=bun.lock
+```
+
+That should return only this README, the `cliff.toml` comment explaining the
+changelog scoping, and the state directory below. Anything else is a path that
+will break on the hoist. The workflow at the repository root carries `v2/`
+paths too, but it is outside this tree and is rewritten with it.
+
+## State
+
+`~/.herbie-v2`, not `~/.herbie`. Both apps will be installed at once for as
+long as this takes, and one directory would mean two schema chains over one
+file. `HERBIE_STATE_DIR` overrides it.
+
+Migrations are generated by drizzle-kit, then imported as text and listed in
+`src-bun/modules/db/migrations/journal.ts`, because the sidecar ships as a
+single compiled binary with no directory to resolve a migrations folder
+against. A new migration is appended to that journal in the same commit that
+generates it.
+
+```bash
+cd apps/desktop
+bun run db:generate --name=add_something
+```

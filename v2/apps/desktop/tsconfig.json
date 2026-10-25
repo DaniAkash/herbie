@@ -1,0 +1,18 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.app.json" },
+    { "path": "./tsconfig.bun.json" },
+    { "path": "./tsconfig.node.json" }
+  ],
+  // Repeated from the referenced projects on purpose. `tsc -b` reads the
+  // project files, but Bun and Vite resolve `paths` from the tsconfig.json
+  // named exactly that, and a solution file with no `files` would otherwise
+  // leave both runtimes unable to resolve @/ and @bun/.
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["./src/*"],
+      "@bun/*": ["./src-bun/*"]
+    }
+  }
+}

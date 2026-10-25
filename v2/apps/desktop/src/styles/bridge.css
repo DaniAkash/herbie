@@ -1,0 +1,70 @@
+/*
+ * One palette, two registries.
+ *
+ * beautifui names its tokens --page, --ink, --line, --accent. shadcn and beUI
+ * reach for --background, --foreground, --border, --primary. The two sets
+ * share no names at all, which means they coexist happily in :root and render
+ * as two different apps in one window: a beUI component styled
+ * `bg-background text-foreground` would draw from a palette nobody chose.
+ *
+ * Because nothing overlaps, redefining the shadcn names in terms of the
+ * beautifui ones is purely additive. No beautifui token is lost, and a
+ * vendored component inherits the beautifui look without being touched.
+ *
+ * Loaded after foundation.css, which owns the values this maps.
+ */
+
+:root {
+  --background: var(--page);
+  --foreground: var(--ink);
+  --card: var(--surface);
+  --card-foreground: var(--ink);
+  --popover: var(--surface);
+  --popover-foreground: var(--ink);
+  --primary: var(--accent);
+  --primary-foreground: var(--page);
+  --secondary: var(--canvas);
+  --secondary-foreground: var(--ink);
+  --muted: var(--canvas);
+  --muted-foreground: var(--ink-3);
+  --accent-foreground: var(--accent-ink);
+  --destructive: var(--red);
+  --destructive-foreground: var(--page);
+  --border: var(--line);
+  --input: var(--field);
+  --ring: var(--accent);
+  --radius: var(--radius-card);
+}
+
+/*
+ * No .dark block. Every name above resolves through a var() that foundation
+ * redefines under .dark, so the mapping follows the theme on its own. A second
+ * block here would be a copy that silently drifts the first time a token
+ * changes on one side only.
+ */
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+/* Herbie's own face, over the generic stack foundation ships with. */
+:root {
+  --font-inter: "Outfit Variable";
+}
