@@ -20,7 +20,7 @@ const API_TOKEN = process.env.HERBIE_API_TOKEN
 
 export default defineConfig({
   plugins: [
-    tanstackRouter({ target: 'react', autoCodeSplitting: true }),
+    tanstackRouter(),
     react(),
     tailwindcss(),
   ],

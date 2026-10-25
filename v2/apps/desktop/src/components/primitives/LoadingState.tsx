@@ -29,8 +29,16 @@ const orbit = Array.from({ length: 9 }, (_, i) => {
   return k === -1 ? null : k * 110;
 });
 
-const PATTERNS: Record<string, { delays: (number | null)[]; dur: number; round: boolean }> = {
-  Drive: { delays: chevron, dur: 650, round: false },
+type Pattern = { delays: (number | null)[]; dur: number; round: boolean };
+
+/* VENDOR PATCH: the fallback is hoisted out of the record. Indexing a
+ * Record<string, T> yields T | undefined under noUncheckedIndexedAccess, and
+ * that applies to PATTERNS.Drive too, so the record could not be its own
+ * default. Behaviour is unchanged. */
+const DRIVE: Pattern = { delays: chevron, dur: 650, round: false };
+
+const PATTERNS: Record<string, Pattern> = {
+  Drive: DRIVE,
   Dots: { delays: chevron, dur: 650, round: true },
   Orbit: { delays: orbit, dur: 950, round: false },
 };
@@ -88,7 +96,7 @@ export default function LoadingState({
   const surfer = variant === "Surfer";
   const resolvedLabel = label ?? (surfer ? "Subway surfing" : "Churning");
   const [videoOk, setVideoOk] = useState(true);
-  const { delays, dur, round } = PATTERNS[variant] ?? PATTERNS.Drive;
+  const { delays, dur, round } = PATTERNS[variant] ?? DRIVE;
 
   const labelEl = (
     <span
@@ -109,7 +117,7 @@ export default function LoadingState({
     return (
       <div role="status" className="flex w-fit flex-col items-start">
         <div className="flex items-center gap-2.5">
-          <LoaderGrid {...PATTERNS.Drive} />
+          <LoaderGrid {...DRIVE} />
           {labelEl}
           {elapsedEl}
         </div>
@@ -132,7 +140,7 @@ export default function LoadingState({
               />
             ) : (
               <div className="flex h-full w-full flex-col items-center justify-center gap-1.5">
-                <LoaderGrid {...PATTERNS.Drive} />
+                <LoaderGrid {...DRIVE} />
                 <span className="px-3 text-center font-mono text-[10px]" style={{ color: "var(--tooltip-muted)" }}>
                   Video unavailable
                 </span>

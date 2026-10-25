@@ -11,5 +11,8 @@
       "@bun/*": ["./src-bun/*"]
     }
   },
+  // The webview reaches the sidecar for its types through @bun/server/client.
+  // Without this reference tsc refuses those files as outside the project.
+  "references": [{ "path": "./tsconfig.bun.json" }],
   "include": ["src"]
 }

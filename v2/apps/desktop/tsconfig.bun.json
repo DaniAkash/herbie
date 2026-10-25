@@ -3,6 +3,13 @@
   "compilerOptions": {
     "composite": true,
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.bun.tsbuildinfo",
+    // The webview references this project for the api contract, and a
+    // referenced project has to hand its consumer declarations. They are
+    // build output, not source, so they land next to the build info.
+    "noEmit": false,
+    "emitDeclarationOnly": true,
+    "declaration": true,
+    "declarationDir": "./node_modules/.tmp/types",
     // DOM is here despite this being a server: bun's global store puts every
     // package's realpath outside the project, and tsc will not follow the
     // `/// <reference types="..." />` chain from there. @types/bun is only a
