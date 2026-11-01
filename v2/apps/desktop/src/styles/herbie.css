@@ -116,3 +116,18 @@
 .quiet-scroll::-webkit-scrollbar {
   display: none;
 }
+
+/*
+ * `scrollbar-hide` is a utility beui's components reach for and this project
+ * never defined, so the composer's textarea showed a scrollbar the component
+ * believed it had already hidden. Defining it here rather than editing the
+ * vendored file, which ui:add rewrites.
+ */
+.scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

@@ -1,4 +1,4 @@
-import { Link, useParams } from '@tanstack/react-router'
+import { Link, useLocation, useParams } from '@tanstack/react-router'
 import { PanelRight, Repeat } from 'lucide-react'
 import { AgentFace } from '@/components/agent/AgentFace'
 import {
@@ -12,6 +12,7 @@ import ApprovalCard from '@/components/primitives/ApprovalCard'
 import ThinkingState from '@/components/primitives/ThinkingState'
 import ToolChips from '@/components/primitives/ToolChips'
 import { AgentStateDot } from '@/components/shell/AgentStateDot'
+import { cn } from '@/lib/utils'
 import type { Agent, Message } from '@/modules/api/agents.hooks'
 import { useMessages } from '@/modules/api/agents.hooks'
 
@@ -33,6 +34,11 @@ const RUNTIME: Record<string, string> = {
 export function Conversation({ agent }: { agent: Agent }) {
   const { agentId } = useParams({ from: '/_shell/agents/$agentId' })
   const { data, isPending, isError } = useMessages({ variables: { agentId } })
+  const { pathname } = useLocation()
+
+  // The panel is a route, so whether it is open is a fact about the url
+  // rather than state of ours. The button closes it when it is open.
+  const panelOpen = /\/(overview|routines|permissions)$/.test(pathname)
 
   return (
     <section className="grid min-h-0 min-w-0 grid-rows-[auto_1fr_auto] bg-page">
@@ -47,10 +53,16 @@ export function Conversation({ agent }: { agent: Agent }) {
         ) : null}
         <span className="flex-1" />
         <Link
-          to="/agents/$agentId/overview"
+          to={panelOpen ? '/agents/$agentId' : '/agents/$agentId/overview'}
           params={{ agentId }}
-          aria-label="Agent settings"
-          className="inline-flex size-7 items-center justify-center rounded-control text-ink-3 hover:bg-hover hover:text-ink"
+          aria-label={panelOpen ? 'Hide agent settings' : 'Show agent settings'}
+          aria-pressed={panelOpen}
+          className={cn(
+            'inline-flex size-7 items-center justify-center rounded-control transition-colors',
+            panelOpen
+              ? 'bg-hover-2 text-ink'
+              : 'text-ink-3 hover:bg-hover hover:text-ink',
+          )}
         >
           <PanelRight size={16} />
         </Link>
