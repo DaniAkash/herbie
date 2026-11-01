@@ -4,7 +4,6 @@
  * lost the next time `bun run ui:add` installs it. Do not edit; reinstall.
  */
 "use client";
-// beui.dev/components/motion/select
 
 import { Check, ChevronDown } from "lucide-react";
 import {

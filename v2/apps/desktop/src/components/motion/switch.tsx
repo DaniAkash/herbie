@@ -61,7 +61,7 @@ export function Switch({
           aria-label={ariaLabel}
           disabled={disabled}
           onClick={() => !disabled && onCheckedChange(!checked)}
-          onPointerDown={(e: React.PointerEvent) => {
+          onPointerDown={(e) => {
             setIsPressed(true);
             setIsPointer(e.type.startsWith("pointer"));
           }}

@@ -1,8 +1,11 @@
 // @ts-nocheck
-/* Vendored from a component registry. See scripts/ui-add.ts. */
-'use client'
+/* Vendored from a component registry. Checking is off because upstream is
+ * not written against this project's strict settings, and any fix here is
+ * lost the next time `bun run ui:add` installs it. Do not edit; reinstall.
+ */
+"use client";
 
-import { useState } from 'react'
+import { useState } from "react";
 
 /**
  * Runs `start` during the render in which `open` becomes true.
@@ -18,9 +21,9 @@ import { useState } from 'react'
  * during this one's render. Put those in an effect keyed to `open`.
  */
 export function useOnOpen(open: boolean, start: () => void) {
-  const [wasOpen, setWasOpen] = useState(open)
+  const [wasOpen, setWasOpen] = useState(open);
   if (open !== wasOpen) {
-    setWasOpen(open)
-    if (open) start()
+    setWasOpen(open);
+    if (open) start();
   }
 }

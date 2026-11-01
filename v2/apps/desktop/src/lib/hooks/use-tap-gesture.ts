@@ -3,25 +3,25 @@
  * not written against this project's strict settings, and any fix here is
  * lost the next time `bun run ui:add` installs it. Do not edit; reinstall.
  */
-'use client'
+"use client";
 
-import { useMemo, useRef } from 'react'
+import { useMemo, useRef } from "react";
 
 /** What a pointerdown recorded, read back by the click that ends its gesture. */
 export interface TapRecord<S> {
   /** Which input started the gesture. */
-  pointerType: string
+  pointerType: string;
   /** What the surface was showing when it started. */
-  state: S
+  state: S;
 }
 
 export interface TapGesture<S> {
   /** Record the gesture a pointerdown starts, with the state it starts in. */
-  start: (event: { pointerType: string }, state: S) => void
+  start: (event: { pointerType: string }, state: S) => void;
   /** Read the record and clear it. `null` when no pointer is behind this click. */
-  take: () => TapRecord<S> | null
+  take: () => TapRecord<S> | null;
   /** Drop the record: this gesture will never spend it on a click. */
-  drop: () => void
+  drop: () => void;
 }
 
 /**
@@ -50,22 +50,22 @@ export interface TapGesture<S> {
  * on `onKeyDown`.
  */
 export function useTapGesture<S>(): TapGesture<S> {
-  const record = useRef<TapRecord<S> | null>(null)
+  const record = useRef<TapRecord<S> | null>(null);
 
   return useMemo(
     () => ({
       start: (event, state) => {
-        record.current = { pointerType: event.pointerType, state }
+        record.current = { pointerType: event.pointerType, state };
       },
       take: () => {
-        const spent = record.current
-        record.current = null
-        return spent
+        const spent = record.current;
+        record.current = null;
+        return spent;
       },
       drop: () => {
-        record.current = null
+        record.current = null;
       },
     }),
     [],
-  )
+  );
 }

@@ -3,7 +3,7 @@
  * not written against this project's strict settings, and any fix here is
  * lost the next time `bun run ui:add` installs it. Do not edit; reinstall.
  */
-'use client'
+"use client";
 
 import {
   type KeyboardEvent,
@@ -11,18 +11,18 @@ import {
   useEffect,
   useMemo,
   useRef,
-} from 'react'
-import { useOnOpen } from '@/lib/hooks/use-on-open'
-import { useRowCursor } from '@/lib/hooks/use-row-cursor'
+} from "react";
+import { useOnOpen } from "@/lib/hooks/use-on-open";
+import { useRowCursor } from "@/lib/hooks/use-row-cursor";
 
 export interface ListboxRow {
-  id: string
-  label: string
-  disabled?: boolean
+  id: string;
+  label: string;
+  disabled?: boolean;
 }
 
 // How long typed characters keep building one typeahead query.
-const TYPEAHEAD_MS = 500
+const TYPEAHEAD_MS = 500;
 
 /**
  * Keyboard model for a popup listbox whose options are focusable buttons.
@@ -41,72 +41,70 @@ export function useListbox({
   selected,
   list,
 }: {
-  open: boolean
-  rows: readonly ListboxRow[]
-  selected: string | undefined
-  list: RefObject<HTMLElement | null>
+  open: boolean;
+  rows: readonly ListboxRow[];
+  selected: string | undefined;
+  list: RefObject<HTMLElement | null>;
 }) {
-  const enabled = useMemo(() => rows.filter((row) => !row.disabled), [rows])
-  const { activeIndex, moveTo, moveActive } = useRowCursor(enabled, '')
+  const enabled = useMemo(() => rows.filter((row) => !row.disabled), [rows]);
+  const { activeIndex, moveTo, moveActive } = useRowCursor(enabled, "");
   useOnOpen(open, () =>
-    moveTo(
-      enabled.some((row) => row.id === selected) ? (selected ?? null) : null,
-    ),
-  )
-  const activeId = enabled[activeIndex]?.id
-  const typed = useRef({ text: '', at: 0 })
+    moveTo(enabled.some((row) => row.id === selected) ? (selected ?? null) : null),
+  );
+  const activeId = enabled[activeIndex]?.id;
+  const typed = useRef({ text: "", at: 0 });
   // A list rendered open does not take focus from the page on mount; focus
   // follows only once it has been opened, or once focus is already inside.
-  const openedOnMount = useRef(open)
+  const openedOnMount = useRef(open);
   useEffect(() => {
-    if (!open) openedOnMount.current = false
-  }, [open])
+    if (!open) openedOnMount.current = false;
+  }, [open]);
 
   useEffect(() => {
-    if (!open || activeId === undefined) return
+    if (!open || activeId === undefined) return;
     if (
       openedOnMount.current &&
       !list.current?.contains(document.activeElement)
     )
-      return
+      return;
     const option = Array.from(
-      list.current?.querySelectorAll<HTMLElement>('[data-listbox-id]') ?? [],
-    ).find((element) => element.dataset.listboxId === activeId)
-    option?.focus({ preventScroll: false })
-  }, [open, activeId, list])
+      list.current?.querySelectorAll<HTMLElement>("[data-listbox-id]") ?? [],
+    ).find((element) => element.dataset.listboxId === activeId);
+    option?.focus({ preventScroll: false });
+  }, [open, activeId, list]);
 
   const onKeyDown = (event: KeyboardEvent) => {
-    const { key } = event
-    if (key === 'ArrowDown' || key === 'ArrowUp') {
-      event.preventDefault()
-      moveActive(key === 'ArrowDown' ? 1 : -1)
-    } else if (key === 'Home' || key === 'End') {
-      event.preventDefault()
-      const row = key === 'Home' ? enabled[0] : enabled[enabled.length - 1]
-      if (row) moveTo(row.id)
+    const { key } = event;
+    if (key === "ArrowDown" || key === "ArrowUp") {
+      event.preventDefault();
+      moveActive(key === "ArrowDown" ? 1 : -1);
+    } else if (key === "Home" || key === "End") {
+      event.preventDefault();
+      const row = key === "Home" ? enabled[0] : enabled[enabled.length - 1];
+      if (row) moveTo(row.id);
     } else if (
       key.length === 1 &&
-      key !== ' ' &&
+      key !== " " &&
       !event.ctrlKey &&
       !event.metaKey &&
       !event.altKey
     ) {
-      const now = Date.now()
-      const char = key.toLowerCase()
+      const now = Date.now();
+      const char = key.toLowerCase();
       const text =
-        now - typed.current.at < TYPEAHEAD_MS ? typed.current.text + char : char
-      typed.current = { text, at: now }
+        now - typed.current.at < TYPEAHEAD_MS ? typed.current.text + char : char;
+      typed.current = { text, at: now };
       // A repeated single letter cycles through the options that start with it.
-      const from = text.length === 1 ? activeIndex + 1 : activeIndex
+      const from = text.length === 1 ? activeIndex + 1 : activeIndex;
       for (let step = 0; step < enabled.length; step++) {
-        const row = enabled[(from + step) % enabled.length]
+        const row = enabled[(from + step) % enabled.length];
         if (row.label.toLowerCase().startsWith(text)) {
-          moveTo(row.id)
-          break
+          moveTo(row.id);
+          break;
         }
       }
     }
-  }
+  };
 
-  return { activeId, onKeyDown }
+  return { activeId, onKeyDown };
 }

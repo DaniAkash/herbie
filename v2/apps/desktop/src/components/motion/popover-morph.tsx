@@ -4,6 +4,7 @@
  * lost the next time `bun run ui:add` installs it. Do not edit; reinstall.
  */
 "use client";
+// beui.dev/components/motion/popover
 
 import {
   AnimatePresence,

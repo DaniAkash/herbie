@@ -82,6 +82,7 @@ const BANNER = [
 ].join('\n')
 
 const VENDOR_DIRS = [
+  join(root, 'src', 'components', 'atoms'),
   join(root, 'src', 'components', 'motion'),
   join(root, 'src', 'components', 'primitives'),
   join(root, 'src', 'components', 'agents'),
