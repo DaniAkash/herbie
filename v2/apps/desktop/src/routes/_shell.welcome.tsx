@@ -9,7 +9,7 @@ export const Route = createFileRoute('/_shell/welcome')({
 
 function Welcome() {
   return (
-    <section className="grid place-items-center gap-3.5 px-5 py-10 text-center">
+    <section className="grid content-center justify-items-center gap-3.5 px-5 py-10 text-center">
       <AgentFace color="ops" size="lg" />
       <h2 className="font-semibold text-[17px]">No agents yet</h2>
       <p className="max-w-[42ch] text-ink-2">

@@ -1,7 +1,7 @@
 import { Link, useParams } from '@tanstack/react-router'
 import { AgentFace } from '@/components/agent/AgentFace'
 import { cn } from '@/lib/utils'
-import type { Agent } from '@/modules/api/agents.hooks'
+import { useAgents } from '@/modules/api/agents.hooks'
 
 const TABS = [
   { to: 'overview', label: 'Overview' },
@@ -16,15 +16,16 @@ const TABS = [
  * column is `auto` and collapses to nothing when no tab is open.
  */
 export function AgentPanel({
-  agent,
   tab,
   children,
 }: {
-  agent: Agent
   tab: (typeof TABS)[number]['to']
   children: React.ReactNode
 }) {
   const { agentId } = useParams({ from: '/_shell/agents/$agentId' })
+  const { data } = useAgents()
+  const agent = data?.agents.find((a) => a.id === agentId)
+  if (!agent) return null
 
   return (
     <aside className="min-h-0 w-[332px] overflow-y-auto bg-canvas motion-safe:animate-[herbie-slidein_0.26s_cubic-bezier(0.23,1,0.32,1)]">

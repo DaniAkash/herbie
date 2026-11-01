@@ -1,6 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { AgentPanel } from '@/components/shell/AgentPanel'
-import { useAgents } from '@/modules/api/agents.hooks'
 import { useToolAccess, useTools } from '@/modules/api/tools.hooks'
 import { AgentPermissions } from '@/screens/agent/AgentPermissions'
 
@@ -17,11 +16,8 @@ export const Route = createFileRoute('/_shell/agents/$agentId/permissions')({
 
 function PermissionsTab() {
   const { agentId } = Route.useParams()
-  const { data } = useAgents()
-  const agent = data?.agents.find((a) => a.id === agentId)
-  if (!agent) return null
   return (
-    <AgentPanel agent={agent} tab="permissions">
+    <AgentPanel tab="permissions">
       <AgentPermissions agentId={agentId} />
     </AgentPanel>
   )

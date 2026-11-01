@@ -13,7 +13,7 @@ function OverviewTab() {
   const agent = data?.agents.find((a) => a.id === agentId)
   if (!agent) return null
   return (
-    <AgentPanel agent={agent} tab="overview">
+    <AgentPanel tab="overview">
       <AgentOverview agent={agent} />
     </AgentPanel>
   )

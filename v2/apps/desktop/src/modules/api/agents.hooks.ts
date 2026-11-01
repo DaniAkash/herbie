@@ -1,9 +1,8 @@
+import type { Client } from '@bun/server/client'
 import type { InferResponseType } from 'hono/client'
 import { createQuery } from 'react-query-kit'
 import { api } from '@/modules/api/client'
 import { parseResponse } from '@/modules/api/parse'
-
-type Client = Awaited<ReturnType<typeof api>>
 
 export type AgentsResponse = InferResponseType<Client['api']['agents']['$get']>
 export type Agent = AgentsResponse['agents'][number]

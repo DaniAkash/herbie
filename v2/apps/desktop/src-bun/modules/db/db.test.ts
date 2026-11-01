@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { openDb } from '@bun/modules/db/db'
 import { ensureInstalledAt } from '@bun/modules/db/install'
 import { appliedMigrations, pendingMigrations } from '@bun/modules/db/migrate'
+import { MIGRATIONS } from '@bun/modules/db/migrations/journal'
 import { agents } from '@bun/modules/db/schema/schema'
 
 let dir: string
@@ -28,7 +29,11 @@ describe('opening the database', () => {
     const path = join(dir, 'herbie.sqlite')
     openDb(path).sqlite.close()
     const { sqlite } = openDb(path)
-    expect(appliedMigrations(sqlite)).toHaveLength(1)
+    // Every migration exactly once. Comparing against MIGRATIONS rather than a
+    // literal, because the point is that a second open adds nothing, not that
+    // the chain happens to be a particular length today.
+    expect(appliedMigrations(sqlite)).toHaveLength(MIGRATIONS.length)
+    expect(new Set(appliedMigrations(sqlite)).size).toBe(MIGRATIONS.length)
   })
 
   test('writes and reads back through drizzle', () => {
