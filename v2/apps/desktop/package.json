@@ -16,7 +16,8 @@
     "ui:add": "bun scripts/ui-add.ts",
     "db:generate": "drizzle-kit generate",
     "check:rust": "bun run build:sidecar && cd src-tauri && cargo clippy --all-targets",
-    "fix:rust": "cd src-tauri && cargo clippy --all-targets --fix --allow-dirty --allow-staged"
+    "fix:rust": "cd src-tauri && cargo clippy --all-targets --fix --allow-dirty --allow-staged",
+    "seed:dev": "bun scripts/seed-dev.ts"
   },
   "dependencies": {
     "@central-icons-react/round-outlined-radius-2-stroke-2": "^1.2.22",
