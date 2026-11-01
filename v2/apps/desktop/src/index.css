@@ -9,6 +9,7 @@
 @import "@fontsource-variable/outfit";
 @import "./styles/beautifui/foundation.css";
 @import "./styles/bridge.css";
+@import "./styles/herbie.css";
 
 body {
   -webkit-font-smoothing: antialiased;

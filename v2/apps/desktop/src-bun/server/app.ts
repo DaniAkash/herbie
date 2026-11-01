@@ -2,6 +2,7 @@ import type { Deps } from '@bun/server/deps'
 import { agentsRoute } from '@bun/server/routes/agents'
 import { healthRoute } from '@bun/server/routes/health'
 import { statusRoute } from '@bun/server/routes/status'
+import { toolsRoute } from '@bun/server/routes/tools'
 import { Hono } from 'hono'
 
 /**
@@ -17,6 +18,7 @@ export function createApp(deps: Deps) {
     .route('/health', healthRoute)
     .route('/status', statusRoute(deps))
     .route('/agents', agentsRoute(deps))
+    .route('/tools', toolsRoute(deps))
 }
 
 export type AppType = ReturnType<typeof createApp>

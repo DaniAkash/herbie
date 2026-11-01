@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { openDb } from '@bun/modules/db/db'
 import { appliedMigrations } from '@bun/modules/db/migrate'
+import { MIGRATIONS } from '@bun/modules/db/migrations/journal'
 import { createApp } from '@bun/server/app'
 import { startServer, stopServer } from '@bun/server/serve'
 
@@ -56,7 +57,7 @@ describe('the api', () => {
     expect(response.status).toBe(200)
     expect(await response.json()).toMatchObject({
       agentCount: 0,
-      migrations: ['0000_init_schema'],
+      migrations: MIGRATIONS.map((migration) => migration.name),
     })
   })
 

@@ -16,9 +16,12 @@
     "ui:add": "bun scripts/ui-add.ts",
     "db:generate": "drizzle-kit generate",
     "check:rust": "bun run build:sidecar && cd src-tauri && cargo clippy --all-targets",
-    "fix:rust": "cd src-tauri && cargo clippy --all-targets --fix --allow-dirty --allow-staged"
+    "fix:rust": "cd src-tauri && cargo clippy --all-targets --fix --allow-dirty --allow-staged",
+    "seed:dev": "bun src-bun/seed-dev.ts"
   },
   "dependencies": {
+    "@central-icons-react/round-outlined-radius-2-stroke-2": "^1.2.22",
+    "@floating-ui/dom": "^1.8.0",
     "@fontsource-variable/outfit": "^5.2.8",
     "@tanstack/react-query": "^5.100.7",
     "@tanstack/react-router": "^1.168.4",
@@ -27,14 +30,17 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.45.2",
+    "glimm": "^0.3.1",
     "hono": "^4.12.16",
+    "lucide-react": "^1.64.0",
     "motion": "^12.38.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-query-kit": "^3.3.3",
     "shadow-plugin": "^2.1.1",
     "tailwind-merge": "^3.5.0",
-    "tailwindcss": "^4.2.2"
+    "tailwindcss": "^4.2.2",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.2",
