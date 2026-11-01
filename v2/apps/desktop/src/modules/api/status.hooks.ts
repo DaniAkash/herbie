@@ -4,7 +4,6 @@ import { api } from '@/modules/api/client'
 import { parseResponse } from '@/modules/api/parse'
 
 export type StatusResponse = InferResponseType<Client['api']['status']['$get']>
-export type AgentsResponse = InferResponseType<Client['api']['agents']['$get']>
 
 type Client = Awaited<ReturnType<typeof api>>
 
@@ -15,12 +14,4 @@ export const useStatus = createQuery<StatusResponse>({
     return parseResponse<StatusResponse>(await client.api.status.$get())
   },
   refetchInterval: 2000,
-})
-
-export const useAgents = createQuery<AgentsResponse>({
-  queryKey: ['agents'],
-  fetcher: async () => {
-    const client = await api()
-    return parseResponse<AgentsResponse>(await client.api.agents.$get())
-  },
 })

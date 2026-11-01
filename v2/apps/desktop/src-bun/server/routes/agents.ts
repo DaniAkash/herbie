@@ -1,8 +1,4 @@
-import {
-  agents,
-  messages,
-  routines,
-} from '@bun/modules/db/schema/schema'
+import { agents, messages, routines } from '@bun/modules/db/schema/schema'
 import type { Deps } from '@bun/server/deps'
 import { asc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'

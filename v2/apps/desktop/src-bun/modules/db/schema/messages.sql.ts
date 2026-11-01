@@ -1,6 +1,6 @@
+import { agents } from '@bun/modules/db/schema/agents.sql'
 import { sql } from 'drizzle-orm'
 import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
-import { agents } from '@bun/modules/db/schema/agents.sql'
 
 /**
  * One conversation per agent, so a routine's output lands where you already
