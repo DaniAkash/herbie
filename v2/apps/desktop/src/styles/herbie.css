@@ -131,3 +131,17 @@
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+/*
+ * beui's PromptInput sizes its textarea to `minRows * 24` and writes that to
+ * style.height. Tailwind makes every box border-box, so at minRows=1 those
+ * 24px have to cover the 24px line AND the component's own 6px of top
+ * padding, leaving the line 18px. The field then scrolls by exactly that 6px
+ * and clips the descenders of its own placeholder.
+ *
+ * Switching the field to content-box makes the height the component computed
+ * mean what it meant it to mean, and the padding sits outside it.
+ */
+.composer-host textarea {
+  box-sizing: content-box;
+}

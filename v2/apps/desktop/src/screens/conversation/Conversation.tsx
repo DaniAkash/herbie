@@ -89,7 +89,7 @@ export function Conversation({ agent }: { agent: Agent }) {
         ))}
       </MessageScroller>
 
-      <div className="px-[22px] pt-2.5 pb-[18px]">
+      <div className="composer-host px-[22px] pt-2.5 pb-[18px]">
         {/*
           beui rather than beautifui's PromptBar: that one hardcodes its model
           list at module scope, so it would ship invented model names with no
