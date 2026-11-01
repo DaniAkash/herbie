@@ -74,16 +74,13 @@ function RoutineRow({ routine }: { routine: Routine }) {
   const [on, setOn] = useState(routine.enabled)
   const Icon = routine.kind === 'event' ? Bell : Clock
   return (
-    <div className="flex items-start gap-3 px-0.5 py-3">
-      <Icon size={16} className="mt-0.5 shrink-0 text-ink-3" />
-      <span className="min-w-0 flex-1">
-        <span className="block font-medium text-[13.5px]">{routine.name}</span>
-        <span className="mt-0.5 block text-[12.5px] text-ink-2">
-          {routine.cadence}
-        </span>
-      </span>
+    <PanelRow
+      icon={<Icon size={16} />}
+      k={<span className="text-[13.5px]">{routine.name}</span>}
+      v={routine.cadence}
+    >
       <Switch checked={on} onCheckedChange={setOn} ariaLabel={routine.name} />
-    </div>
+    </PanelRow>
   )
 }
 

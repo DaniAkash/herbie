@@ -39,18 +39,27 @@ export function PanelSection({
   )
 }
 
-/** One row: a label, an optional caption, and a control on the right. */
+/**
+ * One row: an optional leading icon, a label, a caption, and a control.
+ *
+ * Every row in the panel goes through here so none of them reinvents the
+ * card's padding. A row that set its own left inset sat flush against the
+ * card edge while its control overflowed the right one.
+ */
 export function PanelRow({
+  icon,
   k,
   v,
   children,
 }: {
+  icon?: React.ReactNode
   k: React.ReactNode
   v?: React.ReactNode
   children?: React.ReactNode
 }) {
   return (
     <div className="flex items-center gap-3 px-3.5 py-3">
+      {icon ? <span className="shrink-0 text-ink-3">{icon}</span> : null}
       <span className="min-w-0 flex-1">
         <span className="block font-medium">{k}</span>
         {v ? (
