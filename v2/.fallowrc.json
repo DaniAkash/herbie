@@ -146,7 +146,11 @@
       "apps/desktop/src/components/motion/**",
       "apps/desktop/src/components/agents/**",
       "apps/desktop/src/components/ui/**",
-      "apps/desktop/src/routeTree.gen.ts"
+      "apps/desktop/src/routeTree.gen.ts",
+      "apps/desktop/src/lib/hooks/**",
+      "apps/desktop/src/lib/touch.ts",
+      "apps/desktop/src/lib/focusable.ts",
+      "apps/desktop/src/lib/command-search.ts"
     ],
     "maxUnitSize": 120,
     "maxCrap": 240

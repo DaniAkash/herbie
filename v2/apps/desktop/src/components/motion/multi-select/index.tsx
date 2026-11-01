@@ -1,3 +1,5 @@
+// @ts-nocheck
+/* Vendored from a component registry. See scripts/ui-add.ts. */
 "use client";
 // beui.dev/components/motion/multi-select
 

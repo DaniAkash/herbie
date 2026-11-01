@@ -1,15 +1,20 @@
-"use client";
+// @ts-nocheck
+/* Vendored from a component registry. Checking is off because upstream is
+ * not written against this project's strict settings, and any fix here is
+ * lost the next time `bun run ui:add` installs it. Do not edit; reinstall.
+ */
+'use client'
 
-import { type RefObject, useEffect, useLayoutEffect, useRef } from "react";
+import { type RefObject, useEffect, useLayoutEffect, useRef } from 'react'
 
 const FOCUSABLE =
-  'button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
+  'button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])'
 
 /** Elements inside `container` that Tab can reach, in DOM order. */
 export function focusablesIn(container: Element | null) {
   return Array.from(
     container?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? [],
-  ).filter((element) => element.tabIndex >= 0 && !element.closest("[inert]"));
+  ).filter((element) => element.tabIndex >= 0 && !element.closest('[inert]'))
 }
 
 /**
@@ -17,11 +22,11 @@ export function focusablesIn(container: Element | null) {
  * stray focus: a sheet opened from inside a drawer portals outside the drawer,
  * and a drawer that still pulled focus home would fight the sheet for it.
  */
-const traps: object[] = [];
+const traps: object[] = []
 
 export interface FocusTrapOptions {
   /** Called on Escape while this is the innermost open trap. */
-  onEscape?: () => void;
+  onEscape?: () => void
 }
 
 /**
@@ -40,61 +45,65 @@ export function useFocusTrap(
   panel: RefObject<HTMLElement | null>,
   { onEscape }: FocusTrapOptions = {},
 ) {
-  const escapeRef = useRef(onEscape);
+  const escapeRef = useRef(onEscape)
   useLayoutEffect(() => {
-    escapeRef.current = onEscape;
-  });
+    escapeRef.current = onEscape
+  })
 
   useEffect(() => {
-    if (!open || !panel.current) return;
-    const self = {};
-    traps.push(self);
-    const innermost = () => traps[traps.length - 1] === self;
+    if (!open || !panel.current) return
+    const self = {}
+    traps.push(self)
+    const innermost = () => traps[traps.length - 1] === self
     const returnFocus =
       document.activeElement instanceof HTMLElement
         ? document.activeElement
-        : null;
-    const focusables = () => focusablesIn(panel.current);    const focusFirst = () =>
-      (focusables()[0] ?? panel.current)?.focus({ preventScroll: true });
-    if (!panel.current.contains(document.activeElement)) focusFirst();
+        : null
+    const focusables = () => focusablesIn(panel.current)
+    const focusFirst = () =>
+      (focusables()[0] ?? panel.current)?.focus({ preventScroll: true })
+    if (!panel.current.contains(document.activeElement)) focusFirst()
 
     const onFocus = (event: FocusEvent) => {
-      if (!innermost() || !panel.current || panel.current.closest("[inert]"))
-        return;
+      if (!innermost() || !panel.current || panel.current.closest('[inert]'))
+        return
       if (event.target instanceof Node && !panel.current.contains(event.target))
-        focusFirst();
-    };
+        focusFirst()
+    }
     const onKey = (event: KeyboardEvent) => {
-      if (!innermost() || event.defaultPrevented) return;
-      if (event.key === "Escape" && escapeRef.current) {
-        event.preventDefault();
-        escapeRef.current();
-        return;
+      if (!innermost() || event.defaultPrevented) return
+      if (event.key === 'Escape' && escapeRef.current) {
+        event.preventDefault()
+        escapeRef.current()
+        return
       }
-      if (event.key !== "Tab") return;
-      const elements = focusables();
-      const first = elements[0];
-      const last = elements[elements.length - 1];
-      const active = document.activeElement;
+      if (event.key !== 'Tab') return
+      const elements = focusables()
+      const first = elements[0]
+      const last = elements[elements.length - 1]
+      const active = document.activeElement
       if (!first || !last) {
-        event.preventDefault();
-        panel.current?.focus({ preventScroll: true });
-      } else if (event.shiftKey && (active === first || active === panel.current)) {
-        event.preventDefault();
-        last.focus();
+        event.preventDefault()
+        panel.current?.focus({ preventScroll: true })
+      } else if (
+        event.shiftKey &&
+        (active === first || active === panel.current)
+      ) {
+        event.preventDefault()
+        last.focus()
       } else if (!event.shiftKey && active === last) {
-        event.preventDefault();
-        first.focus();
+        event.preventDefault()
+        first.focus()
       }
-    };
-    document.addEventListener("focusin", onFocus);
-    document.addEventListener("keydown", onKey);
+    }
+    document.addEventListener('focusin', onFocus)
+    document.addEventListener('keydown', onKey)
     return () => {
-      document.removeEventListener("focusin", onFocus);
-      document.removeEventListener("keydown", onKey);
-      traps.splice(traps.indexOf(self), 1);
-      if (returnFocus?.isConnected && !returnFocus.closest("[inert]"))
-        returnFocus.focus({ preventScroll: true });
-    };
-  }, [open, panel]);
+      document.removeEventListener('focusin', onFocus)
+      document.removeEventListener('keydown', onKey)
+      traps.splice(traps.indexOf(self), 1)
+      if (returnFocus?.isConnected && !returnFocus.closest('[inert]'))
+        returnFocus.focus({ preventScroll: true })
+    }
+  }, [open, panel])
 }

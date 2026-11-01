@@ -20,6 +20,7 @@ import {
   routines,
   skills,
 } from '@bun/modules/db/schema/schema'
+import { AGENTS } from '@bun/seed-dev.data'
 
 const log = createLogger('seed')
 
@@ -31,77 +32,6 @@ if (db.select().from(agents).all().length > 0) {
 }
 
 const workspace = (id: string) => join(stateDir(), 'agents', id)
-
-const AGENTS = [
-  {
-    id: 'ops',
-    name: 'Ops',
-    color: 'ops',
-    acpAgent: 'claude',
-    model: 'Opus 5',
-    brief: 'You keep the repositories tidy and write the release notes.',
-    state: 'idle',
-    activity: null,
-    telegramBot: '@ops_dani_bot',
-  },
-  {
-    id: 'scout',
-    name: 'Scout',
-    color: 'scout',
-    acpAgent: 'codex',
-    model: 'GPT-5.2',
-    brief: 'You read my GitHub notifications and tell me what needs a human.',
-    state: 'working',
-    activity: 'Reading fourteen GitHub notifications',
-    telegramBot: '@scout_dani_bot',
-  },
-  {
-    id: 'postman',
-    name: 'Postman',
-    color: 'post',
-    acpAgent: 'claude',
-    model: 'Opus 5',
-    brief:
-      'You write posts in my voice for X and Bluesky. Draft only, never publish. Prefer concrete numbers over adjectives, keep it lowercase, and skip the hashtags.',
-    state: 'working',
-    activity: "Drafting five posts from today's feed",
-    telegramBot: '@postman_dani_bot',
-  },
-  {
-    id: 'inboxer',
-    name: 'Inboxer',
-    color: 'mail',
-    acpAgent: 'codex',
-    model: 'GPT-5.2',
-    brief: 'You file my mail and flag only what I have to answer myself.',
-    state: 'idle',
-    activity: null,
-    telegramBot: '@inboxer_dani_bot',
-  },
-  {
-    id: 'watchdog',
-    name: 'Watchdog',
-    color: 'watch',
-    acpAgent: 'gemini',
-    model: 'Gemini 3',
-    brief:
-      'You watch the dependency registry and open a pull request when something moves.',
-    state: 'stuck',
-    activity: 'Cannot reach the registry, trying again in four minutes',
-    telegramBot: '@watchdog_dani_bot',
-  },
-  {
-    id: 'housekeeper',
-    name: 'Housekeeper',
-    color: 'house',
-    acpAgent: 'claude',
-    model: 'Haiku 5.5',
-    brief: 'You keep the shopping list and remind me what is running low.',
-    state: 'off',
-    activity: null,
-    telegramBot: null,
-  },
-]
 
 db.insert(agents)
   .values(
@@ -168,6 +98,9 @@ db.insert(routines)
 
 db.insert(messages)
   .values([
+    // Postman's thread covers every state the conversation can render: a
+    // routine-started divider, agent and user turns, a tool call, a long
+    // reply, a question it is waiting on, a failure, and live thinking.
     {
       id: 'm1',
       agentId: 'postman',
@@ -200,30 +133,91 @@ db.insert(messages)
     },
     {
       id: 'm6',
+      agentId: 'postman',
+      role: 'user',
+      body: 'Why not just link it on Bluesky as well?',
+    },
+    {
+      id: 'm7',
+      agentId: 'postman',
+      role: 'agent',
+      body: 'Bluesky renders an x.com link as a bare card with no title, image or description, so the post reads as a dead rectangle in the timeline. On X the same link expands properly because the post is native. My suggestion is to put the quote text on its own over there and keep the link for X only. If you would rather keep them identical I can do that instead, it just costs the preview.',
+    },
+    {
+      id: 'm8',
+      agentId: 'postman',
+      role: 'tool',
+      body: 'Read the Bluesky posting rules',
+    },
+    {
+      id: 'm9',
+      agentId: 'postman',
+      role: 'question',
+      body: 'Posting needs your approval. Shall I publish the quote post to X now?',
+    },
+    {
+      id: 'm10',
+      agentId: 'postman',
+      role: 'user',
+      body: 'Hold it until tomorrow morning.',
+    },
+    {
+      id: 'm11',
+      agentId: 'postman',
+      role: 'agent',
+      body: 'Held. I will raise it again at eight.',
+    },
+    {
+      id: 'm12',
+      agentId: 'postman',
+      role: 'error',
+      body: 'The X rate limit was hit while reading replies. Backing off for four minutes.',
+    },
+    {
+      id: 'm13',
+      agentId: 'postman',
+      role: 'divider',
+      body: 'Afternoon drafts, running now',
+    },
+    {
+      id: 'm14',
+      agentId: 'postman',
+      role: 'thinking',
+      body: 'Reading the feed and ranking what is worth a post',
+    },
+
+    {
+      id: 'm20',
       agentId: 'ops',
       role: 'agent',
       body: 'Release notes drafted. Nine merged pull requests, grouped into three themes.',
     },
     {
-      id: 'm7',
+      id: 'm21',
       agentId: 'scout',
       role: 'agent',
       body: 'Four pull requests need review. Two have failing checks, both on the same flaky job.',
     },
     {
-      id: 'm8',
+      id: 'm22',
       agentId: 'inboxer',
       role: 'agent',
       body: 'Filed 23 messages. Four are flagged for you, the rest archived by rule.',
     },
     {
-      id: 'm9',
+      id: 'm23',
       agentId: 'watchdog',
       role: 'agent',
       body: 'Could not reach the registry. I stopped before changing anything.',
     },
     {
-      id: 'm10',
+      id: 'm24',
+      agentId: 'watchdog',
+      role: 'error',
+      body: 'Four attempts failed in a row. Pausing myself until you look.',
+    },
+    {
+      id: 'm25',
       agentId: 'housekeeper',
       role: 'agent',
       body: 'Guanciale, pecorino, eggs, black pepper.',

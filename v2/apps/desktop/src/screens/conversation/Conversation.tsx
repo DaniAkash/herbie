@@ -1,30 +1,38 @@
 import { Link, useParams } from '@tanstack/react-router'
-import { PanelRight, Paperclip, Repeat } from 'lucide-react'
-import { useEffect, useRef } from 'react'
+import { PanelRight, Repeat } from 'lucide-react'
 import { AgentFace } from '@/components/agent/AgentFace'
-import { Button } from '@/components/atoms/Button'
+import {
+  MessageBubble,
+  MessageBubbleContent,
+} from '@/components/agents/message-bubble'
+import { MessageSideContext } from '@/components/agents/message-context'
+import { MessageScroller } from '@/components/agents/message-scroller'
+import { PromptInput } from '@/components/agents/prompt-input'
+import ApprovalCard from '@/components/primitives/ApprovalCard'
+import ThinkingState from '@/components/primitives/ThinkingState'
+import ToolChips from '@/components/primitives/ToolChips'
 import { AgentStateDot } from '@/components/shell/AgentStateDot'
-import { cn } from '@/lib/utils'
 import type { Agent, Message } from '@/modules/api/agents.hooks'
 import { useMessages } from '@/modules/api/agents.hooks'
+
+/** The runtimes an agent can be bound to, named the way the panel names them. */
+const RUNTIME: Record<string, string> = {
+  claude: 'Claude Code',
+  codex: 'Codex',
+  gemini: 'Gemini',
+}
 
 /**
  * The middle column, and the only place you can be.
  *
  * A routine's output arrives here as a message from the agent, which is why
- * there is no inbox anywhere in the app.
+ * there is no inbox. The viewport is beui's MessageScroller rather than a
+ * scroll effect of our own, because it already follows a streamed reply at
+ * the live edge and lets go when the reader scrolls up.
  */
 export function Conversation({ agent }: { agent: Agent }) {
   const { agentId } = useParams({ from: '/_shell/agents/$agentId' })
   const { data, isPending, isError } = useMessages({ variables: { agentId } })
-  const thread = useRef<HTMLDivElement>(null)
-
-  // A conversation opens on its latest turn. The ref is an imperative scroll
-  // on a DOM node, which has no render-time equivalent.
-  useEffect(() => {
-    const el = thread.current
-    if (el) el.scrollTop = el.scrollHeight
-  }, [])
 
   return (
     <section className="grid min-h-0 min-w-0 grid-rows-[auto_1fr_auto] bg-page">
@@ -48,9 +56,12 @@ export function Conversation({ agent }: { agent: Agent }) {
         </Link>
       </div>
 
-      <div
-        ref={thread}
-        className="grid min-h-0 content-start gap-[18px] overflow-y-auto px-[22px] pt-3 pb-2"
+      <MessageScroller
+        label={`Conversation with ${agent.name}`}
+        busy={agent.state === 'working'}
+        className="min-h-0"
+        viewportClassName="px-[22px] pt-3 pb-2"
+        contentClassName="grid content-start gap-[18px]"
       >
         {isPending ? <ThreadSkeleton /> : null}
         {isError ? (
@@ -64,33 +75,36 @@ export function Conversation({ agent }: { agent: Agent }) {
         {data?.messages.map((message) => (
           <Turn key={message.id} message={message} agent={agent} />
         ))}
-      </div>
+      </MessageScroller>
 
       <div className="px-[22px] pt-2.5 pb-[18px]">
-        <div className="grid gap-2.5 rounded-card bg-surface px-3.5 py-3 shadow-hairline">
-          <textarea
-            rows={1}
-            placeholder={`Message ${agent.name}`}
-            className="max-h-[120px] min-h-6 w-full resize-none border-none bg-transparent text-[14.5px] leading-normal outline-none placeholder:text-ink-3"
-          />
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              aria-label="Attach"
-              className="inline-flex size-7 items-center justify-center rounded-control text-ink-3 hover:bg-hover hover:text-ink"
-            >
-              <Paperclip size={16} />
-            </button>
-            <Button size="xs" variant="quiet">
-              <Repeat size={14} />
-              Teach a routine
-            </Button>
-            <span className="flex-1" />
-            <Button size="xs">
-              {agent.state === 'working' ? 'Stop' : 'Send'}
-            </Button>
-          </div>
-        </div>
+        {/*
+          beui rather than beautifui's PromptBar: that one hardcodes its model
+          list at module scope, so it would ship invented model names with no
+          prop to correct them. This takes the agent's real runtime, and the
+          send and stop states the working indicator needs.
+        */}
+        <PromptInput
+          placeholder={`Message ${agent.name}`}
+          models={[
+            {
+              value: agent.acpAgent,
+              label: RUNTIME[agent.acpAgent] ?? agent.acpAgent,
+            },
+          ]}
+          model={agent.acpAgent}
+          actions={[
+            {
+              value: 'teach',
+              label: 'Teach a routine',
+              description: 'Turn this into work it starts by itself',
+              icon: <Repeat size={15} />,
+            },
+          ]}
+          loading={agent.state === 'working'}
+          minRows={1}
+          maxRows={6}
+        />
       </div>
     </section>
   )
@@ -104,30 +118,99 @@ function Turn({ message, agent }: { message: Message; agent: Agent }) {
       </div>
     )
   }
+
   if (message.role === 'tool') {
     return (
-      <div className="flex items-center gap-2 text-[13px] text-ink-2">
-        {message.body}
-      </div>
+      <ToolChips
+        // its root hardcodes min-h-[220px] and max-w-80 for the gallery, which
+        // leaves a dead gap under a single tool line
+        className="!min-h-0 !max-w-[540px]"
+        labels={{ header: '1 tool call', more: '' }}
+        steps={[
+          {
+            icon: 'browser',
+            label: message.body,
+            chip: 'done',
+            mono: false,
+            detailMono: false,
+            detail: [],
+          },
+        ]}
+        diffs={[]}
+        diffLines={{}}
+      />
     )
   }
+
+  if (message.role === 'question') {
+    // beautifui's own surface for "ask before acting", which is what an
+    // always-ask rule produces when it fires.
+    return (
+      <ApprovalCard
+        resettable={false}
+        labels={{ send: 'Answer', sentMessage: `Sent to ${agent.name}` }}
+        questions={[
+          {
+            q: message.body,
+            type: 'radio',
+            options: ['Post it now', 'Hold it', 'Show me the text first'],
+          },
+        ]}
+      />
+    )
+  }
+
+  if (message.role === 'thinking') {
+    // rows must be passed or it falls back to its gallery trace about
+    // flavour briefs and supplier lists.
+    return (
+      <ThinkingState
+        active={message.body}
+        done={message.body}
+        rows={[
+          { primary: 'Read the feed', secondary: '41 posts' },
+          { primary: 'Ranked by engagement' },
+          { primary: 'Drafting', secondary: '5 candidates' },
+        ]}
+      />
+    )
+  }
+
+  if (message.role === 'error') {
+    return (
+      <MessageSideContext.Provider value="start">
+        <div className="grid gap-1.5">
+          <div className="text-[12px] text-ink-3">{agent.name}</div>
+          <MessageBubble variant="danger">
+            <MessageBubbleContent className="max-w-[540px]">
+              {message.body}
+            </MessageBubbleContent>
+          </MessageBubble>
+        </div>
+      </MessageSideContext.Provider>
+    )
+  }
+
   const mine = message.role === 'user'
   return (
-    <div
-      className={cn('grid max-w-[540px] gap-1.5', mine && 'justify-self-end')}
-    >
-      <div className={cn('text-[12px] text-ink-3', mine && 'text-right')}>
-        {mine ? 'You' : agent.name}
+    <MessageSideContext.Provider value={mine ? 'end' : 'start'}>
+      <div className="grid gap-1.5">
+        <div
+          className={
+            mine
+              ? 'text-right text-[12px] text-ink-3'
+              : 'text-[12px] text-ink-3'
+          }
+        >
+          {mine ? 'You' : agent.name}
+        </div>
+        <MessageBubble variant={mine ? 'tint' : 'soft'}>
+          <MessageBubbleContent className="max-w-[540px]">
+            {message.body}
+          </MessageBubbleContent>
+        </MessageBubble>
       </div>
-      <div
-        className={cn(
-          'rounded-card px-3.5 py-3',
-          mine ? 'bg-field' : 'bg-surface shadow-hairline',
-        )}
-      >
-        {message.body}
-      </div>
-    </div>
+    </MessageSideContext.Provider>
   )
 }
 

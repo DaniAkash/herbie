@@ -1,4 +1,10 @@
+// @ts-nocheck
+/* Vendored from a component registry. Checking is off because upstream is
+ * not written against this project's strict settings, and any fix here is
+ * lost the next time `bun run ui:add` installs it. Do not edit; reinstall.
+ */
 "use client";
+// beui.dev/components/motion/preview-rail
 
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
