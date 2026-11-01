@@ -14,20 +14,22 @@ import type { OverlaySearch } from '@/modules/navigation/overlay'
  */
 export function OverlayHost({ search }: { search: OverlaySearch }) {
   if (!search.overlay) return null
-  const top = search.overlay === 'search'
+
+  // The palette brings its own fixed backdrop, so wrapping it in ours would
+  // dim the screen twice and fight its own positioning.
+  if (search.overlay === 'search') return <SearchOverlay />
 
   return (
     <div
       className={cn(
-        'absolute inset-0 z-40 grid bg-black/30 p-5 motion-safe:animate-[herbie-fadein_0.18s_ease-out]',
-        top ? 'place-items-start justify-center' : 'place-items-center',
+        'absolute inset-0 z-40 grid place-items-center bg-black/30 p-5',
+        'motion-safe:animate-[herbie-fadein_0.18s_ease-out]',
       )}
     >
       {search.overlay === 'tools' && <ToolsOverlay />}
       {search.overlay === 'server' && <McpServerOverlay id={search.server} />}
       {search.overlay === 'new' && <NewAgentOverlay />}
       {search.overlay === 'herbie' && <HerbieOverlay />}
-      {search.overlay === 'search' && <SearchOverlay />}
     </div>
   )
 }

@@ -1,6 +1,6 @@
-import { Link, useParams } from '@tanstack/react-router'
+import { useNavigate, useParams } from '@tanstack/react-router'
 import { AgentFace } from '@/components/agent/AgentFace'
-import { cn } from '@/lib/utils'
+import { Tabs, TabsList, TabsTrigger } from '@/components/motion/tabs'
 import { useAgents } from '@/modules/api/agents.hooks'
 
 const TABS = [
@@ -23,6 +23,7 @@ export function AgentPanel({
   children: React.ReactNode
 }) {
   const { agentId } = useParams({ from: '/_shell/agents/$agentId' })
+  const navigate = useNavigate()
   const { data } = useAgents()
   const agent = data?.agents.find((a) => a.id === agentId)
   if (!agent) return null
@@ -42,23 +43,26 @@ export function AgentPanel({
             {agent.brief.split('.')[0]}
           </div>
         </div>
-        <div className="inline-flex gap-0.5 rounded-full bg-field p-0.5 shadow-hairline">
-          {TABS.map((t) => (
-            <Link
-              key={t.to}
-              to={`/agents/$agentId/${t.to}`}
-              params={{ agentId }}
-              className={cn(
-                'rounded-full px-3 py-1 font-medium text-[12.5px] transition-colors duration-150 ease-out',
-                t.to === tab
-                  ? 'bg-surface text-ink shadow-xs'
-                  : 'text-ink-3 hover:text-ink',
-              )}
-            >
-              {t.label}
-            </Link>
-          ))}
-        </div>
+        {/* beui Tabs in its pill variant, driven by the route rather than
+            by its own state: the open tab is a path, not a selection. */}
+        <Tabs
+          value={tab}
+          variant="pill"
+          onValueChange={(next) =>
+            navigate({
+              to: `/agents/$agentId/${next}`,
+              params: { agentId },
+            })
+          }
+        >
+          <TabsList>
+            {TABS.map((t) => (
+              <TabsTrigger key={t.to} value={t.to}>
+                {t.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
       </div>
       <div className="px-4 pt-0.5 pb-[22px]">{children}</div>
     </aside>
