@@ -1,4 +1,5 @@
 import { useLocation, useNavigate, useParams } from '@tanstack/react-router'
+import { motion, useReducedMotion } from 'motion/react'
 import { AgentFace } from '@/components/agent/AgentFace'
 import { Tabs, TabsList, TabsTrigger } from '@/components/motion/tabs'
 import { useAgents } from '@/modules/api/agents.hooks'
@@ -25,6 +26,7 @@ export function AgentPanel({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const { data } = useAgents()
+  const reduce = useReducedMotion()
 
   const agent = data?.agents.find((a) => a.id === agentId)
   if (!agent) return null
@@ -32,8 +34,27 @@ export function AgentPanel({ children }: { children: React.ReactNode }) {
   const tab = TABS.find((t) => pathname.endsWith(t.to))?.to ?? 'overview'
 
   return (
-    <aside className="quiet-scroll min-h-0 w-[332px] overflow-y-auto bg-canvas motion-safe:animate-[herbie-slidein_0.26s_cubic-bezier(0.23,1,0.32,1)]">
-      <div className="grid place-items-center gap-2 px-4 pt-[18px] pb-3.5 text-center">
+    /*
+     * Width as well as opacity, because the grid column is `auto`: animating
+     * only the contents would leave the column at full width until the
+     * element unmounted, and the conversation would snap sideways at the end
+     * rather than growing into the space.
+     *
+     * The exit half of this only runs because the agent route keeps the panel
+     * mounted through AnimatePresence while it plays.
+     */
+    <motion.aside
+      initial={reduce ? false : { width: 0, opacity: 0 }}
+      animate={{ width: 332, opacity: 1 }}
+      exit={reduce ? { opacity: 0 } : { width: 0, opacity: 0 }}
+      transition={
+        reduce
+          ? { duration: 0 }
+          : { type: 'spring', visualDuration: 0.28, bounce: 0.1 }
+      }
+      className="quiet-scroll min-h-0 overflow-y-auto overflow-x-hidden bg-canvas"
+    >
+      <div className="grid w-[332px] place-items-center gap-2 px-4 pt-[18px] pb-3.5 text-center">
         <AgentFace
           color={agent.color}
           size="lg"
@@ -62,7 +83,7 @@ export function AgentPanel({ children }: { children: React.ReactNode }) {
           </TabsList>
         </Tabs>
       </div>
-      <div className="px-4 pt-0.5 pb-[22px]">{children}</div>
-    </aside>
+      <div className="w-[332px] px-4 pt-0.5 pb-[22px]">{children}</div>
+    </motion.aside>
   )
 }
