@@ -48,7 +48,7 @@ export function Overlay({
           {lead}
           <h3 className="flex-1 font-semibold text-[15.5px]">{title}</h3>
         </div>
-        <div className="min-h-0 overflow-y-auto px-[18px] pt-3 pb-[18px]">
+        <div className="quiet-scroll min-h-0 overflow-y-auto px-[18px] pt-3 pb-[18px]">
           {children}
         </div>
         {footer ? (

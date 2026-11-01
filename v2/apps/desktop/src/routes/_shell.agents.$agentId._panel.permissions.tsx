@@ -1,9 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { AgentPanel } from '@/components/shell/AgentPanel'
 import { useToolAccess, useTools } from '@/modules/api/tools.hooks'
 import { AgentPermissions } from '@/screens/agent/AgentPermissions'
 
-export const Route = createFileRoute('/_shell/agents/$agentId/permissions')({
+/** Content only. The chrome around it belongs to the _panel layout. */
+export const Route = createFileRoute(
+  '/_shell/agents/$agentId/_panel/permissions',
+)({
   loader: ({ context, params }) =>
     Promise.all([
       context.queryClient.ensureQueryData(useTools.getFetchOptions()),
@@ -16,9 +18,5 @@ export const Route = createFileRoute('/_shell/agents/$agentId/permissions')({
 
 function PermissionsTab() {
   const { agentId } = Route.useParams()
-  return (
-    <AgentPanel tab="permissions">
-      <AgentPermissions agentId={agentId} />
-    </AgentPanel>
-  )
+  return <AgentPermissions agentId={agentId} />
 }

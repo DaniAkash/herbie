@@ -65,7 +65,7 @@ export function AgentRail({ agents }: { agents: readonly Agent[] }) {
 
       <div />
 
-      <div className="min-h-0 overflow-y-auto px-[7px] pb-2.5">
+      <div className="quiet-scroll min-h-0 overflow-y-auto px-[7px] pb-2.5">
         <div className="px-2 pt-1.5 pb-1.5 font-medium text-[11.5px] text-ink-3">
           Conversations
         </div>

@@ -1,4 +1,4 @@
-import { useNavigate, useParams } from '@tanstack/react-router'
+import { useLocation, useNavigate, useParams } from '@tanstack/react-router'
 import { AgentFace } from '@/components/agent/AgentFace'
 import { Tabs, TabsList, TabsTrigger } from '@/components/motion/tabs'
 import { useAgents } from '@/modules/api/agents.hooks'
@@ -10,26 +10,29 @@ const TABS = [
 ] as const
 
 /**
- * The agent slide-over, and the only place an agent is configured.
+ * The panel's chrome, mounted once by the _panel layout route.
  *
- * Rendered by each tab route rather than by their parent, so the third grid
- * column is `auto` and collapses to nothing when no tab is open.
+ * It stays put while the tab below it changes, which is the whole point of
+ * making the tabs nested routes: the face and the name do not rebuild every
+ * time you move between them.
+ *
+ * Not beui's Drawer, despite that being the obvious name: Drawer is a modal
+ * with a backdrop and a focus trap, and this is a column you read alongside
+ * the conversation rather than instead of it.
  */
-export function AgentPanel({
-  tab,
-  children,
-}: {
-  tab: (typeof TABS)[number]['to']
-  children: React.ReactNode
-}) {
+export function AgentPanel({ children }: { children: React.ReactNode }) {
   const { agentId } = useParams({ from: '/_shell/agents/$agentId' })
   const navigate = useNavigate()
+  const { pathname } = useLocation()
   const { data } = useAgents()
+
   const agent = data?.agents.find((a) => a.id === agentId)
   if (!agent) return null
 
+  const tab = TABS.find((t) => pathname.endsWith(t.to))?.to ?? 'overview'
+
   return (
-    <aside className="min-h-0 w-[332px] overflow-y-auto bg-canvas motion-safe:animate-[herbie-slidein_0.26s_cubic-bezier(0.23,1,0.32,1)]">
+    <aside className="quiet-scroll min-h-0 w-[332px] overflow-y-auto bg-canvas motion-safe:animate-[herbie-slidein_0.26s_cubic-bezier(0.23,1,0.32,1)]">
       <div className="grid place-items-center gap-2 px-4 pt-[18px] pb-3.5 text-center">
         <AgentFace
           color={agent.color}
@@ -43,16 +46,11 @@ export function AgentPanel({
             {agent.brief.split('.')[0]}
           </div>
         </div>
-        {/* beui Tabs in its pill variant, driven by the route rather than
-            by its own state: the open tab is a path, not a selection. */}
         <Tabs
           value={tab}
           variant="pill"
           onValueChange={(next) =>
-            navigate({
-              to: `/agents/$agentId/${next}`,
-              params: { agentId },
-            })
+            navigate({ to: `/agents/$agentId/${next}`, params: { agentId } })
           }
         >
           <TabsList>

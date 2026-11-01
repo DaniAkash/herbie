@@ -99,3 +99,20 @@
     opacity: 0;
   }
 }
+
+/*
+ * Panes that scroll without saying so.
+ *
+ * A scrollbar that appears only once content overflows takes width from the
+ * content when it arrives, so the panel reflows as you move between tabs with
+ * different heights. foundation.css already does this for its own nav; this
+ * is the same treatment as a utility the app can apply anywhere.
+ */
+.quiet-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.quiet-scroll::-webkit-scrollbar {
+  display: none;
+}

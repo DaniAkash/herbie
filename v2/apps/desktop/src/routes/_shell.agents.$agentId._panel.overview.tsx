@@ -1,20 +1,18 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { AgentPanel } from '@/components/shell/AgentPanel'
 import { useAgents } from '@/modules/api/agents.hooks'
 import { AgentOverview } from '@/screens/agent/AgentOverview'
 
-export const Route = createFileRoute('/_shell/agents/$agentId/overview')({
-  component: OverviewTab,
-})
+/** Content only. The chrome around it belongs to the _panel layout. */
+export const Route = createFileRoute('/_shell/agents/$agentId/_panel/overview')(
+  {
+    component: OverviewTab,
+  },
+)
 
 function OverviewTab() {
   const { agentId } = Route.useParams()
   const { data } = useAgents()
   const agent = data?.agents.find((a) => a.id === agentId)
   if (!agent) return null
-  return (
-    <AgentPanel tab="overview">
-      <AgentOverview agent={agent} />
-    </AgentPanel>
-  )
+  return <AgentOverview agent={agent} />
 }
