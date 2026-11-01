@@ -3,7 +3,6 @@ import { McpServerOverlay } from '@/components/overlays/McpServerOverlay'
 import { NewAgentOverlay } from '@/components/overlays/NewAgentOverlay'
 import { SearchOverlay } from '@/components/overlays/SearchOverlay'
 import { ToolsOverlay } from '@/components/overlays/ToolsOverlay'
-import { cn } from '@/lib/utils'
 import type { OverlaySearch } from '@/modules/navigation/overlay'
 
 /**
@@ -20,16 +19,11 @@ export function OverlayHost({ search }: { search: OverlaySearch }) {
   if (search.overlay === 'search') return <SearchOverlay />
 
   return (
-    <div
-      className={cn(
-        'absolute inset-0 z-40 grid place-items-center bg-black/30 p-5',
-        'motion-safe:animate-[herbie-fadein_0.18s_ease-out]',
-      )}
-    >
+    <>
       {search.overlay === 'tools' && <ToolsOverlay />}
       {search.overlay === 'server' && <McpServerOverlay id={search.server} />}
       {search.overlay === 'new' && <NewAgentOverlay />}
       {search.overlay === 'herbie' && <HerbieOverlay />}
-    </div>
+    </>
   )
 }
