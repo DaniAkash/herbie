@@ -5,7 +5,7 @@ import { Button } from '@/components/atoms/Button'
 import { Input } from '@/components/motion/input'
 import { Overlay } from '@/components/shell/Overlay'
 import { cn } from '@/lib/utils'
-import { useTools } from '@/modules/api/tools.hooks'
+import { type ToolsResponse, useTools } from '@/modules/api/tools.hooks'
 import { closeOverlay, openOverlay } from '@/modules/navigation/overlay'
 
 /**
@@ -15,8 +15,17 @@ import { closeOverlay, openOverlay } from '@/modules/navigation/overlay'
  * form because they are one row in one table, per settings.mcp.schema.
  */
 export function McpServerOverlay({ id }: { id?: string }) {
-  const { data } = useTools()
+  const { data, isPending } = useTools()
+  if (isPending) return null
   const existing = data?.servers.find((s) => s.id === id)
+  // Keyed so switching between servers remounts the fields rather than
+  // leaving the first server's values behind.
+  return <ServerForm key={id ?? 'new'} existing={existing} />
+}
+
+type Server = ToolsResponse['servers'][number]
+
+function ServerForm({ existing }: { existing?: Server }) {
   const [kind, setKind] = useState(existing?.kind ?? 'stdio')
 
   return (
