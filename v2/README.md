@@ -46,6 +46,19 @@ A sidecar started that way generates its own token and leaves it in the state
 directory, owner readable. The vite proxy picks it up, so the browser path
 needs no setup; `HERBIE_API_TOKEN` overrides it.
 
+An empty database shows the first run screen, which is correct but makes
+interface work tedious. `bun run seed:dev` writes six sample agents with their
+routines, messages and tools, and only into an empty table, so it can never
+overwrite real work. Point `HERBIE_STATE_DIR` somewhere scratch to keep it away
+from an install you care about.
+
+```bash
+cd apps/desktop
+HERBIE_STATE_DIR=/tmp/herbie-dev bun run seed:dev
+HERBIE_STATE_DIR=/tmp/herbie-dev bun run src-bun/index.ts
+HERBIE_STATE_DIR=/tmp/herbie-dev bun run dev:web    # in another shell
+```
+
 ## Checks
 
 ```bash
