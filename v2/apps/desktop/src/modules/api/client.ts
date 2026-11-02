@@ -5,18 +5,50 @@ import { fetch as tauriFetch } from '@tauri-apps/plugin-http'
 import { isDesktop } from '@/modules/host/host'
 
 let desktop: ApiInfo | null = null
+let pending: Promise<ApiInfo> | null = null
 let web: Client | null = null
+
+/** Long enough that a cold sidecar is never mistaken for a dead one. */
+const READY_TIMEOUT_MS = 20_000
+const POLL_MS = 100
 
 /**
  * Where the sidecar is listening, asked of the shell that spawned it.
  *
  * Neither value can be known ahead of time: the port is chosen by the OS when
- * the sidecar binds, and the token is fresh for each launch.
+ * the sidecar binds, and the token is fresh for each launch. `api_info` reads
+ * the state the shell fills in when the sidecar reports, so until that lands
+ * it answers with no port at all.
+ *
+ * The window is served by Vite and loads well before any of that, so this
+ * waits rather than failing. The route loaders ask for data on first paint,
+ * and a loader that rejects is terminal: the window would sit on its error
+ * boundary for the rest of the launch over a gap of about a second.
+ *
+ * Several loaders ask at once, so they share one wait instead of each
+ * starting a poll of its own.
  */
 async function desktopInfo(): Promise<ApiInfo> {
   if (desktop?.port) return desktop
-  desktop = await invoke<ApiInfo>('api_info')
-  return desktop
+  pending ??= awaitSidecar().finally(() => {
+    pending = null
+  })
+  return pending
+}
+
+async function awaitSidecar(): Promise<ApiInfo> {
+  const deadline = Date.now() + READY_TIMEOUT_MS
+  for (;;) {
+    const info = await invoke<ApiInfo>('api_info')
+    if (info.port) {
+      desktop = info
+      return info
+    }
+    if (Date.now() >= deadline) {
+      throw new Error('the sidecar never reported a port')
+    }
+    await new Promise((resolve) => setTimeout(resolve, POLL_MS))
+  }
 }
 
 /**
@@ -41,7 +73,6 @@ export async function api(): Promise<Client> {
     return web
   }
   const { port, token } = await desktopInfo()
-  if (!port) throw new Error('the sidecar has not reported a port yet')
   return hcWithType(`http://127.0.0.1:${port}`, {
     fetch: tauriFetch as unknown as typeof fetch,
     headers: { authorization: `Bearer ${token}` },
