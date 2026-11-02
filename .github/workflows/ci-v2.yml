@@ -6,6 +6,13 @@
 # cargo clippy and fallow. Local and CI parity is the design goal: whatever
 # `bun run check` does on a laptop is exactly what this does. No CI-only steps
 # and no laptop-only steps.
+#
+# Pull requests are gated behind manual approval, so a fork or a branch cannot
+# spend 30 minutes of macOS runner time without a human saying so first.
+#
+# One-time setup, otherwise the `approve` gate is a no-op that always passes:
+#   Repo Settings -> Environments -> New environment -> name `ci-approval`
+#   -> enable "Required reviewers" -> add yourself -> save.
 
 name: CI (v2)
 
@@ -29,15 +36,33 @@ concurrency:
 permissions:
   contents: read
 
-defaults:
-  run:
-    working-directory: v2
-
 jobs:
+  approve:
+    # Pull request only. A push to main has already been through review, so
+    # this is skipped there and the check below runs on the `skipped` branch
+    # of its guard.
+    if: github.event_name == 'pull_request'
+    name: Wait for manual approval
+    runs-on: ubuntu-latest
+    environment: ci-approval
+    timeout-minutes: 60
+    steps:
+      - name: Approved
+        run: echo "CI approved by ${{ github.actor }}"
+
   check:
     name: Check
+    needs: approve
+    # `always()` is what lets this run at all when `approve` is skipped: a
+    # skipped dependency would otherwise skip this job too.
+    if: always() && (needs.approve.result == 'success' || needs.approve.result == 'skipped')
     runs-on: macos-latest
     timeout-minutes: 30
+    # The default lives on the job rather than the workflow because `approve`
+    # never checks the repository out, so `v2` does not exist there.
+    defaults:
+      run:
+        working-directory: v2
     env:
       RUST_BACKTRACE: '1'
       # .cargo/config.toml points build-dir at CARGO_HOME so local worktrees
