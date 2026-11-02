@@ -34,7 +34,7 @@ function ShellLayout() {
 
   return (
     <div className="relative grid h-dvh grid-rows-[auto_1fr] overflow-hidden bg-page">
-      <Titlebar title="Herbie" />
+      <Titlebar />
       <div className="grid min-h-0 grid-cols-[224px_1fr_auto]">
         <AgentRail agents={agents} />
         <Outlet />
