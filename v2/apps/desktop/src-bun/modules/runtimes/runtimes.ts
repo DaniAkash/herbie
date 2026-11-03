@@ -9,6 +9,18 @@ import {
 } from '@bun/modules/runtimes/registry'
 import { count, eq } from 'drizzle-orm'
 
+/** Installed first, then what npx would fetch, then what is not there. */
+const ORDER: Record<string, number> = {
+  installed: 0,
+  'npx-available': 1,
+  'not-installed': 2,
+}
+
+/** An install state nothing recognises sorts last rather than throwing. */
+function rankOf(state: string): number {
+  return ORDER[state] ?? ORDER['not-installed'] ?? 2
+}
+
 /** How long a probe answer is trusted before it is taken again. */
 const FRESH_MS = 24 * 60 * 60 * 1000
 
@@ -107,7 +119,7 @@ export async function listRuntimes(db: Db): Promise<readonly RuntimeView[]> {
 
   const list = candidates()
   const detected = await Promise.all(list.map((c) => detect(c.command)))
-  return list.map((c, i) =>
+  const views = list.map((c, i) =>
     view(
       c,
       rows.get(c.id),
@@ -116,6 +128,16 @@ export async function listRuntimes(db: Db): Promise<readonly RuntimeView[]> {
       now,
     ),
   )
+
+  // Ordered by what can actually be used, not by name. acpx knows about
+  // thirty of these and a machine usually has two or three, so alphabetical
+  // order buries the real choices among a list of things to go and install.
+  return views.sort((a, b) => {
+    const rank = rankOf(a.installState) - rankOf(b.installState)
+    if (rank !== 0) return rank
+    if (a.agentCount !== b.agentCount) return b.agentCount - a.agentCount
+    return a.displayName.localeCompare(b.displayName)
+  })
 }
 
 /** Probes one runtime and stores what it said. */

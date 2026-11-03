@@ -1,4 +1,5 @@
-import { ExternalLink } from 'lucide-react'
+import { useNavigate } from '@tanstack/react-router'
+import { RefreshCw } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/atoms/Button'
 import {
@@ -11,31 +12,31 @@ import {
 import { Switch } from '@/components/motion/switch'
 import { Tabs, TabsList, TabsTrigger } from '@/components/motion/tabs'
 import { PanelRow, PanelSection } from '@/components/shell/Rows'
-import type { Agent } from '@/modules/api/agents.hooks'
-
-const RUNTIMES = [
-  { value: 'claude', label: 'Claude Code' },
-  { value: 'codex', label: 'Codex' },
-  { value: 'gemini', label: 'Gemini' },
-]
-
-const MODELS: Record<string, string[]> = {
-  claude: ['Opus 5', 'Sonnet 5.5', 'Haiku 5.5'],
-  codex: ['GPT-5.2', 'GPT-5.2 mini'],
-  gemini: ['Gemini 3', 'Gemini 3 Flash'],
-}
-
-const EFFORTS = ['low', 'medium', 'high'] as const
+import { Textarea } from '@/components/ui/textarea'
+import {
+  type Agent,
+  useDeleteAgent,
+  usePatchAgent,
+} from '@/modules/api/agents.hooks'
+import { useProbeRuntime, useRuntimes } from '@/modules/api/runtimes.hooks'
+import { DeleteAgentDialog } from '@/screens/agent/DeleteAgentDialog'
 
 /**
  * Everything that is this agent's own: its brief, its runtime, and its
  * Telegram bot. None of these are app settings.
  */
 export function AgentOverview({ agent }: { agent: Agent }) {
-  const [runtime, setRuntime] = useState(agent.acpAgent)
-  const [model, setModel] = useState(agent.model ?? '')
-  const [effort, setEffort] = useState(agent.effort)
-  const [telegram, setTelegram] = useState(Boolean(agent.telegramBot))
+  const patch = usePatchAgent()
+  const probe = useProbeRuntime()
+  const { data } = useRuntimes()
+  const navigate = useNavigate()
+  const remove = useDeleteAgent()
+  const [confirming, setConfirming] = useState(false)
+
+  const runtimes = data?.runtimes ?? []
+  const live =
+    probe.data?.runtime.id === agent.acpAgent ? probe.data.runtime : undefined
+  const runtime = live ?? runtimes.find((r) => r.id === agent.acpAgent)
 
   return (
     <>
@@ -43,14 +44,17 @@ export function AgentOverview({ agent }: { agent: Agent }) {
         <span className="mb-1.5 block font-medium text-[12.5px] text-ink-2">
           What it does
         </span>
-        {/*
-          Neither registry ships a multiline field: beui's Input is
-          single-line and beautifui has no text input at all. This matches
-          Input's own surface so the panel still reads as one set of controls.
-        */}
-        <textarea
+        <Textarea
+          key={agent.id}
           defaultValue={agent.brief}
-          className="min-h-24 w-full resize-y rounded-control bg-surface px-3.5 py-2.5 text-ink shadow-hairline outline-none focus:shadow-[0_0_0_1px_var(--accent)]"
+          onBlur={(event) => {
+            // On blur rather than on every keystroke: a brief is a paragraph,
+            // and a write per character would be a write per character.
+            if (event.target.value !== agent.brief) {
+              patch.mutate({ id: agent.id, brief: event.target.value })
+            }
+          }}
+          className="min-h-24"
         />
       </section>
 
@@ -60,64 +64,116 @@ export function AgentOverview({ agent }: { agent: Agent }) {
       >
         <PanelRow k="Runs on">
           <Select
-            value={runtime}
-            onValueChange={(next) => {
-              setRuntime(next)
-              setModel(MODELS[next]?.[0] ?? '')
+            value={agent.acpAgent}
+            onValueChange={(acpAgent) => {
+              // The model it was on means nothing to a different runtime, so
+              // it is cleared rather than carried across as a value the new
+              // one will refuse.
+              patch.mutate({ id: agent.id, acpAgent, model: null })
+              probe.mutate({ id: acpAgent })
             }}
           >
             <SelectTrigger className="w-[150px]">
               <SelectValue placeholder="Pick one" />
             </SelectTrigger>
             <SelectContent>
-              {RUNTIMES.map((r) => (
-                <SelectItem key={r.value} value={r.value}>
-                  {r.label}
-                </SelectItem>
-              ))}
+              {runtimes
+                .filter((r) => r.installState !== 'not-installed')
+                .map((r) => (
+                  <SelectItem key={r.id} value={r.id}>
+                    {r.displayName}
+                  </SelectItem>
+                ))}
             </SelectContent>
           </Select>
         </PanelRow>
 
-        <PanelRow k="Model">
-          <Select value={model} onValueChange={setModel}>
-            <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="Default" />
-            </SelectTrigger>
-            <SelectContent>
-              {(MODELS[runtime] ?? []).map((m) => (
-                <SelectItem key={m} value={m}>
-                  {m}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </PanelRow>
+        {runtime && runtime.modelValues.length > 0 ? (
+          <PanelRow k="Model">
+            <Select
+              value={agent.model ?? ''}
+              onValueChange={(model) => patch.mutate({ id: agent.id, model })}
+            >
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Its default" />
+              </SelectTrigger>
+              <SelectContent>
+                {runtime.modelValues.map((m) => (
+                  <SelectItem key={m} value={m}>
+                    {m}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </PanelRow>
+        ) : null}
 
-        <PanelRow k="Effort">
-          <Tabs value={effort} variant="segment" onValueChange={setEffort}>
-            <TabsList>
-              {EFFORTS.map((e) => (
-                <TabsTrigger key={e} value={e}>
-                  {e}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
+        {runtime && runtime.efforts.length > 0 ? (
+          <PanelRow k="Effort">
+            {runtime.efforts.length <= 3 ? (
+              <Tabs
+                value={agent.effort}
+                variant="segment"
+                onValueChange={(effort) =>
+                  patch.mutate({ id: agent.id, effort })
+                }
+              >
+                <TabsList>
+                  {runtime.efforts.map((e) => (
+                    <TabsTrigger key={e} value={e}>
+                      {e}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+            ) : (
+              <Select
+                value={agent.effort}
+                onValueChange={(effort) =>
+                  patch.mutate({ id: agent.id, effort })
+                }
+              >
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {runtime.efforts.map((e) => (
+                    <SelectItem key={e} value={e}>
+                      {e}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </PanelRow>
+        ) : null}
+
+        <PanelRow
+          k="Ask it again"
+          v={
+            runtime?.probedAt
+              ? `It last answered ${when(runtime.probedAt)}`
+              : 'It has not been asked what it can do'
+          }
+        >
+          <button
+            type="button"
+            aria-label="Ask the runtime again"
+            disabled={probe.isPending}
+            onClick={() => probe.mutate({ id: agent.acpAgent })}
+            className="inline-flex size-7 items-center justify-center rounded-control text-ink-3 hover:bg-hover hover:text-ink disabled:opacity-50"
+          >
+            <RefreshCw
+              size={14}
+              className={probe.isPending ? 'animate-spin' : undefined}
+            />
+          </button>
         </PanelRow>
 
         <PanelRow
           k="Its own folder"
           v={<span className="font-mono">{agent.workspaceDir}</span>}
-        >
-          <button
-            type="button"
-            aria-label="Open folder"
-            className="inline-flex size-7 items-center justify-center rounded-control text-ink-3 hover:bg-hover hover:text-ink"
-          >
-            <ExternalLink size={15} />
-          </button>
-        </PanelRow>
+        />
       </PanelSection>
 
       <PanelSection
@@ -141,8 +197,11 @@ export function AgentOverview({ agent }: { agent: Agent }) {
           v="Routine results arrive in Telegram as well"
         >
           <Switch
-            checked={telegram}
-            onCheckedChange={setTelegram}
+            checked={agent.telegramResults}
+            disabled={!agent.telegramBot}
+            onCheckedChange={(telegramResults) =>
+              patch.mutate({ id: agent.id, telegramResults })
+            }
             ariaLabel="Send work to Telegram"
           />
         </PanelRow>
@@ -153,11 +212,39 @@ export function AgentOverview({ agent }: { agent: Agent }) {
           k={<span className="text-red">Delete {agent.name}</span>}
           v="Removes its routines and folder"
         >
-          <Button size="xs" variant="quiet" className="text-red">
+          <Button
+            size="xs"
+            variant="quiet"
+            className="text-red"
+            onClick={() => setConfirming(true)}
+          >
             Delete
           </Button>
         </PanelRow>
       </PanelSection>
+
+      <DeleteAgentDialog
+        agent={agent}
+        open={confirming}
+        pending={remove.isPending}
+        onOpenChange={setConfirming}
+        onConfirm={async () => {
+          await remove.mutateAsync({ id: agent.id })
+          setConfirming(false)
+          navigate({ to: '/' })
+        }}
+      />
     </>
   )
+}
+
+/** Roughly how long ago, which is all this row needs to say. */
+function when(iso: string): string {
+  const minutes = Math.round((Date.now() - Date.parse(iso)) / 60_000)
+  if (minutes < 1) return 'just now'
+  if (minutes < 60) return `${minutes} minutes ago`
+  const hours = Math.round(minutes / 60)
+  if (hours < 24) return hours === 1 ? 'an hour ago' : `${hours} hours ago`
+  const days = Math.round(hours / 24)
+  return days === 1 ? 'yesterday' : `${days} days ago`
 }

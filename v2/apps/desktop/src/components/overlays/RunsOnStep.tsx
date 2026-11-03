@@ -1,5 +1,5 @@
 import { CheckCircle2, Info, Loader2 } from 'lucide-react'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Controller } from 'react-hook-form'
 import { Card, CardContent } from '@/components/motion/card'
 import { Input } from '@/components/motion/input'
@@ -35,6 +35,15 @@ export function RunsOnStep({ form }: { form: AgentForm }) {
 
   const runtimes = data?.runtimes ?? []
   const runtime = runtimes.find((r) => r.id === chosen)
+
+  // acpx knows about thirty coding agents and a machine usually has two or
+  // three. The ones that cannot be used without installing something are
+  // kept behind a disclosure rather than listed: they are a real answer to
+  // "what else is there", and a wall of them is not an answer to "which one".
+  const [showAll, setShowAll] = useState(false)
+  const ready = runtimes.filter((r) => r.installState !== 'not-installed')
+  const missing = runtimes.filter((r) => r.installState === 'not-installed')
+  const shown = showAll ? runtimes : ready
   // The probe's own answer wins while it is on screen, so the rows fill in
   // the moment it lands rather than after the list is refetched.
   const probed: Runtime | undefined =
@@ -70,7 +79,7 @@ export function RunsOnStep({ form }: { form: AgentForm }) {
                     }}
                     aria-label="Runtime"
                   >
-                    {runtimes.map((r) => (
+                    {shown.map((r) => (
                       <RuntimeRow key={r.id} runtime={r} />
                     ))}
                   </RadioGroup>
@@ -79,6 +88,17 @@ export function RunsOnStep({ form }: { form: AgentForm }) {
             </CardContent>
           </Card>
         )}
+        {missing.length > 0 && !showAll ? (
+          <button
+            type="button"
+            onClick={() => setShowAll(true)}
+            className="mt-2 text-[12.5px] text-ink-3 hover:text-ink"
+          >
+            {ready.length === 0
+              ? `None are installed. Show ${missing.length} Herbie can use`
+              : `Show ${missing.length} more Herbie can use`}
+          </button>
+        ) : null}
         <ProbeLine pending={probe.isPending} runtime={probed} />
       </section>
 

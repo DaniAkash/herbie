@@ -15,13 +15,8 @@ import { AgentStateDot } from '@/components/shell/AgentStateDot'
 import { cn } from '@/lib/utils'
 import type { Agent, Message } from '@/modules/api/agents.hooks'
 import { useMessages } from '@/modules/api/agents.hooks'
-
-/** The runtimes an agent can be bound to, named the way the panel names them. */
-const RUNTIME: Record<string, string> = {
-  claude: 'Claude Code',
-  codex: 'Codex',
-  gemini: 'Gemini',
-}
+import { useRuntimes } from '@/modules/api/runtimes.hooks'
+import { FirstRunCard } from '@/screens/conversation/FirstRunCard'
 
 /**
  * The middle column, and the only place you can be.
@@ -34,7 +29,14 @@ const RUNTIME: Record<string, string> = {
 export function Conversation({ agent }: { agent: Agent }) {
   const { agentId } = useParams({ from: '/_shell/agents/$agentId' })
   const { data, isPending, isError } = useMessages({ variables: { agentId } })
+  const runtimes = useRuntimes()
   const { pathname } = useLocation()
+
+  // Named from what the sidecar found rather than a map in here, so a runtime
+  // this file has never heard of still reads as its own name.
+  const runtimeName =
+    runtimes.data?.runtimes.find((r) => r.id === agent.acpAgent)?.displayName ??
+    agent.acpAgent
 
   // The panel is a route, so whether it is open is a fact about the url
   // rather than state of ours. The button closes it when it is open.
@@ -79,11 +81,7 @@ export function Conversation({ agent }: { agent: Agent }) {
         {isError ? (
           <p className="text-red">The sidecar did not answer. Is it running?</p>
         ) : null}
-        {data?.messages.length === 0 ? (
-          <p className="text-ink-3">
-            Nothing yet. Say something, or wait for a routine to fire.
-          </p>
-        ) : null}
+        {data?.messages.length === 0 ? <FirstRunCard agent={agent} /> : null}
         {data?.messages.map((message) => (
           <Turn key={message.id} message={message} agent={agent} />
         ))}
@@ -98,12 +96,7 @@ export function Conversation({ agent }: { agent: Agent }) {
         */}
         <PromptInput
           placeholder={`Message ${agent.name}`}
-          models={[
-            {
-              value: agent.acpAgent,
-              label: RUNTIME[agent.acpAgent] ?? agent.acpAgent,
-            },
-          ]}
+          models={[{ value: agent.acpAgent, label: runtimeName }]}
           model={agent.acpAgent}
           actions={[
             {

@@ -1,9 +1,15 @@
-import { Bell, Clock, Plus } from 'lucide-react'
-import { useState } from 'react'
+import { Link } from '@tanstack/react-router'
+import { Bell, Clock, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/atoms/Button'
 import { Switch } from '@/components/motion/switch'
 import { PanelRow, PanelSection } from '@/components/shell/Rows'
-import { type Routine, useRoutines } from '@/modules/api/agents.hooks'
+import {
+  type Routine,
+  useDeleteRoutine,
+  usePatchRoutine,
+  useRoutines,
+} from '@/modules/api/agents.hooks'
+import { openOverlay } from '@/modules/navigation/overlay'
 
 /**
  * Work the agent starts by itself.
@@ -25,7 +31,7 @@ export function AgentRoutines({ agentId }: { agentId: string }) {
       {scheduled.length > 0 ? (
         <PanelSection label="On a schedule">
           {scheduled.map((routine) => (
-            <RoutineRow key={routine.id} routine={routine} />
+            <RoutineRow key={routine.id} routine={routine} agentId={agentId} />
           ))}
         </PanelSection>
       ) : null}
@@ -33,7 +39,7 @@ export function AgentRoutines({ agentId }: { agentId: string }) {
       {evented.length > 0 ? (
         <PanelSection label="When something happens">
           {evented.map((routine) => (
-            <RoutineRow key={routine.id} routine={routine} />
+            <RoutineRow key={routine.id} routine={routine} agentId={agentId} />
           ))}
         </PanelSection>
       ) : null}
@@ -44,51 +50,73 @@ export function AgentRoutines({ agentId }: { agentId: string }) {
         </p>
       ) : null}
 
-      <Button size="sm" variant="quiet" className="mb-6 w-full">
-        <Plus size={14} />
-        Add a routine
-      </Button>
+      <Link to="." search={openOverlay('routine')} className="mb-6 block">
+        <Button size="sm" variant="quiet" className="w-full">
+          <Plus size={14} />
+          Add a routine
+        </Button>
+      </Link>
 
       <PanelSection label="Good manners">
-        <Manner
+        <PanelRow
           k="Keep working when closed"
           v="Herbie waits in the menu bar"
-          initial
         />
-        <Manner
-          k="Rest overnight"
-          v="Nothing runs from eleven to seven"
-          initial
-        />
-        <Manner
+        <PanelRow k="Rest overnight" v="Nothing runs from eleven to seven" />
+        <PanelRow
           k="Stop if it keeps failing"
           v="Waits longer, then pauses itself"
-          initial
         />
       </PanelSection>
     </>
   )
 }
 
-function RoutineRow({ routine }: { routine: Routine }) {
-  const [on, setOn] = useState(routine.enabled)
+function RoutineRow({
+  routine,
+  agentId,
+}: {
+  routine: Routine
+  agentId: string
+}) {
+  const patch = usePatchRoutine()
+  const remove = useDeleteRoutine()
   const Icon = routine.kind === 'event' ? Bell : Clock
+
+  // A schedule with no cron never fires, which the panel has to say rather
+  // than showing a switch that looks on and does nothing.
+  const silent = routine.kind === 'schedule' && !routine.cron
+
   return (
     <PanelRow
       icon={<Icon size={16} />}
       k={<span className="text-[13.5px]">{routine.name}</span>}
-      v={routine.cadence}
+      v={
+        silent ? (
+          <span className="text-red">
+            {routine.cadence}, which Herbie could not read
+          </span>
+        ) : (
+          routine.cadence
+        )
+      }
     >
-      <Switch checked={on} onCheckedChange={setOn} ariaLabel={routine.name} />
-    </PanelRow>
-  )
-}
-
-function Manner({ k, v, initial }: { k: string; v: string; initial: boolean }) {
-  const [on, setOn] = useState(initial)
-  return (
-    <PanelRow k={k} v={v}>
-      <Switch checked={on} onCheckedChange={setOn} ariaLabel={k} />
+      <button
+        type="button"
+        aria-label={`Delete ${routine.name}`}
+        onClick={() => remove.mutate({ id: routine.id, agentId })}
+        className="inline-flex size-7 items-center justify-center rounded-control text-ink-3 hover:bg-hover hover:text-red"
+      >
+        <Trash2 size={14} />
+      </button>
+      <Switch
+        checked={routine.enabled}
+        disabled={silent}
+        onCheckedChange={(enabled) =>
+          patch.mutate({ id: routine.id, agentId, enabled })
+        }
+        ariaLabel={routine.name}
+      />
     </PanelRow>
   )
 }
