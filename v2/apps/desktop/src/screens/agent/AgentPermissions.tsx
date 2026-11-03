@@ -134,6 +134,11 @@ export function AgentPermissions({ agent }: { agent: Agent }) {
  *
  * Phrases rather than matchers because the agent reads them, not a rule
  * engine: a list of patterns would be precise about the wrong thing.
+ *
+ * A real form with a visible submit, not an input that commits on blur. A
+ * chip editor whose only way to confirm is Enter leaves no way to find out
+ * that Enter is what it wanted, and clicking anywhere else threw the phrase
+ * away without saying so.
  */
 function Rules({
   agentId,
@@ -151,13 +156,7 @@ function Rules({
   const [phrase, setPhrase] = useState('')
 
   const rules = data?.rules.filter((r) => r.kind === kind) ?? []
-
-  const add = () => {
-    const text = phrase.trim()
-    if (text) create.mutate({ agentId, kind, phrase: text })
-    setPhrase('')
-    setAdding(false)
-  }
+  const text = phrase.trim()
 
   return (
     <section className="mb-6">
@@ -180,21 +179,50 @@ function Rules({
           </span>
         ))}
         {adding ? (
-          <Input
-            autoFocus
-            value={phrase}
-            onChange={setPhrase}
-            onBlur={add}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') add()
-              if (event.key === 'Escape') {
+          <form
+            className="flex items-center gap-1.5"
+            onSubmit={(event) => {
+              event.preventDefault()
+              if (!text) return
+              create.mutate({ agentId, kind, phrase: text })
+              setPhrase('')
+              setAdding(false)
+            }}
+          >
+            <Input
+              autoFocus
+              value={phrase}
+              onChange={setPhrase}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') {
+                  setPhrase('')
+                  setAdding(false)
+                }
+              }}
+              placeholder={kind === 'ask' ? 'post' : 'read the feed'}
+              aria-label={label}
+              className="h-7 w-[150px]"
+            />
+            <Button
+              size="xs"
+              variant="secondary"
+              type="submit"
+              disabled={!text}
+            >
+              Save
+            </Button>
+            <Button
+              size="xs"
+              variant="quiet"
+              type="button"
+              onClick={() => {
                 setPhrase('')
                 setAdding(false)
-              }
-            }}
-            placeholder={kind === 'ask' ? 'post' : 'read the feed'}
-            className="h-7 w-[150px]"
-          />
+              }}
+            >
+              Cancel
+            </Button>
+          </form>
         ) : (
           <Button size="xs" variant="quiet" onClick={() => setAdding(true)}>
             <Plus size={13} />

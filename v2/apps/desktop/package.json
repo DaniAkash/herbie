@@ -11,7 +11,7 @@
     "build:sidecar": "bun scripts/build-sidecar.ts",
     "preview": "vite preview",
     "typecheck": "tsr generate && tsc -b",
-    "test": "bun test src-bun",
+    "test": "bun test src-bun src",
     "tauri": "tauri",
     "ui:add": "bun scripts/ui-add.ts",
     "db:generate": "drizzle-kit generate",

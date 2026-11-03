@@ -8,6 +8,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { shortenHome } from '@/lib/paths'
 import type { Agent } from '@/modules/api/agents.hooks'
 
 /**
@@ -37,7 +38,7 @@ export function DeleteAgentDialog({
           <AlertDialogDescription>
             Its conversation, routines and rules go with it, and so does{' '}
             <span className="font-mono text-[12.5px]">
-              {agent.workspaceDir}
+              {shortenHome(agent.workspaceDir)}
             </span>
             . This cannot be undone.
           </AlertDialogDescription>

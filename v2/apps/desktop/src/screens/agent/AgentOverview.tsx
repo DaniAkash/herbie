@@ -13,6 +13,7 @@ import { Switch } from '@/components/motion/switch'
 import { Tabs, TabsList, TabsTrigger } from '@/components/motion/tabs'
 import { PanelRow, PanelSection } from '@/components/shell/Rows'
 import { Textarea } from '@/components/ui/textarea'
+import { shortenHome } from '@/lib/paths'
 import {
   type Agent,
   useDeleteAgent,
@@ -172,7 +173,9 @@ export function AgentOverview({ agent }: { agent: Agent }) {
 
         <PanelRow
           k="Its own folder"
-          v={<span className="font-mono">{agent.workspaceDir}</span>}
+          v={
+            <span className="font-mono">{shortenHome(agent.workspaceDir)}</span>
+          }
         />
       </PanelSection>
 

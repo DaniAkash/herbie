@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { Check, ChevronRight } from 'lucide-react'
 import { AgentFace } from '@/components/agent/AgentFace'
+import { shortenHome } from '@/lib/paths'
 import { cn } from '@/lib/utils'
 import { type Agent, useRoutines } from '@/modules/api/agents.hooks'
 import { useRuntimes } from '@/modules/api/runtimes.hooks'
@@ -35,7 +36,7 @@ export function FirstRunCard({ agent }: { agent: Agent }) {
           <div className="truncate text-[12.5px] text-ink-2">
             {runtime?.displayName ?? agent.acpAgent}
             {agent.model ? ` · ${agent.model}` : ''} ·{' '}
-            <span className="font-mono">{agent.workspaceDir}</span>
+            <span className="font-mono">{shortenHome(agent.workspaceDir)}</span>
           </div>
         </div>
       </div>
