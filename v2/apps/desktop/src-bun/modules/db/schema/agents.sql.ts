@@ -31,4 +31,20 @@ export const agents = sqliteTable('agents', {
   effort: text('effort').notNull().default('medium'),
   /** Its own Telegram bot, not one shared with every other agent. */
   telegramBot: text('telegram_bot'),
+
+  /**
+   * ask | auto. Whether it may act without waiting for you.
+   *
+   * Defaults to ask, so an agent that has just been created cannot do
+   * anything on its own before you have looked at what it can reach.
+   */
+  autonomy: text('autonomy').notNull().default('ask'),
+  /** Message you from its own bot when it is unsure, rather than waiting. */
+  askOnTelegram: integer('ask_on_telegram', { mode: 'boolean' })
+    .notNull()
+    .default(false),
+  /** Send routine results to Telegram as well as the conversation. */
+  telegramResults: integer('telegram_results', { mode: 'boolean' })
+    .notNull()
+    .default(false),
 })
