@@ -90,15 +90,7 @@ export function AgentPermissions({ agent }: { agent: Agent }) {
               <PanelRow
                 key={server.id}
                 k={<span className="font-mono text-[13px]">{server.name}</span>}
-                v={
-                  notes[`server:${server.id}`] ? (
-                    <span className="text-red">
-                      {notes[`server:${server.id}`]}
-                    </span>
-                  ) : server.status === 'failed' ? (
-                    'Not running'
-                  ) : undefined
-                }
+                v={serverCaption(notes[`server:${server.id}`], server.status)}
               >
                 <Switch
                   checked={allowed('server', server.id)}
@@ -127,13 +119,7 @@ export function AgentPermissions({ agent }: { agent: Agent }) {
               <PanelRow
                 key={skill.id}
                 k={skill.name}
-                v={
-                  notes[`skill:${skill.id}`] ? (
-                    <span className="text-red">
-                      {notes[`skill:${skill.id}`]}
-                    </span>
-                  ) : undefined
-                }
+                v={problem(notes[`skill:${skill.id}`])}
               >
                 <Switch
                   checked={allowed('skill', skill.id)}
@@ -157,6 +143,20 @@ export function AgentPermissions({ agent }: { agent: Agent }) {
       ) : null}
     </>
   )
+}
+
+/** Why a switch did not reach the runtime, when it did not. */
+function problem(note: string | undefined): React.ReactNode {
+  return note ? <span className="text-red">{note}</span> : undefined
+}
+
+/** The reason it could not be linked, else whether the server is running. */
+function serverCaption(
+  note: string | undefined,
+  status: string,
+): React.ReactNode {
+  if (note) return problem(note)
+  return status === 'failed' ? 'Not running' : undefined
 }
 
 /**

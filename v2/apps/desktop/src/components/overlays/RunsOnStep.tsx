@@ -30,6 +30,9 @@ import {
  * exposes no picker: offering a control the runtime will reject produces a
  * prompt that fails with nothing in the logs.
  */
+/** Hoisted so the effect below has a stable dependency when nothing is probed. */
+const NO_EFFORTS: readonly string[] = []
+
 export function RunsOnStep({ form }: { form: AgentForm }) {
   const { data, isPending } = useRuntimes()
   const probe = useProbeRuntime()
@@ -43,7 +46,7 @@ export function RunsOnStep({ form }: { form: AgentForm }) {
       ? probe.data.runtime
       : runtimes.find((r) => r.id === chosen)
 
-  const efforts = probed?.efforts ?? []
+  const efforts = probed?.efforts ?? NO_EFFORTS
   const effort = form.watch('effort')
   // The only unavoidable effect here: which efforts exist is not known until
   // the probe answers, so an effort carried over from the previously chosen

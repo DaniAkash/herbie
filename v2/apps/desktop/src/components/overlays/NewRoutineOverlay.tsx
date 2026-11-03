@@ -113,7 +113,7 @@ export function NewRoutineOverlay() {
           />
         </Field>
 
-        <Field label={kind === 'event' ? 'When' : 'When'}>
+        <Field label="When">
           <Controller
             control={form.control}
             name="cadence"
