@@ -70,3 +70,55 @@ export const AGENTS = [
     telegramBot: null,
   },
 ]
+
+/** Sample routines. Their cron is derived from the cadence by the script. */
+export const ROUTINES = [
+  {
+    id: 'r1',
+    agentId: 'postman',
+    name: 'Morning scan',
+    kind: 'schedule',
+    cadence: 'Every day at eight',
+    enabled: true,
+  },
+  {
+    id: 'r2',
+    agentId: 'postman',
+    name: 'Afternoon drafts',
+    kind: 'schedule',
+    cadence: 'Every three hours',
+    enabled: true,
+  },
+  {
+    id: 'r3',
+    agentId: 'postman',
+    name: 'Weekend recap',
+    kind: 'schedule',
+    cadence: 'Sundays at six',
+    enabled: false,
+  },
+  {
+    id: 'r4',
+    agentId: 'postman',
+    name: 'Reply suggestions',
+    kind: 'event',
+    cadence: 'When a post passes fifty replies',
+    enabled: true,
+  },
+  {
+    id: 'r5',
+    agentId: 'ops',
+    name: 'Release notes',
+    kind: 'event',
+    cadence: 'When a tag is pushed',
+    enabled: true,
+  },
+  {
+    id: 'r6',
+    agentId: 'scout',
+    name: 'Notification sweep',
+    kind: 'schedule',
+    cadence: 'Every hour',
+    enabled: true,
+  },
+]

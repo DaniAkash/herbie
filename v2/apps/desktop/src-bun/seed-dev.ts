@@ -19,7 +19,8 @@ import {
   routines,
   skills,
 } from '@bun/modules/db/schema/schema'
-import { AGENTS } from '@bun/seed-dev.data'
+import { toCron } from '@bun/modules/routines/cadence'
+import { AGENTS, ROUTINES } from '@bun/seed-dev.data'
 
 const log = createLogger('seed')
 
@@ -40,57 +41,20 @@ db.insert(agents)
   )
   .run()
 
+// Derived here rather than written out, for the same reason the route
+// derives it: a seeded schedule with no cron is one the panel has to show
+// as never firing, and a development install that looks broken on first
+// run teaches the wrong thing.
 db.insert(routines)
-  .values([
-    {
-      id: 'r1',
-      agentId: 'postman',
-      name: 'Morning scan',
-      kind: 'schedule',
-      cadence: 'Every day at eight',
-      enabled: true,
-    },
-    {
-      id: 'r2',
-      agentId: 'postman',
-      name: 'Afternoon drafts',
-      kind: 'schedule',
-      cadence: 'Every three hours until eight',
-      enabled: true,
-    },
-    {
-      id: 'r3',
-      agentId: 'postman',
-      name: 'Weekend recap',
-      kind: 'schedule',
-      cadence: 'Sundays at six',
-      enabled: false,
-    },
-    {
-      id: 'r4',
-      agentId: 'postman',
-      name: 'Reply suggestions',
-      kind: 'event',
-      cadence: 'When a post passes fifty replies',
-      enabled: true,
-    },
-    {
-      id: 'r5',
-      agentId: 'ops',
-      name: 'Release notes',
-      kind: 'event',
-      cadence: 'When a tag is pushed',
-      enabled: true,
-    },
-    {
-      id: 'r6',
-      agentId: 'scout',
-      name: 'Notification sweep',
-      kind: 'schedule',
-      cadence: 'Every hour',
-      enabled: true,
-    },
-  ])
+  .values(
+    ROUTINES.map((routine) => ({
+      ...routine,
+      cron:
+        routine.kind === 'schedule'
+          ? (toCron(routine.cadence)?.cron ?? null)
+          : null,
+    })),
+  )
   .run()
 
 db.insert(messages)
