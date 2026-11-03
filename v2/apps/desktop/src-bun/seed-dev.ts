@@ -8,8 +8,7 @@
  *   bun run seed:dev
  */
 
-import { join } from 'node:path'
-import { stateDir } from '@bun/lib/env'
+import { agentDir } from '@bun/lib/env'
 import { createLogger } from '@bun/lib/log'
 import { openDb } from '@bun/modules/db/db'
 import {
@@ -31,13 +30,11 @@ if (db.select().from(agents).all().length > 0) {
   process.exit(0)
 }
 
-const workspace = (id: string) => join(stateDir(), 'agents', id)
-
 db.insert(agents)
   .values(
     AGENTS.map((a) => ({
       ...a,
-      workspaceDir: workspace(a.id),
+      workspaceDir: agentDir(a.id),
       effort: 'medium',
     })),
   )

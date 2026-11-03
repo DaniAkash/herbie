@@ -4,9 +4,9 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "HERBIE_DEV=1 vite",
     "dev:app": "bun run build:sidecar && tauri dev",
-    "dev:web": "vite",
+    "dev:web": "HERBIE_DEV=1 vite",
     "build": "vite build",
     "build:sidecar": "bun scripts/build-sidecar.ts",
     "preview": "vite preview",
@@ -17,7 +17,7 @@
     "db:generate": "drizzle-kit generate",
     "check:rust": "bun run build:sidecar && cd src-tauri && cargo clippy --all-targets",
     "fix:rust": "cd src-tauri && cargo clippy --all-targets --fix --allow-dirty --allow-staged",
-    "seed:dev": "bun src-bun/seed-dev.ts"
+    "seed:dev": "HERBIE_DEV=1 bun src-bun/seed-dev.ts"
   },
   "dependencies": {
     "@animate-ui/react": "^2.4.1",

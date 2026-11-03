@@ -43,10 +43,19 @@ pub fn spawn(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let state = app.state::<Sidecar>();
     state.info.lock().expect("sidecar state poisoned").token = token.clone();
 
+    // A debug build is a development build, and a development build keeps its
+    // state in its own directory. Deciding it here rather than in the sidecar
+    // means a packaged binary cannot be talked into the dev directory by its
+    // environment.
+    let mut args = vec!["--port", "0", "--token", token.as_str()];
+    if cfg!(debug_assertions) {
+        args.push("--dev");
+    }
+
     let (mut rx, child) = app
         .shell()
         .sidecar("herbie-core")?
-        .args(["--port", "0", "--token", &token])
+        .args(args)
         .spawn()?;
 
     *state.child.lock().expect("sidecar state poisoned") = Some(child);

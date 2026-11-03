@@ -118,6 +118,7 @@
     {
       "includes": [
         "apps/desktop/src-bun/lib/env.ts",
+        "apps/desktop/src-bun/lib/env.test.ts",
         "apps/desktop/vite.config.ts",
         "apps/desktop/scripts/**"
       ],
