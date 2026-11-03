@@ -100,6 +100,29 @@ describe('creating an agent', () => {
   })
 })
 
+describe('the folder a name would get', () => {
+  test('answers before the agent exists, without making anything', async () => {
+    const response = await app.request('/api/agents/workspace?name=Reader')
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({
+      path: join(dir, 'agents', 'reader'),
+    })
+    expect(existsSync(join(dir, 'agents', 'reader'))).toBe(false)
+  })
+
+  test('steps past a folder already taken, as the create would', async () => {
+    await post('/api/agents', DRAFT)
+    const response = await app.request('/api/agents/workspace?name=Reader')
+    expect(await response.json()).toEqual({
+      path: join(dir, 'agents', 'reader-2'),
+    })
+  })
+
+  test('is not read as an agent id', async () => {
+    expect((await app.request('/api/agents/workspace')).status).toBe(400)
+  })
+})
+
 describe('deleting an agent', () => {
   test('takes its rows and the folder we made for it', async () => {
     const { agent } = await (await post('/api/agents', DRAFT)).json()

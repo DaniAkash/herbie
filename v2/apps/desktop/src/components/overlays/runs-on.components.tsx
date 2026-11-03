@@ -1,10 +1,14 @@
 import { CheckCircle2, Info, Loader2 } from 'lucide-react'
 import { useState } from 'react'
-import { Card, CardContent } from '@/components/motion/card'
-import { RadioGroup } from '@/components/motion/radio'
-import { RuntimeRow } from '@/components/overlays/new-agent.components'
+import { Controller } from 'react-hook-form'
+import { Button } from '@/components/atoms/Button'
+import { Input } from '@/components/motion/input'
+import { shortenHome } from '@/lib/paths'
+import type { AgentForm } from '@/modules/api/forms'
 import { needsSignIn } from '@/modules/api/runtimes.helpers'
 import type { Runtime } from '@/modules/api/runtimes.hooks'
+import { chooseFolder, parentOf } from '@/modules/host/folder'
+import { isDesktop } from '@/modules/host/host'
 
 export function Row({
   label,
@@ -79,7 +83,7 @@ function count(n: number, noun: string): string {
   return `${word} ${noun}${n === 1 ? '' : 's'}`
 }
 
-function Note({
+export function Note({
   icon,
   children,
 }: {
@@ -94,68 +98,102 @@ function Note({
   )
 }
 
-export function PickerSkeleton() {
+/** The folder row, and what it is for. */
+export function FolderSection({
+  form,
+  planned,
+}: {
+  form: AgentForm
+  planned: string | undefined
+}) {
   return (
-    <div className="grid gap-1.5" aria-hidden="true">
-      <div className="h-11 rounded-control bg-hover" />
-      <div className="h-11 rounded-control bg-hover" />
-      <div className="h-11 rounded-control bg-hover" />
-    </div>
+    <section>
+      <div className="mb-2 font-medium text-[13px] text-ink-3">
+        Its own folder
+      </div>
+      <Controller
+        control={form.control}
+        name="workspaceDir"
+        render={({ field }) => (
+          <FolderField
+            value={field.value ?? null}
+            planned={planned}
+            onChange={field.onChange}
+          />
+        )}
+      />
+      <p className="mt-2 text-[12.5px] text-ink-2">
+        Made fresh, so two agents editing the same repository never fight over
+        one working tree.
+      </p>
+    </section>
   )
 }
 
 /**
- * The runtime picker: a radio group, and the ones you would have to install.
+ * The folder the agent will work in.
  *
- * The uninstalled runtimes sit behind a disclosure rather than in the list.
- * acpx knows about thirty coding agents and a machine usually has two or
- * three, so they are a real answer to "what else is there" and a wall of
- * them is not an answer to "which one".
+ * The draft holds nothing until a folder is actually chosen, so the path on
+ * screen is the one the sidecar says this name would get and the server keeps
+ * deciding it. Typing a path is the web page's version of the same control:
+ * there is no OS dialog to open there.
  */
-export function RuntimePicker({
-  runtimes,
+function FolderField({
   value,
-  onSelect,
+  planned,
+  onChange,
 }: {
-  runtimes: readonly Runtime[]
-  value: string
-  onSelect: (id: string) => void
+  value: string | null
+  planned: string | undefined
+  onChange: (next: string | null) => void
 }) {
-  const [showAll, setShowAll] = useState(false)
-  const ready = runtimes.filter((r) => r.installState !== 'not-installed')
-  const missing = runtimes.filter((r) => r.installState === 'not-installed')
-  const shown = showAll ? runtimes : ready
+  const [asking, setAsking] = useState(false)
+
+  if (!isDesktop()) {
+    return (
+      <Input
+        value={value ?? ''}
+        onChange={(next) => onChange(next || null)}
+        placeholder={
+          planned ? shortenHome(planned) : 'Made for it under the agents folder'
+        }
+        className="font-mono text-[12.5px]"
+      />
+    )
+  }
 
   return (
-    <>
-      <Card
-        variant="outlined"
-        size="compact"
-        className="!gap-0 !py-0 overflow-hidden"
+    <div className="flex items-center gap-2">
+      <span className="min-w-0 flex-1 truncate rounded-control bg-hover px-2.5 py-2 font-mono text-[12.5px] text-ink-2">
+        {shortenHome(value ?? planned ?? '')}
+      </span>
+      <Button
+        size="xs"
+        variant="secondary"
+        type="button"
+        disabled={asking}
+        onClick={async () => {
+          setAsking(true)
+          try {
+            const picked = await chooseFolder(parentOf(value ?? planned ?? ''))
+            if (picked) onChange(picked)
+          } finally {
+            setAsking(false)
+          }
+        }}
       >
-        <CardContent className="grid gap-0 p-0 py-1">
-          <RadioGroup
-            value={value}
-            onValueChange={onSelect}
-            aria-label="Runtime"
-          >
-            {shown.map((r) => (
-              <RuntimeRow key={r.id} runtime={r} />
-            ))}
-          </RadioGroup>
-        </CardContent>
-      </Card>
-      {missing.length > 0 && !showAll ? (
-        <button
+        Choose
+      </Button>
+      {value ? (
+        <Button
+          size="xs"
+          variant="quiet"
           type="button"
-          onClick={() => setShowAll(true)}
-          className="mt-2 text-[12.5px] text-ink-3 hover:text-ink"
+          onClick={() => onChange(null)}
         >
-          {ready.length === 0
-            ? `None are installed. Show ${missing.length} Herbie can use`
-            : `Show ${missing.length} more Herbie can use`}
-        </button>
+          Default
+        </Button>
       ) : null}
-    </>
+    </div>
   )
 }

@@ -32,6 +32,22 @@ function slugFor(db: Db, name: string): string {
   }
 }
 
+/**
+ * The folder a name would be given, without creating anything.
+ *
+ * The window shows this before the agent exists, and it asks rather than
+ * working it out: the slug and its collision suffix are decided against the
+ * table, so a path guessed in the webview would offer the second `reader` the
+ * first one's folder.
+ */
+export function plannedWorkspace(
+  db: Db,
+  agentsRoot: string,
+  name: string,
+): string {
+  return join(agentsRoot, slugFor(db, name))
+}
+
 export interface AgentDraft {
   readonly name: string
   readonly color: string

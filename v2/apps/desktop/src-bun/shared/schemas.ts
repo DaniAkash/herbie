@@ -22,6 +22,11 @@ export const createAgentBody = z.object({
   workspaceDir: z.string().trim().nullish(),
 })
 
+/** The name a folder is being planned for, before the agent exists. */
+export const workspaceQuery = z.object({
+  name: z.string().trim().min(1).max(60),
+})
+
 export const patchAgentBody = z.object({
   name: z.string().trim().min(1).max(60).optional(),
   color: z.enum(COLORS).optional(),

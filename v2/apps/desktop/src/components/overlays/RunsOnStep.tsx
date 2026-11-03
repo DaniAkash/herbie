@@ -1,20 +1,22 @@
+import { skipToken } from '@tanstack/react-query'
+import { Info } from 'lucide-react'
 import { useEffect } from 'react'
 import { Controller } from 'react-hook-form'
 import { EffortControl } from '@/components/agent/EffortControl'
-import { Input } from '@/components/motion/input'
+import {
+  FolderSection,
+  Note,
+  ProbeLine,
+  Row,
+} from '@/components/overlays/runs-on.components'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/motion/select'
-import {
-  PickerSkeleton,
-  ProbeLine,
-  Row,
-  RuntimePicker,
-} from '@/components/overlays/runs-on.components'
+} from '@/components/ui/select'
+import { usePlannedWorkspace } from '@/modules/api/agents.hooks'
 import type { AgentForm } from '@/modules/api/forms'
 import {
   type Runtime,
@@ -29,6 +31,10 @@ import {
  * in the app, and they are absent rather than disabled when the runtime
  * exposes no picker: offering a control the runtime will reject produces a
  * prompt that fails with nothing in the logs.
+ *
+ * Only runtimes that are installed are offered. The ones acpx would fetch on
+ * first use are real but are not a choice anyone makes while naming their
+ * first agent, and the panel still lists them once the agent exists.
  */
 /** Hoisted so the effect below has a stable dependency when nothing is probed. */
 const NO_EFFORTS: readonly string[] = []
@@ -37,8 +43,15 @@ export function RunsOnStep({ form }: { form: AgentForm }) {
   const { data, isPending } = useRuntimes()
   const probe = useProbeRuntime()
   const chosen = form.watch('acpAgent')
+  const name = form.watch('name').trim()
+  // Nothing to plan a folder for until there is a name, and the schema would
+  // refuse the empty one.
+  const planned = usePlannedWorkspace({
+    variables: name ? { name } : skipToken,
+  })
 
   const runtimes = data?.runtimes ?? []
+  const installed = runtimes.filter((r) => r.installState === 'installed')
   // The probe's own answer wins while it is on screen, so the rows fill in
   // the moment it lands rather than after the list is refetched.
   const probed: Runtime | undefined =
@@ -64,28 +77,47 @@ export function RunsOnStep({ form }: { form: AgentForm }) {
     <div className="grid gap-5">
       <section>
         <div className="mb-2 font-medium text-[13px] text-ink-3">Runs on</div>
-        {isPending ? (
-          <PickerSkeleton />
-        ) : (
-          <Controller
-            control={form.control}
-            name="acpAgent"
-            render={({ field }) => (
-              <RuntimePicker
-                runtimes={runtimes}
-                value={field.value}
-                onSelect={(id) => {
-                  field.onChange(id)
-                  // The model the previous runtime offered means nothing to
-                  // this one, so it goes rather than being carried across as
-                  // a value it will refuse.
-                  form.setValue('model', null)
-                  probe.mutate({ id })
-                }}
-              />
-            )}
-          />
-        )}
+        <Controller
+          control={form.control}
+          name="acpAgent"
+          render={({ field }) => (
+            <Select
+              value={field.value || null}
+              onValueChange={(id) => {
+                field.onChange(id)
+                // The model the previous runtime offered means nothing to this
+                // one, so it goes rather than being carried across as a value
+                // it will refuse.
+                form.setValue('model', null)
+                probe.mutate({ id })
+              }}
+              items={installed.map((r) => ({
+                value: r.id,
+                label: r.displayName,
+              }))}
+              disabled={isPending || installed.length === 0}
+            >
+              <SelectTrigger className="w-full" aria-label="Runs on">
+                <SelectValue
+                  placeholder={isPending ? 'Looking...' : 'Pick one'}
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {installed.map((r) => (
+                  <SelectItem key={r.id} value={r.id}>
+                    {r.displayName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        />
+        {!isPending && installed.length === 0 ? (
+          <Note icon={<Info size={14} />}>
+            Herbie runs each agent inside a coding agent, and none is installed
+            on this machine yet.
+          </Note>
+        ) : null}
         <ProbeLine pending={probe.isPending} runtime={probed} />
       </section>
 
@@ -95,8 +127,8 @@ export function RunsOnStep({ form }: { form: AgentForm }) {
           name="model"
           render={({ field }) => (
             <Row label="Model">
-              <Select value={field.value ?? ''} onValueChange={field.onChange}>
-                <SelectTrigger className="w-[170px]">
+              <Select value={field.value} onValueChange={field.onChange}>
+                <SelectTrigger className="w-[170px]" aria-label="Model">
                   <SelectValue placeholder="Its default" />
                 </SelectTrigger>
                 <SelectContent>
@@ -129,27 +161,7 @@ export function RunsOnStep({ form }: { form: AgentForm }) {
         />
       ) : null}
 
-      <section>
-        <div className="mb-2 font-medium text-[13px] text-ink-3">
-          Its own folder
-        </div>
-        <Controller
-          control={form.control}
-          name="workspaceDir"
-          render={({ field }) => (
-            <Input
-              value={field.value ?? ''}
-              onChange={field.onChange}
-              placeholder="Made for it under ~/.herbie/agents"
-              className="font-mono text-[12.5px]"
-            />
-          )}
-        />
-        <p className="mt-2 text-[12.5px] text-ink-2">
-          Made fresh, so two agents editing the same repository never fight over
-          one working tree.
-        </p>
-      </section>
+      <FolderSection form={form} planned={planned.data?.path} />
     </div>
   )
 }

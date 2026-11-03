@@ -39,6 +39,11 @@ type PatchRoutineBody = InferRequestType<
   Client['api']['routines'][':id']['$patch']
 >['json']
 
+export type WorkspaceResponse = InferResponseType<
+  Client['api']['agents']['workspace']['$get'],
+  200
+>
+
 type CreatedAgent = InferResponseType<Client['api']['agents']['$post'], 201>
 type PatchedAgent = InferResponseType<
   Client['api']['agents'][':id']['$patch'],
@@ -64,6 +69,27 @@ export const useAgents = createQuery<AgentsResponse>({
     const client = await api()
     return parseResponse<AgentsResponse>(await client.api.agents.$get())
   },
+})
+
+/**
+ * The folder a name would be given, asked of the sidecar before it exists.
+ *
+ * Keyed on the name so the answer can never be paired with a different one,
+ * and left fresh forever: the slug only moves when the table does, and the
+ * create that moves it is also what closes this form.
+ */
+export const usePlannedWorkspace = createQuery<
+  WorkspaceResponse,
+  { name: string }
+>({
+  queryKey: ['agent-workspace'],
+  fetcher: async ({ name }) => {
+    const client = await api()
+    return parseResponse<WorkspaceResponse>(
+      await client.api.agents.workspace.$get({ query: { name } }),
+    )
+  },
+  staleTime: Number.POSITIVE_INFINITY,
 })
 
 /** One agent out of the rail's list, which every panel tab needs. */
