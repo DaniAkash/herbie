@@ -50,12 +50,8 @@
           "name": "agent_rules_agent_id_agents_id_fk",
           "tableFrom": "agent_rules",
           "tableTo": "agents",
-          "columnsFrom": [
-            "agent_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["agent_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -108,11 +104,7 @@
       "indexes": {
         "agent_tools_agent_kind_ref": {
           "name": "agent_tools_agent_kind_ref",
-          "columns": [
-            "agent_id",
-            "kind",
-            "ref_id"
-          ],
+          "columns": ["agent_id", "kind", "ref_id"],
           "isUnique": true
         }
       },
@@ -121,12 +113,8 @@
           "name": "agent_tools_agent_id_agents_id_fk",
           "tableFrom": "agent_tools",
           "tableTo": "agents",
-          "columnsFrom": [
-            "agent_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["agent_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -367,12 +355,8 @@
           "name": "messages_agent_id_agents_id_fk",
           "tableFrom": "messages",
           "tableTo": "agents",
-          "columnsFrom": [
-            "agent_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["agent_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -473,12 +457,8 @@
           "name": "routines_agent_id_agents_id_fk",
           "tableFrom": "routines",
           "tableTo": "agents",
-          "columnsFrom": [
-            "agent_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["agent_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
