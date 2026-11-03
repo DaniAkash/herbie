@@ -2,6 +2,7 @@ import { Check, ChevronLeft } from 'lucide-react'
 import { Button } from '@/components/atoms/Button'
 import { RadioGroupItem } from '@/components/motion/radio'
 import { cn } from '@/lib/utils'
+import { needsSignIn } from '@/modules/api/runtimes.helpers'
 import type { Runtime } from '@/modules/api/runtimes.hooks'
 
 /** Which of the two steps you are on, and what the first one decided. */
@@ -77,8 +78,11 @@ function describeRuntime(runtime: Runtime): string {
   if (runtime.installState === 'not-installed') {
     return 'Not installed on this machine'
   }
-  if (runtime.probedAt && !runtime.signedIn) {
+  if (needsSignIn(runtime)) {
     return 'Needs a sign in before an agent can use it'
+  }
+  if (runtime.probeError) {
+    return 'Did not answer when asked what it can do'
   }
   if (runtime.installState === 'npx-available') {
     return 'Will be fetched the first time it runs'
@@ -101,7 +105,7 @@ function describeRuntime(runtime: Runtime): string {
  */
 export function RuntimeRow({ runtime }: { runtime: Runtime }) {
   const usable = runtime.installState !== 'not-installed'
-  const needsSignIn = Boolean(runtime.probedAt) && !runtime.signedIn
+  const signIn = needsSignIn(runtime)
 
   return (
     <div className="flex items-center gap-2 px-1">
@@ -112,10 +116,10 @@ export function RuntimeRow({ runtime }: { runtime: Runtime }) {
         disabled={!usable}
         className="min-w-0 flex-1"
       />
-      {(needsSignIn || !usable) && runtime.installUrl ? (
+      {(signIn || !usable) && runtime.installUrl ? (
         <a href={runtime.installUrl} target="_blank" rel="noreferrer">
           <Button size="xs" variant="secondary" type="button">
-            {needsSignIn ? 'Sign in' : 'Install'}
+            {signIn ? 'Sign in' : 'Install'}
           </Button>
         </a>
       ) : null}

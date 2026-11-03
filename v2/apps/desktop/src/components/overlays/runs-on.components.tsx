@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Card, CardContent } from '@/components/motion/card'
 import { RadioGroup } from '@/components/motion/radio'
 import { RuntimeRow } from '@/components/overlays/new-agent.components'
+import { needsSignIn } from '@/modules/api/runtimes.helpers'
 import type { Runtime } from '@/modules/api/runtimes.hooks'
 
 export function Row({
@@ -37,6 +38,13 @@ export function ProbeLine({
   }
   if (!runtime?.probedAt) return null
 
+  if (needsSignIn(runtime)) {
+    return (
+      <Note icon={<Info size={14} />}>
+        It needs a sign in of its own before it can run anything.
+      </Note>
+    )
+  }
   if (runtime.probeError) {
     return (
       <Note icon={<Info size={14} />}>
