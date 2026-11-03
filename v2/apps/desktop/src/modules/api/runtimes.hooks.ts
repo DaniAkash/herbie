@@ -31,6 +31,10 @@ export const useRuntimes = createQuery<RuntimesResponse>({
  * one that was actually chosen.
  */
 export const useProbeRuntime = createMutation({
+  // Named so a caller that does not hold the mutation can still see one in
+  // flight: the create overlay's footer has to wait for a probe started two
+  // components away.
+  mutationKey: ['probe-runtime'],
   mutationFn: async ({ id }: { id: string }) => {
     const client = await api()
     return parseResponse<ProbeResponse>(

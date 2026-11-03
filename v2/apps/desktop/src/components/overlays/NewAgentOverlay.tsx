@@ -1,3 +1,4 @@
+import { useIsMutating } from '@tanstack/react-query'
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import { Controller } from 'react-hook-form'
 import { AgentFace } from '@/components/agent/AgentFace'
@@ -18,6 +19,7 @@ import {
   type AgentForm,
   useAgentDraftForm,
 } from '@/modules/api/forms'
+import { useProbeRuntime } from '@/modules/api/runtimes.hooks'
 import { atStep, closeOverlay } from '@/modules/navigation/overlay'
 
 /** The swatches, typed against the schema so a stray colour will not build. */
@@ -45,6 +47,9 @@ export function NewAgentOverlay() {
   const navigate = useNavigate()
   const { step } = useSearch({ strict: false }) as { step?: 'who' | 'runs' }
   const create = useCreateAgent()
+  // Which models and effort levels exist is the probe's answer, so creating
+  // before it lands would store whatever the form happened to be holding.
+  const probing = useIsMutating({ mutationKey: useProbeRuntime.getKey() }) > 0
 
   const form = useAgentDraftForm()
 
@@ -86,7 +91,7 @@ export function NewAgentOverlay() {
               size="sm"
               variant="primary"
               type="button"
-              disabled={create.isPending || !form.watch('acpAgent')}
+              disabled={create.isPending || probing || !form.watch('acpAgent')}
               onClick={submit}
             >
               {create.isPending ? 'Creating...' : `Create ${name || 'agent'}`}
