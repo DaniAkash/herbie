@@ -46,6 +46,8 @@ describe('cadences it refuses', () => {
     ['every day at 25'],
     ['every day at 7:70'],
     ['every 40 hours'],
+    ['every five hours'],
+    ['every seven hours'],
     [''],
     ['   '],
   ])('%s does not parse', (text) => {

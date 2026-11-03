@@ -146,6 +146,16 @@ function schedule(time: Time, dow: string, reading: string): Cadence {
 }
 
 /** every hour, hourly, every three hours. */
+/**
+ * The hour steps a five field cron can space evenly.
+ *
+ * A step counts from midnight and starts over there, so one that does not
+ * divide 24 bunches up and then waits: every five hours would fire at 20:00
+ * and sit until 00:00. Refused rather than stored as a schedule that does
+ * not do what it says.
+ */
+const EVEN_HOURS = new Set([1, 2, 3, 4, 6, 8, 12])
+
 function repeating(text: string): Cadence | null {
   if (text === 'every hour' || text === 'hourly') {
     return { cron: '0 * * * *', reading: 'every hour, on the hour' }
@@ -153,7 +163,7 @@ function repeating(text: string): Cadence | null {
   const match = text.match(/^every (\w+) hours?$/)
   if (!match?.[1]) return null
   const n = hourOf(match[1])
-  if (n === null || n < 1 || n > 23) return null
+  if (n === null || !EVEN_HOURS.has(n)) return null
   return {
     cron: `0 */${n} * * *`,
     reading: n === 1 ? 'every hour, on the hour' : `every ${n} hours`,
