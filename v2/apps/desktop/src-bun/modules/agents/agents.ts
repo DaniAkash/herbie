@@ -45,9 +45,11 @@ export interface AgentDraft {
 /**
  * Creates an agent and the folder it works in.
  *
- * The row goes first. A folder with no row behind it is litter the next
- * create with the same name would have to reason about, while a row whose
- * folder is missing is repaired by making it.
+ * The row goes first, because the id it allocates is also the folder name and
+ * two creates racing for one name have to be settled by the table. A folder
+ * that cannot be made takes the row back out again: an agent whose workspace
+ * is missing cannot hold a conversation, and leaving the row behind would also
+ * mean the next create of the same name quietly becoming `reader-2`.
  */
 export function createAgent(db: Db, agentsRoot: string, draft: AgentDraft) {
   const id = slugFor(db, draft.name)
@@ -66,7 +68,12 @@ export function createAgent(db: Db, agentsRoot: string, draft: AgentDraft) {
     .returning()
     .get()
 
-  mkdirSync(row.workspaceDir, { recursive: true })
+  try {
+    mkdirSync(row.workspaceDir, { recursive: true })
+  } catch (cause) {
+    db.delete(agents).where(eq(agents.id, id)).run()
+    throw cause
+  }
   return row
 }
 

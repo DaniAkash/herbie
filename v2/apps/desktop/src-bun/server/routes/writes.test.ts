@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
-import { existsSync, mkdtempSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { openDb } from '@bun/modules/db/db'
@@ -71,6 +71,23 @@ describe('creating an agent', () => {
     await post('/api/agents', DRAFT)
     const { agent } = await (await post('/api/agents', DRAFT)).json()
     expect(agent.id).toBe('reader-2')
+    expect(existsSync(agent.workspaceDir)).toBe(true)
+  })
+
+  test('leaves no row behind when the folder cannot be made', async () => {
+    // A file where the parent folder would go, so mkdir fails the way a
+    // workspace pointed somewhere unwritable does.
+    const blocked = join(dir, 'blocked')
+    writeFileSync(blocked, '')
+
+    const failed = await post('/api/agents', {
+      ...DRAFT,
+      workspaceDir: join(blocked, 'reader'),
+    })
+    expect(failed.status).toBe(500)
+
+    const { agent } = await (await post('/api/agents', DRAFT)).json()
+    expect(agent.id).toBe('reader')
     expect(existsSync(agent.workspaceDir)).toBe(true)
   })
 
