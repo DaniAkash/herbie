@@ -108,13 +108,16 @@ export async function moveAccess(
     .all()
 
   for (const row of rows) {
-    if (row.kind !== 'server' && row.kind !== 'skill') continue
+    const kind = row.kind
+    if (kind !== 'server' && kind !== 'skill') continue
+    // `as const` because the column is plain text: without it the narrowing
+    // above widens straight back to string on the way into the literal.
     const common = {
-      kind: row.kind,
+      kind,
       refId: row.refId,
       workspaceDir: agent.workspaceDir,
       skillsWorkspace: input.skillsWorkspace,
-    }
+    } as const
     // Unlinked from the old runtime first, so the folder is not left holding
     // a config for a runtime this agent no longer uses.
     await writeAccess(db, {
@@ -134,7 +137,7 @@ export async function moveAccess(
       .where(
         and(
           eq(agentTools.agentId, input.agentId),
-          eq(agentTools.kind, row.kind),
+          eq(agentTools.kind, kind),
           eq(agentTools.refId, row.refId),
         ),
       )

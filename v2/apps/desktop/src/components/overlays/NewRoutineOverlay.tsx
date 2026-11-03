@@ -1,5 +1,6 @@
+import { skipToken } from '@tanstack/react-query'
 import { useNavigate, useParams } from '@tanstack/react-router'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Controller } from 'react-hook-form'
 import { Button } from '@/components/atoms/Button'
 import { Input } from '@/components/motion/input'
@@ -12,7 +13,7 @@ import {
 import { Overlay } from '@/components/shell/Overlay'
 import { Textarea } from '@/components/ui/textarea'
 import { useAgents, useCreateRoutine } from '@/modules/api/agents.hooks'
-import { useReadCadence } from '@/modules/api/cadence.hooks'
+import { useCadence } from '@/modules/api/cadence.hooks'
 import { useRoutineDraftForm } from '@/modules/api/forms'
 import { closeOverlay } from '@/modules/navigation/overlay'
 
@@ -24,21 +25,26 @@ export function NewRoutineOverlay() {
   const { data } = useAgents()
   const agent = data?.agents.find((a) => a.id === agentId)
   const create = useCreateRoutine()
-  const read = useReadCadence()
 
   const form = useRoutineDraftForm()
 
   const kind = form.watch('kind')
   const cadence = form.watch('cadence')
+  const text = (cadence ?? '').trim()
+
+  // The phrase that has been asked about, which trails what is in the box by
+  // the length of the pause: a timer tied to a value is the one thing an
+  // effect is still for.
+  const [asked, setAsked] = useState('')
+  useEffect(() => {
+    if (kind !== 'schedule' || !text) return
+    const timer = setTimeout(() => setAsked(text), 200)
+    return () => clearTimeout(timer)
+  }, [text, kind])
 
   // Asked of the sidecar rather than parsed here, so what is shown is the
   // same parse the routine will be stored with.
-  useEffect(() => {
-    const text = (cadence ?? '').trim()
-    if (kind !== 'schedule' || !text) return
-    const timer = setTimeout(() => read.mutate({ text }), 200)
-    return () => clearTimeout(timer)
-  }, [cadence, kind, read.mutate])
+  const read = useCadence({ variables: asked ? { text: asked } : skipToken })
 
   if (!agentId) return null
 
@@ -131,11 +137,13 @@ export function NewRoutineOverlay() {
               />
             )}
           />
-          {kind === 'schedule' && (cadence ?? '').trim() ? (
+          {kind === 'schedule' && text ? (
             <CadenceLine
               reading={read.data?.cadence?.reading}
               cron={read.data?.cadence?.cron}
-              pending={read.isPending}
+              // Still reading while the answer on hand belongs to an older
+              // phrase, so a cron is never shown under text it is not for.
+              pending={asked !== text || read.isPending}
             />
           ) : null}
         </Field>
