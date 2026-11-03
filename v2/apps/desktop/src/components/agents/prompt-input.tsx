@@ -30,7 +30,7 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-} from "@/components/motion/select";
+} from "@/components/ui/select";
 import { SPRING_SWAP } from "@/lib/ease";
 import { cn } from "@/lib/utils";
 
@@ -264,9 +264,8 @@ export function PromptInput({
             value={currentModelValue}
             onValueChange={setModel}
             disabled={disabled || loading}
-            className="min-w-0"
           >
-            <SelectTrigger className="h-8 w-auto max-w-52 rounded-xl border-0 bg-transparent px-2 py-0 text-xs hover:bg-muted focus-visible:ring-2">
+            <SelectTrigger className="h-8 w-auto min-w-0 max-w-52 rounded-xl border-0 bg-transparent px-2 py-0 text-xs hover:bg-muted focus-visible:ring-2">
               <span className="flex min-w-0 items-center gap-1.5">
                 {currentModel?.icon ? (
                   <span className="grid size-4 shrink-0 place-items-center text-muted-foreground [&_svg]:size-3.5">

@@ -1,14 +1,14 @@
 import { RefreshCw } from 'lucide-react'
 import { EffortControl } from '@/components/agent/EffortControl'
+import { Switch } from '@/components/motion/switch'
+import { PanelRow, PanelSection } from '@/components/shell/Rows'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/motion/select'
-import { Switch } from '@/components/motion/switch'
-import { PanelRow, PanelSection } from '@/components/shell/Rows'
+} from '@/components/ui/select'
 import { shortenHome } from '@/lib/paths'
 import type { Agent } from '@/modules/api/agents.hooks'
 import type { Runtime } from '@/modules/api/runtimes.hooks'
@@ -41,32 +41,36 @@ export function RuntimeSection({
   onEffort,
   onReprobe,
 }: RuntimeSectionProps) {
+  const usable = runtimes.filter((r) => r.installState !== 'not-installed')
+
   return (
     <PanelSection
       label="Runtime"
       note="Each agent keeps its own runtime and folder, so one can run on Claude Code while another runs on Codex."
     >
       <PanelRow k="Runs on">
-        <Select value={agent.acpAgent} onValueChange={onRuntime}>
-          <SelectTrigger className="w-[150px]">
+        <Select
+          value={agent.acpAgent}
+          onValueChange={onRuntime}
+          items={usable.map((r) => ({ value: r.id, label: r.displayName }))}
+        >
+          <SelectTrigger className="w-[150px]" aria-label="Runs on">
             <SelectValue placeholder="Pick one" />
           </SelectTrigger>
           <SelectContent>
-            {runtimes
-              .filter((r) => r.installState !== 'not-installed')
-              .map((r) => (
-                <SelectItem key={r.id} value={r.id}>
-                  {r.displayName}
-                </SelectItem>
-              ))}
+            {usable.map((r) => (
+              <SelectItem key={r.id} value={r.id}>
+                {r.displayName}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </PanelRow>
 
       {runtime && runtime.modelValues.length > 0 ? (
         <PanelRow k="Model">
-          <Select value={agent.model ?? ''} onValueChange={onModel}>
-            <SelectTrigger className="w-[150px]">
+          <Select value={agent.model} onValueChange={onModel}>
+            <SelectTrigger className="w-[150px]" aria-label="Model">
               <SelectValue placeholder="Its default" />
             </SelectTrigger>
             <SelectContent>

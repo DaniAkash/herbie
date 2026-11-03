@@ -1,11 +1,11 @@
+import { Tabs, TabsList, TabsTrigger } from '@/components/motion/tabs'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/motion/select'
-import { Tabs, TabsList, TabsTrigger } from '@/components/motion/tabs'
+} from '@/components/ui/select'
 
 /**
  * Effort, as however many levels the runtime actually reports.
@@ -39,7 +39,7 @@ export function EffortControl({
   }
   return (
     <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className={className ?? 'w-[150px]'}>
+      <SelectTrigger className={className ?? 'w-[150px]'} aria-label="Effort">
         <SelectValue placeholder="Its default" />
       </SelectTrigger>
       <SelectContent>
