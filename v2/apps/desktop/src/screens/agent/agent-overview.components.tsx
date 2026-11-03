@@ -9,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { modelItems, OWN_DEFAULT } from '@/lib/models'
 import { shortenHome } from '@/lib/paths'
 import type { Agent } from '@/modules/api/agents.hooks'
 import type { Runtime } from '@/modules/api/runtimes.hooks'
@@ -19,7 +20,7 @@ export interface RuntimeSectionProps {
   runtimes: readonly Runtime[]
   probing: boolean
   onRuntime: (id: string) => void
-  onModel: (model: string) => void
+  onModel: (model: string | null) => void
   onEffort: (effort: string) => void
   onReprobe: () => void
 }
@@ -51,7 +52,9 @@ export function RuntimeSection({
       <PanelRow k="Runs on">
         <Select
           value={agent.acpAgent}
-          onValueChange={onRuntime}
+          onValueChange={(next) => {
+            if (next !== null) onRuntime(next)
+          }}
           items={usable.map((r) => ({ value: r.id, label: r.displayName }))}
         >
           <SelectTrigger className="w-[150px]" aria-label="Runs on">
@@ -69,11 +72,16 @@ export function RuntimeSection({
 
       {runtime && runtime.modelValues.length > 0 ? (
         <PanelRow k="Model">
-          <Select value={agent.model} onValueChange={onModel}>
+          <Select
+            value={agent.model}
+            onValueChange={onModel}
+            items={modelItems(runtime.modelValues)}
+          >
             <SelectTrigger className="w-[150px]" aria-label="Model">
-              <SelectValue placeholder="Its default" />
+              <SelectValue />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value={null}>{OWN_DEFAULT}</SelectItem>
               {runtime.modelValues.map((m) => (
                 <SelectItem key={m} value={m}>
                   {m}

@@ -3,25 +3,13 @@ import { cn } from "cn"
 import { CheckIcon, ChevronDownIcon } from "lucide-react"
 
 /**
- * Base UI reports a cleared selection as null. None of these selects offers a
- * way to clear one, so the handler is narrowed to the value that was picked
- * and a null is dropped rather than pushed at a caller that cannot hold it.
+ * Null is a value here, not the absence of one: a runtime's own default is a
+ * real answer, and the select that offers it carries an item whose value is
+ * null. A select where nothing has been chosen yet says so with `placeholder`
+ * on its value instead.
  */
-function Select({
-  onValueChange,
-  ...props
-}: Omit<SelectPrimitive.Root.Props<string>, "onValueChange"> & {
-  onValueChange?: (value: string) => void
-}) {
-  return (
-    <SelectPrimitive.Root
-      data-slot="select"
-      onValueChange={(value) => {
-        if (value !== null) onValueChange?.(value)
-      }}
-      {...props}
-    />
-  )
+function Select(props: SelectPrimitive.Root.Props<string | null>) {
+  return <SelectPrimitive.Root data-slot="select" {...props} />
 }
 
 function SelectTrigger({
@@ -48,12 +36,23 @@ function SelectTrigger({
   )
 }
 
-function SelectValue({ className, ...props }: SelectPrimitive.Value.Props) {
+/**
+ * Base UI marks the value as a placeholder whenever nothing is selected, and a
+ * null item's label renders in that same state. Only a select that passed a
+ * placeholder is greyed, so a chosen null reads as the answer it is.
+ */
+function SelectValue({
+  className,
+  placeholder,
+  ...props
+}: SelectPrimitive.Value.Props) {
   return (
     <SelectPrimitive.Value
       data-slot="select-value"
+      placeholder={placeholder}
       className={cn(
-        "truncate text-left data-[placeholder]:text-muted-foreground",
+        "truncate text-left",
+        placeholder != null && "data-[placeholder]:text-muted-foreground",
         className
       )}
       {...props}

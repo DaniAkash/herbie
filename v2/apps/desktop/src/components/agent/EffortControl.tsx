@@ -38,9 +38,14 @@ export function EffortControl({
     )
   }
   return (
-    <Select value={value} onValueChange={onChange}>
+    <Select
+      value={value}
+      onValueChange={(next) => {
+        if (next !== null) onChange(next)
+      }}
+    >
       <SelectTrigger className={className ?? 'w-[150px]'} aria-label="Effort">
-        <SelectValue placeholder="Its default" />
+        <SelectValue />
       </SelectTrigger>
       <SelectContent>
         {values.map((e) => (

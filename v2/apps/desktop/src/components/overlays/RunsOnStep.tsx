@@ -3,6 +3,7 @@ import { Info } from 'lucide-react'
 import { useEffect } from 'react'
 import { Controller } from 'react-hook-form'
 import { EffortControl } from '@/components/agent/EffortControl'
+
 import {
   FolderSection,
   Note,
@@ -16,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { modelItems, OWN_DEFAULT } from '@/lib/models'
 import { usePlannedWorkspace } from '@/modules/api/agents.hooks'
 import type { AgentForm } from '@/modules/api/forms'
 import {
@@ -84,6 +86,7 @@ export function RunsOnStep({ form }: { form: AgentForm }) {
             <Select
               value={field.value || null}
               onValueChange={(id) => {
+                if (id === null) return
                 field.onChange(id)
                 // The model the previous runtime offered means nothing to this
                 // one, so it goes rather than being carried across as a value
@@ -127,11 +130,16 @@ export function RunsOnStep({ form }: { form: AgentForm }) {
           name="model"
           render={({ field }) => (
             <Row label="Model">
-              <Select value={field.value} onValueChange={field.onChange}>
+              <Select
+                value={field.value ?? null}
+                onValueChange={field.onChange}
+                items={modelItems(probed.modelValues)}
+              >
                 <SelectTrigger className="w-[170px]" aria-label="Model">
-                  <SelectValue placeholder="Its default" />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value={null}>{OWN_DEFAULT}</SelectItem>
                   {probed.modelValues.map((m) => (
                     <SelectItem key={m} value={m}>
                       {m}
