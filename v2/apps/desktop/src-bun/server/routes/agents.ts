@@ -6,6 +6,7 @@ import {
   routines,
 } from '@bun/modules/db/schema/schema'
 import { toCron } from '@bun/modules/routines/cadence'
+import { moveAccess } from '@bun/modules/tools/access'
 import type { Deps } from '@bun/server/deps'
 import {
   createAgentBody,
@@ -47,15 +48,18 @@ export function agentsRoute(deps: Deps) {
       if (!row) return c.json({ error: 'no such agent' }, 404)
       return c.json({ agent: row })
     })
-    .patch('/:id', zValidator('json', patchAgentBody), (c) => {
+    .patch('/:id', zValidator('json', patchAgentBody), async (c) => {
       const patch = c.req.valid('json')
       const id = c.req.param('id')
+      const before = findAgent(deps.db, id)
+      if (!before) return c.json({ error: 'no such agent' }, 404)
+
       // An empty patch reads the row instead of writing it: a form that
       // submits with nothing changed should not look like a failure, and
       // drizzle will not build an update with an empty set clause.
       const row =
         Object.keys(patch).length === 0
-          ? findAgent(deps.db, id)
+          ? before
           : deps.db
               .update(agents)
               .set(patch)
@@ -63,6 +67,18 @@ export function agentsRoute(deps: Deps) {
               .returning()
               .get()
       if (!row) return c.json({ error: 'no such agent' }, 404)
+
+      // The switches are rows and files, and the files are in the old
+      // runtime's format, so a runtime change has to carry them across or the
+      // panel reads as on against a runtime that can reach nothing.
+      if (patch.acpAgent && patch.acpAgent !== before.acpAgent) {
+        await moveAccess(deps.db, {
+          agentId: id,
+          from: before.acpAgent,
+          to: patch.acpAgent,
+          skillsWorkspace: deps.skillsWorkspace,
+        })
+      }
       return c.json({ agent: row })
     })
     .delete('/:id', (c) => {

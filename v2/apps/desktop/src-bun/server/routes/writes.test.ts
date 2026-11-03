@@ -1,12 +1,20 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { openDb } from '@bun/modules/db/db'
+import { mcpServers } from '@bun/modules/db/schema/schema'
 import { appliedMigrations } from '@bun/modules/db/migrate'
 import { createApp } from '@bun/server/app'
 
 let dir: string
+let db: ReturnType<typeof openDb>['db']
 let app: ReturnType<typeof createApp>
 
 const DRAFT = {
@@ -36,7 +44,9 @@ function patch(path: string, json: unknown) {
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), 'herbie-writes-'))
-  const { db, sqlite, path } = openDb(join(dir, 'herbie.sqlite'))
+  const opened = openDb(join(dir, 'herbie.sqlite'))
+  const { sqlite, path } = opened
+  db = opened.db
   app = createApp({
     db,
     databasePath: path,
@@ -240,6 +250,59 @@ describe('tool access', () => {
       await app.request(`/api/tools/access/${agent.id}`)
     ).json()
     expect(access).toHaveLength(2)
+  })
+})
+
+describe('changing an agent runtime', () => {
+  test('carries the switches that are on across to the new runtime', async () => {
+    db.insert(mcpServers)
+      .values({
+        id: 'playwright',
+        name: 'playwright',
+        kind: 'stdio',
+        target: 'bunx',
+        args: '@playwright/mcp@latest',
+      })
+      .run()
+
+    const { agent } = await (await post('/api/agents', DRAFT)).json()
+    await patch(`/api/tools/access/${agent.id}`, {
+      kind: 'server',
+      refId: 'playwright',
+      enabled: true,
+    })
+    // claude-code reads a project config from `.mcp.json`.
+    const claude = join(agent.workspaceDir, '.mcp.json')
+    expect(existsSync(claude)).toBe(true)
+
+    await patch(`/api/agents/${agent.id}`, { acpAgent: 'codex' })
+    expect(readFileSync(claude, 'utf8')).not.toContain('playwright')
+  })
+
+  test('turns off a switch the new runtime has no config for', async () => {
+    db.insert(mcpServers)
+      .values({
+        id: 'playwright',
+        name: 'playwright',
+        kind: 'stdio',
+        target: 'bunx',
+        args: '@playwright/mcp@latest',
+      })
+      .run()
+
+    const { agent } = await (await post('/api/agents', DRAFT)).json()
+    await patch(`/api/tools/access/${agent.id}`, {
+      kind: 'server',
+      refId: 'playwright',
+      enabled: true,
+    })
+    await patch(`/api/agents/${agent.id}`, { acpAgent: 'codex' })
+
+    const { access } = await (
+      await app.request(`/api/tools/access/${agent.id}`)
+    ).json()
+    expect(access).toHaveLength(1)
+    expect(access[0].enabled).toBe(false)
   })
 })
 

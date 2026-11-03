@@ -1,8 +1,13 @@
 import type { Db } from '@bun/modules/db/db'
-import { agents, mcpServers, skills } from '@bun/modules/db/schema/schema'
+import {
+  agents,
+  agentTools,
+  mcpServers,
+  skills,
+} from '@bun/modules/db/schema/schema'
 import { setServerAccess } from '@bun/modules/tools/linking'
 import { setSkillAccess } from '@bun/modules/tools/skills'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 
 export interface ApplyAccess {
   readonly agentId: string
@@ -10,6 +15,41 @@ export interface ApplyAccess {
   readonly refId: string
   readonly enabled: boolean
   readonly skillsWorkspace: string
+}
+
+interface WriteAccess extends Omit<ApplyAccess, 'agentId'> {
+  readonly runtimeId: string
+  readonly workspaceDir: string
+}
+
+/** Writes one switch into one runtime's config, named rather than looked up. */
+async function writeAccess(db: Db, input: WriteAccess): Promise<string | null> {
+  if (input.kind === 'server') {
+    const server = db
+      .select()
+      .from(mcpServers)
+      .where(eq(mcpServers.id, input.refId))
+      .get()
+    if (!server) return null
+    const result = await setServerAccess({
+      runtimeId: input.runtimeId,
+      workspaceDir: input.workspaceDir,
+      server,
+      enabled: input.enabled,
+    })
+    return result.linked ? null : (result.reason ?? null)
+  }
+
+  const skill = db.select().from(skills).where(eq(skills.id, input.refId)).get()
+  if (!skill) return null
+  const result = await setSkillAccess({
+    runtimeId: input.runtimeId,
+    workspaceDir: input.workspaceDir,
+    skillsWorkspace: input.skillsWorkspace,
+    skillName: skill.name,
+    enabled: input.enabled,
+  })
+  return result.linked ? null : (result.reason ?? null)
 }
 
 /**
@@ -31,30 +71,73 @@ export async function applyAccess(
     .get()
   if (!agent) return null
 
-  if (input.kind === 'server') {
-    const server = db
-      .select()
-      .from(mcpServers)
-      .where(eq(mcpServers.id, input.refId))
-      .get()
-    if (!server) return null
-    const result = await setServerAccess({
-      runtimeId: agent.acpAgent,
-      workspaceDir: agent.workspaceDir,
-      server,
-      enabled: input.enabled,
-    })
-    return result.linked ? null : (result.reason ?? null)
-  }
-
-  const skill = db.select().from(skills).where(eq(skills.id, input.refId)).get()
-  if (!skill) return null
-  const result = await setSkillAccess({
+  return writeAccess(db, {
+    ...input,
     runtimeId: agent.acpAgent,
     workspaceDir: agent.workspaceDir,
-    skillsWorkspace: input.skillsWorkspace,
-    skillName: skill.name,
-    enabled: input.enabled,
   })
-  return result.linked ? null : (result.reason ?? null)
+}
+
+/**
+ * Moves every switch that is on from one runtime's config to another's.
+ *
+ * A switch is a row plus a file in one runtime's own format, so an agent that
+ * changes runtime is left holding rows describing links the new runtime has
+ * never heard of. A switch the new runtime will not take is turned off rather
+ * than left reading as on: not every runtime has a project config this build
+ * can write, and a panel saying yes over a file that does not exist is worse
+ * than one saying the access went away with the runtime.
+ */
+export async function moveAccess(
+  db: Db,
+  input: { agentId: string; from: string; to: string; skillsWorkspace: string },
+): Promise<void> {
+  const agent = db
+    .select()
+    .from(agents)
+    .where(eq(agents.id, input.agentId))
+    .get()
+  if (!agent) return
+
+  const rows = db
+    .select()
+    .from(agentTools)
+    .where(
+      and(eq(agentTools.agentId, input.agentId), eq(agentTools.enabled, true)),
+    )
+    .all()
+
+  for (const row of rows) {
+    if (row.kind !== 'server' && row.kind !== 'skill') continue
+    const common = {
+      kind: row.kind,
+      refId: row.refId,
+      workspaceDir: agent.workspaceDir,
+      skillsWorkspace: input.skillsWorkspace,
+    }
+    // Unlinked from the old runtime first, so the folder is not left holding
+    // a config for a runtime this agent no longer uses.
+    await writeAccess(db, {
+      ...common,
+      runtimeId: input.from,
+      enabled: false,
+    })
+    const refused = await writeAccess(db, {
+      ...common,
+      runtimeId: input.to,
+      enabled: true,
+    })
+    if (refused === null) continue
+
+    db.update(agentTools)
+      .set({ enabled: false, updatedAt: new Date().toISOString() })
+      .where(
+        and(
+          eq(agentTools.agentId, input.agentId),
+          eq(agentTools.kind, row.kind),
+          eq(agentTools.refId, row.refId),
+        ),
+      )
+      .run()
+  }
 }

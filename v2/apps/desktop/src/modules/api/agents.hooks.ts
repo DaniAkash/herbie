@@ -4,6 +4,7 @@ import { createMutation, createQuery } from 'react-query-kit'
 import { api } from '@/modules/api/client'
 import { parseResponse } from '@/modules/api/parse'
 import { queryClient } from '@/modules/api/queryClient'
+import { useToolAccess } from '@/modules/api/tools.hooks'
 
 export type AgentsResponse = InferResponseType<Client['api']['agents']['$get']>
 export type Agent = AgentsResponse['agents'][number]
@@ -128,8 +129,17 @@ export const usePatchAgent = createMutation({
       await client.api.agents[':id'].$patch({ param: { id }, json: patch }),
     )
   },
-  onSuccess: () =>
-    queryClient.invalidateQueries({ queryKey: useAgents.getKey() }),
+  onSuccess: (_data, { id, acpAgent }) => {
+    queryClient.invalidateQueries({ queryKey: useAgents.getKey() })
+    // A runtime change moves this agent's links into the new runtime's own
+    // config and turns off anything it would not take, so the switches are
+    // no longer what the panel last read.
+    if (acpAgent) {
+      queryClient.invalidateQueries({
+        queryKey: useToolAccess.getKey({ agentId: id }),
+      })
+    }
+  },
 })
 
 export const useDeleteAgent = createMutation({
