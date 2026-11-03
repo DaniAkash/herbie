@@ -27,8 +27,20 @@ export function AgentPermissions({ agent }: { agent: Agent }) {
   const agentId = agent.id
   const tools = useTools()
   const access = useToolAccess({ variables: { agentId } })
-  const setAccess = useSetToolAccess()
   const patch = usePatchAgent()
+
+  // What the sidecar could not write, kept per row. A switch that is on
+  // while nothing was linked is the one state worth saying out loud: the
+  // setting is real, the runtime just cannot be told about it this way.
+  const [notes, setNotes] = useState<Record<string, string>>({})
+  const setAccess = useSetToolAccess({
+    onSuccess: (data, { kind, refId }) => {
+      setNotes((old) => ({
+        ...old,
+        [`${kind}:${refId}`]: data?.note ?? '',
+      }))
+    },
+  })
 
   const allowed = (kind: 'server' | 'skill', id: string) =>
     access.data?.access.find((a) => a.kind === kind && a.refId === id)
@@ -78,7 +90,15 @@ export function AgentPermissions({ agent }: { agent: Agent }) {
               <PanelRow
                 key={server.id}
                 k={<span className="font-mono text-[13px]">{server.name}</span>}
-                v={server.status === 'failed' ? 'Not running' : undefined}
+                v={
+                  notes[`server:${server.id}`] ? (
+                    <span className="text-red">
+                      {notes[`server:${server.id}`]}
+                    </span>
+                  ) : server.status === 'failed' ? (
+                    'Not running'
+                  ) : undefined
+                }
               >
                 <Switch
                   checked={allowed('server', server.id)}
@@ -104,7 +124,17 @@ export function AgentPermissions({ agent }: { agent: Agent }) {
             note="Servers and skills are added once in Tools. These switches are this agent's alone."
           >
             {tools.data.skills.map((skill) => (
-              <PanelRow key={skill.id} k={skill.name}>
+              <PanelRow
+                key={skill.id}
+                k={skill.name}
+                v={
+                  notes[`skill:${skill.id}`] ? (
+                    <span className="text-red">
+                      {notes[`skill:${skill.id}`]}
+                    </span>
+                  ) : undefined
+                }
+              >
                 <Switch
                   checked={allowed('skill', skill.id)}
                   onCheckedChange={(enabled) =>

@@ -12,6 +12,10 @@ export type AccessResponse = InferResponseType<
 type AccessBody = InferRequestType<
   Client['api']['tools']['access'][':agentId']['$patch']
 >['json']
+type AccessPatched = InferResponseType<
+  Client['api']['tools']['access'][':agentId']['$patch'],
+  200
+>
 
 /** The shared library. Defined once, switched on per agent. */
 export const useTools = createQuery<ToolsResponse>({
@@ -46,7 +50,7 @@ export const useSetToolAccess = createMutation({
     ...body
   }: AccessBody & { agentId: string }) => {
     const client = await api()
-    return parseResponse<unknown>(
+    return parseResponse<AccessPatched>(
       await client.api.tools.access[':agentId'].$patch({
         param: { agentId },
         json: body,
