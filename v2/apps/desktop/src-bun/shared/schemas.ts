@@ -1,5 +1,14 @@
 import { z } from 'zod'
 
+/**
+ * The request shapes, named once for both ends.
+ *
+ * Shared rather than server only because the forms validate against the same
+ * definitions the routes enforce. Two copies of a rule drift, and the copy
+ * that drifts is always the one in the form, which then lets through a body
+ * the server rejects with a message nobody wrote for a person to read.
+ */
+
 /** The six face colours. Identity only, never an accent. */
 export const COLORS = [
   'ops',

@@ -1,5 +1,5 @@
 import { toCron } from '@bun/modules/routines/cadence'
-import { cadenceBody } from '@bun/server/schemas'
+import { cadenceBody } from '@bun/shared/schemas'
 import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
 

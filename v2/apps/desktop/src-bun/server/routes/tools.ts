@@ -1,6 +1,6 @@
 import { agentTools, mcpServers, skills } from '@bun/modules/db/schema/schema'
 import type { Deps } from '@bun/server/deps'
-import { accessBody } from '@bun/server/schemas'
+import { accessBody } from '@bun/shared/schemas'
 import { zValidator } from '@hono/zod-validator'
 import { and, asc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'

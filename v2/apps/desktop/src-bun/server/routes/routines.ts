@@ -1,7 +1,7 @@
 import { routines } from '@bun/modules/db/schema/schema'
 import { toCron } from '@bun/modules/routines/cadence'
 import type { Deps } from '@bun/server/deps'
-import { patchRoutineBody } from '@bun/server/schemas'
+import { patchRoutineBody } from '@bun/shared/schemas'
 import { zValidator } from '@hono/zod-validator'
 import { eq } from 'drizzle-orm'
 import { Hono } from 'hono'

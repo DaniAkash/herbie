@@ -12,7 +12,7 @@ import {
   createRoutineBody,
   createRuleBody,
   patchAgentBody,
-} from '@bun/server/schemas'
+} from '@bun/shared/schemas'
 import { zValidator } from '@hono/zod-validator'
 import { asc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
