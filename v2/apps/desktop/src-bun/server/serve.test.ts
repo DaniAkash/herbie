@@ -15,6 +15,7 @@ function serve(token = 'a-secret') {
   const app = createApp({
     db,
     databasePath: path,
+    agentsRoot: join(dir, 'agents'),
     appliedMigrations: appliedMigrations(sqlite),
     startedAt: Date.now(),
   })

@@ -76,6 +76,56 @@ function hourOf(token: string): number | null {
   return null
 }
 
+/** noon, midday, midnight. */
+function namedTime(text: string): Time | null {
+  if (text === 'noon' || text === 'midday') return { hour: 12, minute: 0 }
+  if (text === 'midnight') return { hour: 0, minute: 0 }
+  return null
+}
+
+/** half past seven, quarter past six, quarter to eight. */
+function offsetTime(text: string): Time | null {
+  const offsets: ReadonlyArray<readonly [RegExp, number, number]> = [
+    [/^half past (.+)$/, 30, 0],
+    [/^quarter past (.+)$/, 15, 0],
+    // Quarter to eight is seven forty five, so the hour steps back with it.
+    [/^quarter to (.+)$/, 45, -1],
+  ]
+  for (const [pattern, minute, hourShift] of offsets) {
+    const match = text.match(pattern)
+    if (!match?.[1]) continue
+    const base = parseTime(match[1])
+    if (!base) return null
+    return { hour: (base.hour + hourShift + 24) % 24, minute }
+  }
+  return null
+}
+
+/** 7, 7am, 7pm, 7:30, 7:30pm, 19:00. */
+function clockTime(text: string): Time | null {
+  const match = text.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/)
+  if (!match?.[1]) return null
+
+  let hour = Number(match[1])
+  const minute = Number(match[2] ?? 0)
+  const meridiem = match[3]
+  if (minute > 59) return null
+  if (meridiem === 'pm' && hour < 12) hour += 12
+  if (meridiem === 'am' && hour === 12) hour = 0
+  return hour > 23 ? null : { hour, minute }
+}
+
+/** seven, seven thirty, seven fifteen. */
+function wordTime(text: string): Time | null {
+  const words = text.split(/\s+/)
+  const hour = words[0] ? hourOf(words[0]) : null
+  if (hour === null) return null
+  if (words.length === 1) return { hour, minute: 0 }
+  if (words[1] === 'thirty') return { hour, minute: 30 }
+  if (words[1] === 'fifteen') return { hour, minute: 15 }
+  return null
+}
+
 /**
  * Reads a time of day.
  *
@@ -86,51 +136,40 @@ function hourOf(token: string): number | null {
 export function parseTime(input: string): Time | null {
   const text = input.trim().toLowerCase()
   if (!text) return null
-  if (text === 'noon' || text === 'midday') return { hour: 12, minute: 0 }
-  if (text === 'midnight') return { hour: 0, minute: 0 }
-
-  const half = text.match(/^half past (.+)$/)
-  if (half?.[1]) {
-    const base = parseTime(half[1])
-    return base ? { hour: base.hour, minute: 30 } : null
-  }
-  const quarterPast = text.match(/^quarter past (.+)$/)
-  if (quarterPast?.[1]) {
-    const base = parseTime(quarterPast[1])
-    return base ? { hour: base.hour, minute: 15 } : null
-  }
-  const quarterTo = text.match(/^quarter to (.+)$/)
-  if (quarterTo?.[1]) {
-    const base = parseTime(quarterTo[1])
-    return base ? { hour: (base.hour + 23) % 24, minute: 45 } : null
-  }
-
-  // 7, 7am, 7pm, 7:30, 7:30pm, 19:00
-  const clockMatch = text.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/)
-  if (clockMatch?.[1]) {
-    let hour = Number(clockMatch[1])
-    const minute = Number(clockMatch[2] ?? 0)
-    const meridiem = clockMatch[3]
-    if (minute > 59) return null
-    if (meridiem === 'pm' && hour < 12) hour += 12
-    if (meridiem === 'am' && hour === 12) hour = 0
-    if (hour > 23) return null
-    // A bare 7 means the morning; a bare 19 is already unambiguous.
-    return { hour, minute }
-  }
-
-  // seven, seven thirty
-  const words = text.split(/\s+/)
-  const hour = words[0] ? hourOf(words[0]) : null
-  if (hour === null) return null
-  if (words.length === 1) return { hour, minute: 0 }
-  if (words[1] === 'thirty') return { hour, minute: 30 }
-  if (words[1] === 'fifteen') return { hour, minute: 15 }
-  return null
+  return (
+    namedTime(text) ?? offsetTime(text) ?? clockTime(text) ?? wordTime(text)
+  )
 }
 
 function schedule(time: Time, dow: string, reading: string): Cadence {
   return { cron: `${time.minute} ${time.hour} * * ${dow}`, reading }
+}
+
+/** every hour, hourly, every three hours. */
+function repeating(text: string): Cadence | null {
+  if (text === 'every hour' || text === 'hourly') {
+    return { cron: '0 * * * *', reading: 'every hour, on the hour' }
+  }
+  const match = text.match(/^every (\w+) hours?$/)
+  if (!match?.[1]) return null
+  const n = hourOf(match[1])
+  if (n === null || n < 1 || n > 23) return null
+  return {
+    cron: `0 */${n} * * *`,
+    reading: n === 1 ? 'every hour, on the hour' : `every ${n} hours`,
+  }
+}
+
+/** The days a scope covers, as a cron day-of-week field and words. */
+function daysOf(scope: string): { dow: string; words: string } | null {
+  if (scope === 'day') return { dow: '*', words: 'every day' }
+  if (scope === 'weekday') return { dow: '1-5', words: 'Monday to Friday' }
+  if (scope === 'weekend' || scope === 'weekends') {
+    return { dow: '0,6', words: 'Saturday and Sunday' }
+  }
+  const day = DAYS[scope]
+  if (day === undefined) return null
+  return { dow: String(day), words: `every ${DAY_NAMES[day]}` }
 }
 
 /**
@@ -147,43 +186,16 @@ export function toCron(input: string): Cadence | null {
     .replace(/[.,!]+$/, '')
   if (!text) return null
 
-  if (text === 'every hour' || text === 'hourly') {
-    return { cron: '0 * * * *', reading: 'every hour, on the hour' }
-  }
-
-  const everyN = text.match(/^every (\w+) hours?$/)
-  if (everyN?.[1]) {
-    const n = hourOf(everyN[1])
-    if (n === null || n < 1 || n > 23) return null
-    return {
-      cron: `0 */${n} * * *`,
-      reading: n === 1 ? 'every hour, on the hour' : `every ${n} hours`,
-    }
-  }
+  const repeats = repeating(text)
+  if (repeats) return repeats
 
   const at = text.match(
     /^(?:every (day|weekday|weekends?|[a-z]+day)s?|([a-z]+day)s)?\s*(?:at\s+)?(.+?)$/,
   )
   if (!at) return null
 
-  const scope = at[1] ?? at[2] ?? 'day'
+  const days = daysOf(at[1] ?? at[2] ?? 'day')
   const time = parseTime(at[3] ?? '')
-  if (!time) return null
-
-  if (scope === 'day') {
-    return schedule(time, '*', `every day at ${clock(time)}`)
-  }
-  if (scope === 'weekday') {
-    return schedule(time, '1-5', `Monday to Friday at ${clock(time)}`)
-  }
-  if (scope === 'weekend' || scope === 'weekends') {
-    return schedule(time, '0,6', `Saturday and Sunday at ${clock(time)}`)
-  }
-  const day = DAYS[scope]
-  if (day === undefined) return null
-  return schedule(
-    time,
-    String(day),
-    `every ${DAY_NAMES[day]} at ${clock(time)}`,
-  )
+  if (!days || !time) return null
+  return schedule(time, days.dow, `${days.words} at ${clock(time)}`)
 }

@@ -1,6 +1,9 @@
 import type { Deps } from '@bun/server/deps'
 import { agentsRoute } from '@bun/server/routes/agents'
+import { cadenceRoute } from '@bun/server/routes/cadence'
 import { healthRoute } from '@bun/server/routes/health'
+import { routinesRoute } from '@bun/server/routes/routines'
+import { rulesRoute } from '@bun/server/routes/rules'
 import { runtimesRoute } from '@bun/server/routes/runtimes'
 import { statusRoute } from '@bun/server/routes/status'
 import { toolsRoute } from '@bun/server/routes/tools'
@@ -21,6 +24,9 @@ export function createApp(deps: Deps) {
     .route('/agents', agentsRoute(deps))
     .route('/tools', toolsRoute(deps))
     .route('/runtimes', runtimesRoute(deps))
+    .route('/routines', routinesRoute(deps))
+    .route('/rules', rulesRoute(deps))
+    .route('/cadence', cadenceRoute)
 }
 
 export type AppType = ReturnType<typeof createApp>

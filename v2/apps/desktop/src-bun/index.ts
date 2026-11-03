@@ -1,5 +1,5 @@
 import { chmodSync, writeFileSync } from 'node:fs'
-import { logLevelName, tokenPath } from '@bun/lib/env'
+import { agentsDir, logLevelName, tokenPath } from '@bun/lib/env'
 import { createLogger } from '@bun/lib/log'
 import { openDb } from '@bun/modules/db/db'
 import { ensureInstalledAt } from '@bun/modules/db/install'
@@ -33,6 +33,7 @@ function main(): void {
   const app = createApp({
     db,
     databasePath: path,
+    agentsRoot: agentsDir(),
     appliedMigrations: appliedMigrations(sqlite),
     startedAt,
   })
