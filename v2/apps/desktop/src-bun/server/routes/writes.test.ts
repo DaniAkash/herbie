@@ -9,8 +9,8 @@ import {
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { openDb } from '@bun/modules/db/db'
-import { mcpServers } from '@bun/modules/db/schema/schema'
 import { appliedMigrations } from '@bun/modules/db/migrate'
+import { mcpServers } from '@bun/modules/db/schema/schema'
 import { createApp } from '@bun/server/app'
 
 let dir: string
@@ -250,6 +250,37 @@ describe('tool access', () => {
       await app.request(`/api/tools/access/${agent.id}`)
     ).json()
     expect(access).toHaveLength(2)
+  })
+})
+
+describe('linking a server into an agent config', () => {
+  test('keeps a quoted argument whole', async () => {
+    db.insert(mcpServers)
+      .values({
+        id: 'files',
+        name: 'files',
+        kind: 'stdio',
+        target: 'bunx',
+        args: 'mcp-files --root "/My Files/notes" --read-only',
+      })
+      .run()
+
+    const { agent } = await (await post('/api/agents', DRAFT)).json()
+    await patch(`/api/tools/access/${agent.id}`, {
+      kind: 'server',
+      refId: 'files',
+      enabled: true,
+    })
+
+    const written = JSON.parse(
+      readFileSync(join(agent.workspaceDir, '.mcp.json'), 'utf8'),
+    )
+    expect(written.mcpServers.files.args).toEqual([
+      'mcp-files',
+      '--root',
+      '/My Files/notes',
+      '--read-only',
+    ])
   })
 })
 

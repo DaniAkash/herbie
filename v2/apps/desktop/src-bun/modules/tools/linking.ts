@@ -31,6 +31,22 @@ function manifestDir(workspaceDir: string): string {
   return join(workspaceDir, '.herbie-mcp')
 }
 
+/**
+ * Splits a stored argument line the way a shell would.
+ *
+ * A plain split on spaces turns `--root "/My Files/notes"` into three
+ * arguments and hands the server a path that does not exist, so a quoted run
+ * is kept whole.
+ */
+function splitArgs(line: string): string[] {
+  const out: string[] = []
+  for (const match of line.matchAll(/"([^"]*)"|'([^']*)'|(\S+)/g)) {
+    const token = match[1] ?? match[2] ?? match[3]
+    if (token) out.push(token)
+  }
+  return out
+}
+
 function toSpec(row: McpServerRow) {
   if (row.kind === 'http' || row.kind === 'sse') {
     return { transport: row.kind, url: row.target } as const
@@ -38,7 +54,7 @@ function toSpec(row: McpServerRow) {
   return {
     transport: 'stdio',
     command: row.target,
-    args: row.args ? row.args.split(' ').filter(Boolean) : [],
+    args: splitArgs(row.args),
   } as const
 }
 
