@@ -1,5 +1,5 @@
 import { Check, ChevronLeft } from 'lucide-react'
-import { Button } from '@/components/atoms/Button'
+import { buttonVariants } from '@/components/atoms/Button'
 import { RadioGroupItem } from '@/components/motion/radio'
 import { cn } from '@/lib/utils'
 import { needsSignIn } from '@/modules/api/runtimes.helpers'
@@ -117,10 +117,16 @@ export function RuntimeRow({ runtime }: { runtime: Runtime }) {
         className="min-w-0 flex-1"
       />
       {(signIn || !usable) && runtime.installUrl ? (
-        <a href={runtime.installUrl} target="_blank" rel="noreferrer">
-          <Button size="xs" variant="secondary" type="button">
-            {signIn ? 'Sign in' : 'Install'}
-          </Button>
+        // The link wears the button's own classes rather than wrapping one:
+        // a button inside an anchor is two controls over one target, and the
+        // keyboard has to pick between them.
+        <a
+          href={runtime.installUrl}
+          target="_blank"
+          rel="noreferrer"
+          className={buttonVariants({ size: 'xs', variant: 'secondary' })}
+        >
+          {signIn ? 'Sign in' : 'Install'}
         </a>
       ) : null}
     </div>
