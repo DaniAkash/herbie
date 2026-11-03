@@ -16,6 +16,7 @@ function serve(token = 'a-secret') {
     db,
     databasePath: path,
     agentsRoot: join(dir, 'agents'),
+    skillsWorkspace: join(dir, 'skills'),
     appliedMigrations: appliedMigrations(sqlite),
     startedAt: Date.now(),
   })

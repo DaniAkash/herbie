@@ -133,7 +133,7 @@ function wordTime(text: string): Time | null {
  * they say seven without saying which seven. The one exception is twelve,
  * which is noon rather than midnight for the same reason.
  */
-export function parseTime(input: string): Time | null {
+function parseTime(input: string): Time | null {
   const text = input.trim().toLowerCase()
   if (!text) return null
   return (

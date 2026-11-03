@@ -18,7 +18,6 @@ export type Routine = RoutinesResponse['routines'][number]
 export type RulesResponse = InferResponseType<
   Client['api']['agents'][':id']['rules']['$get']
 >
-export type Rule = RulesResponse['rules'][number]
 
 /**
  * The draft shapes are the validators' shapes, taken from the route tree.
@@ -26,16 +25,16 @@ export type Rule = RulesResponse['rules'][number]
  * Declaring them by hand here is what lets a renamed column stay compiling on
  * one side and break at runtime on the other.
  */
-export type CreateAgentBody = InferRequestType<
+type CreateAgentBody = InferRequestType<
   Client['api']['agents']['$post']
 >['json']
-export type PatchAgentBody = InferRequestType<
+type PatchAgentBody = InferRequestType<
   Client['api']['agents'][':id']['$patch']
 >['json']
-export type CreateRoutineBody = InferRequestType<
+type CreateRoutineBody = InferRequestType<
   Client['api']['agents'][':id']['routines']['$post']
 >['json']
-export type PatchRoutineBody = InferRequestType<
+type PatchRoutineBody = InferRequestType<
   Client['api']['routines'][':id']['$patch']
 >['json']
 
@@ -65,6 +64,12 @@ export const useAgents = createQuery<AgentsResponse>({
     return parseResponse<AgentsResponse>(await client.api.agents.$get())
   },
 })
+
+/** One agent out of the rail's list, which every panel tab needs. */
+export function useAgent(agentId: string): Agent | undefined {
+  const { data } = useAgents()
+  return data?.agents.find((a) => a.id === agentId)
+}
 
 export const useMessages = createQuery<MessagesResponse, { agentId: string }>({
   queryKey: ['agent-messages'],

@@ -6,11 +6,7 @@ import { parseResponse } from '@/modules/api/parse'
 
 // Pinned to 200: the validator adds a 400 branch, and the union of the two
 // has no `cadence` on it.
-export type CadenceResponse = InferResponseType<
-  Client['api']['cadence']['$post'],
-  200
->
-export type ReadCadence = CadenceResponse['cadence']
+type CadenceResponse = InferResponseType<Client['api']['cadence']['$post'], 200>
 
 /**
  * Reads a cadence without committing to it.

@@ -1,5 +1,5 @@
 import { chmodSync, writeFileSync } from 'node:fs'
-import { agentsDir, logLevelName, tokenPath } from '@bun/lib/env'
+import { agentsDir, logLevelName, skillsDir, tokenPath } from '@bun/lib/env'
 import { createLogger } from '@bun/lib/log'
 import { openDb } from '@bun/modules/db/db'
 import { ensureInstalledAt } from '@bun/modules/db/install'
@@ -34,6 +34,7 @@ function main(): void {
     db,
     databasePath: path,
     agentsRoot: agentsDir(),
+    skillsWorkspace: skillsDir(),
     appliedMigrations: appliedMigrations(sqlite),
     startedAt,
   })

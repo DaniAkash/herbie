@@ -9,7 +9,7 @@ export type ToolsResponse = InferResponseType<Client['api']['tools']['$get']>
 export type AccessResponse = InferResponseType<
   Client['api']['tools']['access'][':agentId']['$get']
 >
-export type AccessBody = InferRequestType<
+type AccessBody = InferRequestType<
   Client['api']['tools']['access'][':agentId']['$patch']
 >['json']
 

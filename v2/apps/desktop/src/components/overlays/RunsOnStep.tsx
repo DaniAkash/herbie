@@ -1,9 +1,7 @@
-import { CheckCircle2, Info, Loader2 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { Controller } from 'react-hook-form'
-import { Card, CardContent } from '@/components/motion/card'
+import { EffortControl } from '@/components/agent/EffortControl'
 import { Input } from '@/components/motion/input'
-import { RadioGroup } from '@/components/motion/radio'
 import {
   Select,
   SelectContent,
@@ -11,9 +9,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/motion/select'
-import { Tabs, TabsList, TabsTrigger } from '@/components/motion/tabs'
-import type { AgentForm } from '@/components/overlays/NewAgentOverlay'
-import { RuntimeRow } from '@/components/overlays/new-agent.components'
+import {
+  PickerSkeleton,
+  ProbeLine,
+  Row,
+  RuntimePicker,
+} from '@/components/overlays/runs-on.components'
+import type { AgentForm } from '@/modules/api/forms'
 import {
   type Runtime,
   useProbeRuntime,
@@ -34,20 +36,26 @@ export function RunsOnStep({ form }: { form: AgentForm }) {
   const chosen = form.watch('acpAgent')
 
   const runtimes = data?.runtimes ?? []
-  const runtime = runtimes.find((r) => r.id === chosen)
-
-  // acpx knows about thirty coding agents and a machine usually has two or
-  // three. The ones that cannot be used without installing something are
-  // kept behind a disclosure rather than listed: they are a real answer to
-  // "what else is there", and a wall of them is not an answer to "which one".
-  const [showAll, setShowAll] = useState(false)
-  const ready = runtimes.filter((r) => r.installState !== 'not-installed')
-  const missing = runtimes.filter((r) => r.installState === 'not-installed')
-  const shown = showAll ? runtimes : ready
   // The probe's own answer wins while it is on screen, so the rows fill in
   // the moment it lands rather than after the list is refetched.
   const probed: Runtime | undefined =
-    probe.data?.runtime.id === chosen ? probe.data.runtime : runtime
+    probe.data && probe.data.runtime.id === chosen
+      ? probe.data.runtime
+      : runtimes.find((r) => r.id === chosen)
+
+  const efforts = probed?.efforts ?? []
+  const effort = form.watch('effort')
+  // The only unavoidable effect here: which efforts exist is not known until
+  // the probe answers, so an effort carried over from the previously chosen
+  // runtime can only be corrected once that lands.
+  useEffect(() => {
+    if (efforts.length > 0 && effort && !efforts.includes(effort)) {
+      form.setValue(
+        'effort',
+        efforts.includes('medium') ? 'medium' : efforts[0],
+      )
+    }
+  }, [efforts, effort, form.setValue])
 
   return (
     <div className="grid gap-5">
@@ -56,49 +64,25 @@ export function RunsOnStep({ form }: { form: AgentForm }) {
         {isPending ? (
           <PickerSkeleton />
         ) : (
-          <Card
-            variant="outlined"
-            size="compact"
-            className="!gap-0 !py-0 overflow-hidden"
-          >
-            <CardContent className="grid gap-0 p-0 py-1">
-              <Controller
-                control={form.control}
-                name="acpAgent"
-                render={({ field }) => (
-                  <RadioGroup
-                    value={field.value}
-                    onValueChange={(id) => {
-                      field.onChange(id)
-                      // The model and effort the previous runtime offered mean
-                      // nothing to this one, so they go rather than being
-                      // carried across as values it will refuse.
-                      form.setValue('model', null)
-                      form.setValue('effort', 'medium')
-                      probe.mutate({ id })
-                    }}
-                    aria-label="Runtime"
-                  >
-                    {shown.map((r) => (
-                      <RuntimeRow key={r.id} runtime={r} />
-                    ))}
-                  </RadioGroup>
-                )}
+          <Controller
+            control={form.control}
+            name="acpAgent"
+            render={({ field }) => (
+              <RuntimePicker
+                runtimes={runtimes}
+                value={field.value}
+                onSelect={(id) => {
+                  field.onChange(id)
+                  // The model the previous runtime offered means nothing to
+                  // this one, so it goes rather than being carried across as
+                  // a value it will refuse.
+                  form.setValue('model', null)
+                  probe.mutate({ id })
+                }}
               />
-            </CardContent>
-          </Card>
+            )}
+          />
         )}
-        {missing.length > 0 && !showAll ? (
-          <button
-            type="button"
-            onClick={() => setShowAll(true)}
-            className="mt-2 text-[12.5px] text-ink-3 hover:text-ink"
-          >
-            {ready.length === 0
-              ? `None are installed. Show ${missing.length} Herbie can use`
-              : `Show ${missing.length} more Herbie can use`}
-          </button>
-        ) : null}
         <ProbeLine pending={probe.isPending} runtime={probed} />
       </section>
 
@@ -125,16 +109,17 @@ export function RunsOnStep({ form }: { form: AgentForm }) {
         />
       ) : null}
 
-      {probed && probed.efforts.length > 0 ? (
+      {efforts.length > 0 ? (
         <Controller
           control={form.control}
           name="effort"
           render={({ field }) => (
             <Row label="Effort">
               <EffortControl
-                values={probed.efforts}
+                values={efforts}
                 value={field.value ?? 'medium'}
                 onChange={field.onChange}
+                className="w-[170px]"
               />
             </Row>
           )}
@@ -162,150 +147,6 @@ export function RunsOnStep({ form }: { form: AgentForm }) {
           one working tree.
         </p>
       </section>
-    </div>
-  )
-}
-
-/**
- * Effort, as however many levels the runtime actually reports.
- *
- * A segment for three or fewer and a select beyond that: claude-agent-acp
- * reports six, and six segments in a 380px modal is a row of unreadable
- * slivers.
- */
-function EffortControl({
-  values,
-  value,
-  onChange,
-}: {
-  values: readonly string[]
-  value: string
-  onChange: (next: string) => void
-}) {
-  // Whatever was carried in from a previous runtime may not be on offer here.
-  useEffect(() => {
-    if (values.length > 0 && !values.includes(value)) {
-      onChange(values.includes('medium') ? 'medium' : (values[0] as string))
-    }
-  }, [values, value, onChange])
-
-  if (values.length <= 3) {
-    return (
-      <Tabs value={value} variant="segment" onValueChange={onChange}>
-        <TabsList>
-          {values.map((e) => (
-            <TabsTrigger key={e} value={e}>
-              {e}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
-    )
-  }
-
-  return (
-    <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className="w-[170px]">
-        <SelectValue placeholder="Its default" />
-      </SelectTrigger>
-      <SelectContent>
-        {values.map((e) => (
-          <SelectItem key={e} value={e}>
-            {e}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  )
-}
-
-function Row({
-  label,
-  children,
-}: {
-  label: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className="flex items-center gap-3">
-      <span className="flex-1 font-medium">{label}</span>
-      {children}
-    </div>
-  )
-}
-
-/** What the runtime answered, in the words the row would use. */
-function ProbeLine({
-  pending,
-  runtime,
-}: {
-  pending: boolean
-  runtime: Runtime | undefined
-}) {
-  if (pending) {
-    return (
-      <Note icon={<Loader2 size={14} className="animate-spin" />}>
-        Asking it what it can do...
-      </Note>
-    )
-  }
-  if (!runtime?.probedAt) return null
-
-  if (runtime.probeError) {
-    return (
-      <Note icon={<Info size={14} />}>
-        It did not answer: {runtime.probeError}. It can still be used.
-      </Note>
-    )
-  }
-  if (runtime.modelValues.length === 0) {
-    return (
-      <Note icon={<Info size={14} />}>
-        {runtime.displayName} has no model picker. It runs on whatever it is set
-        to.
-      </Note>
-    )
-  }
-  return (
-    <Note icon={<CheckCircle2 size={14} className="text-accent" />}>
-      {runtime.displayName} answered:{' '}
-      {count(runtime.modelValues.length, 'model')}
-      {runtime.efforts.length > 0
-        ? `, and effort in ${count(runtime.efforts.length, 'level')}`
-        : ''}
-      .
-    </Note>
-  )
-}
-
-const WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six']
-
-function count(n: number, noun: string): string {
-  const word = WORDS[n] ?? String(n)
-  return `${word} ${noun}${n === 1 ? '' : 's'}`
-}
-
-function Note({
-  icon,
-  children,
-}: {
-  icon: React.ReactNode
-  children: React.ReactNode
-}) {
-  return (
-    <p className="mt-2 flex items-start gap-1.5 text-[12.5px] text-ink-2">
-      <span className="mt-[1px] shrink-0">{icon}</span>
-      <span>{children}</span>
-    </p>
-  )
-}
-
-function PickerSkeleton() {
-  return (
-    <div className="grid gap-1.5" aria-hidden="true">
-      <div className="h-11 rounded-control bg-hover" />
-      <div className="h-11 rounded-control bg-hover" />
-      <div className="h-11 rounded-control bg-hover" />
     </div>
   )
 }

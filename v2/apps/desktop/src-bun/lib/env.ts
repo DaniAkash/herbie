@@ -42,6 +42,16 @@ export function agentDir(id: string): string {
   return join(agentsDir(), id)
 }
 
+/**
+ * Where skill bundles live, once, for every agent.
+ *
+ * Shared rather than per agent because the bundle is the same file; what is
+ * per agent is the link into its own folder that points at it.
+ */
+export function skillsDir(): string {
+  return join(stateDir(), 'skills')
+}
+
 /** Log verbosity, from the environment rather than from settings. */
 export function logLevelName(): string {
   return process.env.HERBIE_LOG_LEVEL ?? 'info'

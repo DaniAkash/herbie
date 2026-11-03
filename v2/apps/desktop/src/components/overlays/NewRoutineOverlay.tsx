@@ -1,23 +1,20 @@
-import { createRoutineBody } from '@bun/shared/schemas'
-import { zodResolver } from '@hookform/resolvers/zod'
 import { useNavigate, useParams } from '@tanstack/react-router'
-import { Check, X } from 'lucide-react'
 import { useEffect } from 'react'
-import { Controller, useForm } from 'react-hook-form'
-import type { z } from 'zod'
+import { Controller } from 'react-hook-form'
 import { Button } from '@/components/atoms/Button'
 import { Input } from '@/components/motion/input'
-import { Switch } from '@/components/motion/switch'
 import { Tabs, TabsList, TabsTrigger } from '@/components/motion/tabs'
+import {
+  CadenceLine,
+  Delivery,
+  Field,
+} from '@/components/overlays/new-routine.components'
 import { Overlay } from '@/components/shell/Overlay'
-import { PanelRow, PanelSection } from '@/components/shell/Rows'
 import { Textarea } from '@/components/ui/textarea'
 import { useAgents, useCreateRoutine } from '@/modules/api/agents.hooks'
 import { useReadCadence } from '@/modules/api/cadence.hooks'
+import { useRoutineDraftForm } from '@/modules/api/forms'
 import { closeOverlay } from '@/modules/navigation/overlay'
-
-type RoutineInput = z.input<typeof createRoutineBody>
-type RoutineDraft = z.output<typeof createRoutineBody>
 
 /** Work the agent starts by itself, added after it exists. */
 export function NewRoutineOverlay() {
@@ -29,17 +26,7 @@ export function NewRoutineOverlay() {
   const create = useCreateRoutine()
   const read = useReadCadence()
 
-  const form = useForm<RoutineInput, unknown, RoutineDraft>({
-    resolver: zodResolver(createRoutineBody),
-    mode: 'onTouched',
-    defaultValues: {
-      name: '',
-      kind: 'schedule',
-      cadence: '',
-      prompt: '',
-      deliverTelegram: false,
-    },
-  })
+  const form = useRoutineDraftForm()
 
   const kind = form.watch('kind')
   const cadence = form.watch('cadence')
@@ -168,95 +155,18 @@ export function NewRoutineOverlay() {
           />
         </Field>
 
-        <div>
-          <span className="mb-1.5 block font-medium text-[12.5px] text-ink-2">
-            Where the result goes
-          </span>
-          <PanelSection>
-            <PanelRow k="This conversation" v="Where you already talk to it">
-              <span className="rounded-full bg-field px-2 py-0.5 text-[11.5px] text-ink-2">
-                always
-              </span>
-            </PanelRow>
-            <Controller
-              control={form.control}
-              name="deliverTelegram"
-              render={({ field }) => (
-                <PanelRow
-                  k="Telegram too"
-                  v={
-                    agent?.telegramBot
-                      ? `Sent from ${agent.telegramBot}`
-                      : 'Needs its bot connected first'
-                  }
-                >
-                  <Switch
-                    checked={Boolean(field.value)}
-                    onCheckedChange={field.onChange}
-                    disabled={!agent?.telegramBot}
-                    ariaLabel="Telegram too"
-                  />
-                </PanelRow>
-              )}
+        <Controller
+          control={form.control}
+          name="deliverTelegram"
+          render={({ field }) => (
+            <Delivery
+              agent={agent}
+              telegram={Boolean(field.value)}
+              onTelegram={field.onChange}
             />
-          </PanelSection>
-        </div>
+          )}
+        />
       </div>
     </Overlay>
-  )
-}
-
-/**
- * What the sidecar made of the cadence.
- *
- * Shown as a failure rather than hidden when it did not parse: a routine
- * stored without a cron is one that never fires, and finding that out later
- * is worse than being told now.
- */
-function CadenceLine({
-  reading,
-  cron,
-  pending,
-}: {
-  reading?: string
-  cron?: string | null
-  pending: boolean
-}) {
-  if (pending) {
-    return <p className="mt-1.5 text-[12.5px] text-ink-3">Reading that...</p>
-  }
-  if (!cron) {
-    return (
-      <p className="mt-1.5 flex items-center gap-1.5 text-[12.5px] text-red">
-        <X size={13} />
-        Herbie could not read that, so it will not run on its own.
-      </p>
-    )
-  }
-  return (
-    <p className="mt-1.5 flex items-center gap-1.5 text-[12.5px] text-ink-2">
-      <Check size={13} className="text-accent" />
-      Herbie read that as {reading}
-      <code className="rounded bg-field px-1.5 py-0.5 font-mono text-[11.5px]">
-        {cron}
-      </code>
-    </p>
-  )
-}
-
-function Field({
-  label,
-  children,
-}: {
-  label: string
-  children: React.ReactNode
-}) {
-  return (
-    <div>
-      <span className="mb-1.5 block font-medium text-[12.5px] text-ink-2">
-        {label}
-      </span>
-      {children}
-    </div>
   )
 }

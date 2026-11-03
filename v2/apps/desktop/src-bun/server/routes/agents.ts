@@ -23,6 +23,11 @@ import { Hono } from 'hono'
  * Chained rather than registered statement by statement, because Hono builds
  * the RPC types from the chain and a bare `app.route(...)` erases them.
  */
+/** The row, or nothing. Written once because three handlers want it. */
+function findAgent(db: Deps['db'], id: string) {
+  return db.select().from(agents).where(eq(agents.id, id)).get()
+}
+
 export function agentsRoute(deps: Deps) {
   return new Hono()
     .get('/', (c) => {
@@ -38,33 +43,25 @@ export function agentsRoute(deps: Deps) {
       return c.json({ agent: row }, 201)
     })
     .get('/:id', (c) => {
-      const row = deps.db
-        .select()
-        .from(agents)
-        .where(eq(agents.id, c.req.param('id')))
-        .get()
+      const row = findAgent(deps.db, c.req.param('id'))
       if (!row) return c.json({ error: 'no such agent' }, 404)
       return c.json({ agent: row })
     })
     .patch('/:id', zValidator('json', patchAgentBody), (c) => {
       const patch = c.req.valid('json')
-      // An empty patch is a no op rather than an error: a form that submits
-      // nothing changed should not look like a failure.
-      if (Object.keys(patch).length === 0) {
-        const row = deps.db
-          .select()
-          .from(agents)
-          .where(eq(agents.id, c.req.param('id')))
-          .get()
-        if (!row) return c.json({ error: 'no such agent' }, 404)
-        return c.json({ agent: row })
-      }
-      const row = deps.db
-        .update(agents)
-        .set(patch)
-        .where(eq(agents.id, c.req.param('id')))
-        .returning()
-        .get()
+      const id = c.req.param('id')
+      // An empty patch reads the row instead of writing it: a form that
+      // submits with nothing changed should not look like a failure, and
+      // drizzle will not build an update with an empty set clause.
+      const row =
+        Object.keys(patch).length === 0
+          ? findAgent(deps.db, id)
+          : deps.db
+              .update(agents)
+              .set(patch)
+              .where(eq(agents.id, id))
+              .returning()
+              .get()
       if (!row) return c.json({ error: 'no such agent' }, 404)
       return c.json({ agent: row })
     })

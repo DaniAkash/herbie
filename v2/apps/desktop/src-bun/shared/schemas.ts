@@ -10,14 +10,7 @@ import { z } from 'zod'
  */
 
 /** The six face colours. Identity only, never an accent. */
-export const COLORS = [
-  'ops',
-  'scout',
-  'post',
-  'mail',
-  'house',
-  'watch',
-] as const
+const COLORS = ['ops', 'scout', 'post', 'mail', 'house', 'watch'] as const
 
 export const createAgentBody = z.object({
   name: z.string().trim().min(1).max(60),

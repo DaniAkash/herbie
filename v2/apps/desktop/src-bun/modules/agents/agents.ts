@@ -10,7 +10,7 @@ import { eq } from 'drizzle-orm'
  * It is also the folder name, which is why it is a slug rather than a uuid:
  * someone looking in ~/.herbie/agents wants to see which agent is which.
  */
-export function slugFor(db: Db, name: string): string {
+function slugFor(db: Db, name: string): string {
   const base =
     name
       .toLowerCase()

@@ -1,12 +1,7 @@
-import { createAgentBody } from '@bun/shared/schemas'
-import { zodResolver } from '@hookform/resolvers/zod'
 import { useNavigate, useSearch } from '@tanstack/react-router'
-import type { UseFormReturn } from 'react-hook-form'
-import { Controller, useForm } from 'react-hook-form'
-import type { z } from 'zod'
+import { Controller } from 'react-hook-form'
 import { AgentFace } from '@/components/agent/AgentFace'
 import { Button } from '@/components/atoms/Button'
-
 import {
   ColorSelector,
   ColorSelectorItem,
@@ -18,20 +13,22 @@ import { RunsOnStep } from '@/components/overlays/RunsOnStep'
 import { Overlay } from '@/components/shell/Overlay'
 import { Textarea } from '@/components/ui/textarea'
 import { useCreateAgent } from '@/modules/api/agents.hooks'
+import {
+  type AgentColor,
+  type AgentForm,
+  useAgentDraftForm,
+} from '@/modules/api/forms'
 import { atStep, closeOverlay } from '@/modules/navigation/overlay'
 
-const COLORS = ['ops', 'scout', 'post', 'mail', 'house', 'watch'] as const
-
-/**
- * Two types, not one, because the schema fills defaults.
- *
- * What the fields hold has `brief` and `effort` optional; what comes out the
- * other side of the resolver has them filled. Handing useForm one type for
- * both is what makes it reject its own resolver.
- */
-export type AgentDraftInput = z.input<typeof createAgentBody>
-export type AgentDraft = z.output<typeof createAgentBody>
-export type AgentForm = UseFormReturn<AgentDraftInput, unknown, AgentDraft>
+/** The swatches, typed against the schema so a stray colour will not build. */
+const SWATCHES: readonly AgentColor[] = [
+  'ops',
+  'scout',
+  'post',
+  'mail',
+  'house',
+  'watch',
+]
 
 /**
  * Two steps: who it is, then how it runs.
@@ -49,19 +46,7 @@ export function NewAgentOverlay() {
   const { step } = useSearch({ strict: false }) as { step?: 'who' | 'runs' }
   const create = useCreateAgent()
 
-  const form = useForm<AgentDraftInput, unknown, AgentDraft>({
-    resolver: zodResolver(createAgentBody),
-    mode: 'onTouched',
-    defaultValues: {
-      name: '',
-      color: 'house',
-      brief: '',
-      acpAgent: '',
-      model: null,
-      effort: 'medium',
-      workspaceDir: null,
-    },
-  })
+  const form = useAgentDraftForm()
 
   const name = form.watch('name')
   const onRuns = step === 'runs'
@@ -179,7 +164,7 @@ function WhoItIsStep({ form }: { form: AgentForm }) {
             aria-label="Colour"
           >
             <ColorSelectorList>
-              {COLORS.map((c) => (
+              {SWATCHES.map((c) => (
                 <ColorSelectorItem
                   key={c}
                   value={c}

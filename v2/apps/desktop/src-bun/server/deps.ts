@@ -12,6 +12,8 @@ export interface Deps {
    * somewhere disposable without reaching into process.env.
    */
   readonly agentsRoot: string
+  /** Where skill bundles live, shared by every agent that links one. */
+  readonly skillsWorkspace: string
   readonly appliedMigrations: readonly string[]
   readonly startedAt: number
 }

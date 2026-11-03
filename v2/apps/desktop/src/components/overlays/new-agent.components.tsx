@@ -73,7 +73,7 @@ export function BackButton({ onClick }: { onClick: () => void }) {
  * count comes last: it is what makes a runtime familiar rather than what
  * makes it possible.
  */
-export function describeRuntime(runtime: Runtime): string {
+function describeRuntime(runtime: Runtime): string {
   if (runtime.installState === 'not-installed') {
     return 'Not installed on this machine'
   }

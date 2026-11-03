@@ -9,7 +9,7 @@ export type RuntimesResponse = InferResponseType<
   Client['api']['runtimes']['$get']
 >
 export type Runtime = RuntimesResponse['runtimes'][number]
-export type ProbeResponse = InferResponseType<
+type ProbeResponse = InferResponseType<
   Client['api']['runtimes'][':id']['probe']['$post'],
   200
 >

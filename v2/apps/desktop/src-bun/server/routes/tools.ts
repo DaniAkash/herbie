@@ -1,4 +1,5 @@
 import { agentTools, mcpServers, skills } from '@bun/modules/db/schema/schema'
+import { applyAccess } from '@bun/modules/tools/access'
 import type { Deps } from '@bun/server/deps'
 import { accessBody } from '@bun/shared/schemas'
 import { zValidator } from '@hono/zod-validator'
@@ -34,7 +35,7 @@ export function toolsRoute(deps: Deps) {
         .all()
       return c.json({ access: rows })
     })
-    .patch('/access/:agentId', zValidator('json', accessBody), (c) => {
+    .patch('/access/:agentId', zValidator('json', accessBody), async (c) => {
       const agentId = c.req.param('agentId')
       const { kind, refId, enabled } = c.req.valid('json')
       const updatedAt = new Date().toISOString()
@@ -62,6 +63,19 @@ export function toolsRoute(deps: Deps) {
           ),
         )
         .get()
-      return c.json({ access: row })
+
+      // The row is the record of what was asked for and is written either
+      // way. Writing the runtime's own config is the part that can fail, on
+      // a runtime whose format this build does not know, so it is reported
+      // rather than allowed to undo the setting.
+      const note = await applyAccess(deps.db, {
+        agentId,
+        kind,
+        refId,
+        enabled,
+        skillsWorkspace: deps.skillsWorkspace,
+      })
+
+      return c.json({ access: row, note })
     })
 }
