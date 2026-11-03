@@ -39,12 +39,15 @@ wait on a cargo rebuild, and it is checked in CI for the same reason.
 
 ```bash
 cd apps/desktop
-bun run src-bun/index.ts     # the sidecar alone, on its default port
+bun run dev:sidecar          # the sidecar alone, on its default port
 ```
 
 A sidecar started that way generates its own token and leaves it in the state
 directory, owner readable. The vite proxy picks it up, so the browser path
-needs no setup; `HERBIE_API_TOKEN` overrides it.
+needs no setup; `HERBIE_API_TOKEN` overrides it. Both scripts set `HERBIE_DEV`,
+which is what puts the two of them in the same state directory: a sidecar
+started as a plain `bun src-bun/index.ts` writes its token into the release
+directory instead, and the proxy then forwards every request without one.
 
 An empty database shows the first run screen, which is correct but makes
 interface work tedious. `bun run seed:dev` writes six sample agents with their
@@ -55,7 +58,7 @@ from an install you care about.
 ```bash
 cd apps/desktop
 HERBIE_STATE_DIR=/tmp/herbie-dev bun run seed:dev
-HERBIE_STATE_DIR=/tmp/herbie-dev bun run src-bun/index.ts
+HERBIE_STATE_DIR=/tmp/herbie-dev bun run dev:sidecar
 HERBIE_STATE_DIR=/tmp/herbie-dev bun run dev:web    # in another shell
 ```
 

@@ -7,6 +7,7 @@
     "dev": "HERBIE_DEV=1 vite",
     "dev:app": "bun run build:sidecar && tauri dev",
     "dev:web": "HERBIE_DEV=1 vite",
+    "dev:sidecar": "HERBIE_DEV=1 bun src-bun/index.ts",
     "build": "vite build",
     "build:sidecar": "bun scripts/build-sidecar.ts",
     "preview": "vite preview",
