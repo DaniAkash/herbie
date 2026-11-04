@@ -4,6 +4,7 @@ import { createLogger } from '@bun/lib/log'
 import { openDb } from '@bun/modules/db/db'
 import { ensureInstalledAt } from '@bun/modules/db/install'
 import { appliedMigrations } from '@bun/modules/db/migrate'
+import { startLoop } from '@bun/modules/loop/loop'
 import { createApp } from '@bun/server/app'
 import { startApi, stopServer } from '@bun/server/serve'
 
@@ -58,9 +59,17 @@ function main(): void {
 
   startApi({ app, defaultPort: DEFAULT_PORT, port: flag('port'), token })
 
+  // Started after the API, because a routine that fires immediately will
+  // write to the transcript and publish to the bus, and a watcher that
+  // connects a moment later reads the record back off disk either way.
+  const loop = startLoop(db)
+
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {
     process.on(signal, () => {
       log.info(`${signal} received, stopping`)
+      // Best effort. The ledger is the durability guarantee, not this path:
+      // a run claimed and never settled is requeued on the next boot.
+      loop.stop()
       stopServer()
       sqlite.close()
       process.exit(0)
