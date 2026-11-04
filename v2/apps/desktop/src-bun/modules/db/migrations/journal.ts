@@ -4,6 +4,9 @@ import agentConfig from './0002_add_agent_config.sql' with { type: 'text' }
 import transcriptCursors from './0003_add_transcript_cursors.sql' with {
   type: 'text',
 }
+import retireMessages from './0004_retire_messages_for_transcript.sql' with {
+  type: 'text',
+}
 
 export interface Migration {
   readonly name: string
@@ -23,4 +26,5 @@ export const MIGRATIONS: readonly Migration[] = [
   { name: '0001_add_agent_ui_tables', sql: agentUi },
   { name: '0002_add_agent_config', sql: agentConfig },
   { name: '0003_add_transcript_cursors', sql: transcriptCursors },
+  { name: '0004_retire_messages_for_transcript', sql: retireMessages },
 ]

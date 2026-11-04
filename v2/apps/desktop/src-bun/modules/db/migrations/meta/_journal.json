@@ -29,6 +29,13 @@
       "when": 1793777917577,
       "tag": "0003_add_transcript_cursors",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1793779009120,
+      "tag": "0004_retire_messages_for_transcript",
+      "breakpoints": true
     }
   ]
 }
