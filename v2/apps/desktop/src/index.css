@@ -11,21 +11,13 @@
 @import "./styles/bridge.css";
 @import "./styles/herbie.css";
 
+/*
+ * Streamdown ships Tailwind classes inside its own bundle, so its dist has
+ * to be scanned or the markdown it renders comes out unstyled. Its animation
+ * stylesheet is deliberately not imported: the answer surface is static.
+ */
+@source "../node_modules/streamdown/dist/*.js";
+
 body {
   -webkit-font-smoothing: antialiased;
-}
-
-/*
- * StreamingText always draws its sources toggle and its follow-ups heading,
- * with nothing in them when there is nothing to show, which reads as
- * "0 sources" above an empty list. The component is vendored and reinstalled
- * by `bun run ui:add`, so a patch there would not survive; the `explain`
- * renderer sets these classes when it has neither.
- */
-.say-no-sources button[aria-expanded] {
-  display: none;
-}
-
-.say-no-follow-ups > div > div:last-child {
-  display: none;
 }

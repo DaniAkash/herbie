@@ -53,6 +53,7 @@
     "react-hook-form": "^7.91.0",
     "react-query-kit": "^3.3.3",
     "shadow-plugin": "^2.1.1",
+    "streamdown": "^2.7.1",
     "tailwind-merge": "^3.5.0",
     "tailwindcss": "^4.2.2",
     "zod": "^4.6.7"
