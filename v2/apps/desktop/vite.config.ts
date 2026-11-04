@@ -24,10 +24,15 @@ const API_TARGET = process.env.HERBIE_API_URL ?? 'http://127.0.0.1:4576'
  * Read from the file rather than imported from the sidecar, because this
  * config is the one place both sides are configured and an import here would
  * be the first thread tying the browser build to bun-only code. The path is
- * duplicated for that reason, not by accident.
+ * duplicated for that reason, not by accident, which is also why it has to be
+ * kept reading the same environment as `stateDir` in the sidecar's env module:
+ * a proxy looking in the other install's directory finds no token and every
+ * request it forwards comes back a 401.
  */
 function tokenFromState(): string | undefined {
-  const dir = process.env.HERBIE_STATE_DIR ?? path.join(homedir(), '.herbie-v2')
+  const override = process.env.HERBIE_STATE_DIR
+  const dev = process.env.HERBIE_DEV === '1'
+  const dir = override ?? path.join(homedir(), dev ? '.herbie-dev' : '.herbie')
   const file = path.join(dir, 'api-token')
   return existsSync(file) ? readFileSync(file, 'utf8').trim() : undefined
 }

@@ -1,5 +1,6 @@
 import init from './0000_init_schema.sql' with { type: 'text' }
 import agentUi from './0001_add_agent_ui_tables.sql' with { type: 'text' }
+import agentConfig from './0002_add_agent_config.sql' with { type: 'text' }
 
 export interface Migration {
   readonly name: string
@@ -17,4 +18,5 @@ export interface Migration {
 export const MIGRATIONS: readonly Migration[] = [
   { name: '0000_init_schema', sql: init },
   { name: '0001_add_agent_ui_tables', sql: agentUi },
+  { name: '0002_add_agent_config', sql: agentConfig },
 ]

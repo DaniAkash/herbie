@@ -14,5 +14,10 @@
   // The webview reaches the sidecar for its types through @bun/server/client.
   // Without this reference tsc refuses those files as outside the project.
   "references": [{ "path": "./tsconfig.bun.json" }],
-  "include": ["src"]
+  "include": ["src"],
+  // Colocated tests run under `bun test`, which types `bun:test` itself.
+  // Adding "bun" to this project's types instead would replace the DOM
+  // Response with bun's, and the webview's fetch handling is written against
+  // the DOM one.
+  "exclude": ["src/**/*.test.ts"]
 }

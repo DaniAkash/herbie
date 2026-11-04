@@ -1,6 +1,11 @@
 import { agents } from '@bun/modules/db/schema/agents.sql'
 import { sql } from 'drizzle-orm'
-import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import {
+  integer,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from 'drizzle-orm/sqlite-core'
 
 /**
  * An MCP server, defined once and shared.
@@ -33,13 +38,27 @@ export const skills = sqliteTable('skills', {
  * Servers and skills are common; the switch is per agent, so a row here is
  * the only thing that differs between two agents looking at the same library.
  */
-export const agentTools = sqliteTable('agent_tools', {
-  agentId: text('agent_id')
-    .notNull()
-    .references(() => agents.id, { onDelete: 'cascade' }),
-  /** server | skill */
-  kind: text('kind').notNull(),
-  refId: text('ref_id').notNull(),
-  enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
-  updatedAt: text('updated_at').notNull().default(sql`(current_timestamp)`),
-})
+export const agentTools = sqliteTable(
+  'agent_tools',
+  {
+    agentId: text('agent_id')
+      .notNull()
+      .references(() => agents.id, { onDelete: 'cascade' }),
+    /** server | skill */
+    kind: text('kind').notNull(),
+    refId: text('ref_id').notNull(),
+    enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
+    updatedAt: text('updated_at').notNull().default(sql`(current_timestamp)`),
+  },
+  // One row per switch, which this table had no way to say before. Flipping a
+  // switch is an upsert, and an upsert without something to conflict on just
+  // appends: the second flip leaves two rows for one switch and the next read
+  // picks whichever comes back first.
+  (table) => [
+    uniqueIndex('agent_tools_agent_kind_ref').on(
+      table.agentId,
+      table.kind,
+      table.refId,
+    ),
+  ],
+)

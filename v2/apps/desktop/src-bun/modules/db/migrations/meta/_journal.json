@@ -15,6 +15,13 @@
       "when": 1793542286675,
       "tag": "0001_add_agent_ui_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1793693849897,
+      "tag": "0002_add_agent_config",
+      "breakpoints": true
     }
   ]
 }

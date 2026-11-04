@@ -2,15 +2,54 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 
 /**
- * Where Herbie keeps its database and workspaces.
+ * Whether this is a development build.
  *
- * Deliberately not `~/.herbie`, which the pre-Tauri app owns. The two will be
- * installed side by side for as long as this rewrite takes, and pointing both
- * at one directory means two schema chains over one file. The override exists
- * for tests, which must never touch a real install.
+ * The desktop shell passes the flag under `debug_assertions`; a terminal run
+ * sets the environment variable instead. Both are read here rather than at the
+ * two call sites, so the window, the vite proxy and the seed script can never
+ * disagree about which install they are looking at.
+ */
+export function isDev(): boolean {
+  return process.argv.includes('--dev') || process.env.HERBIE_DEV === '1'
+}
+
+/**
+ * Where Herbie keeps its database and its agents' workspaces.
+ *
+ * A dev build is kept out of the release directory entirely, which is the only
+ * separation that matters: the two installs are never both writing one file.
+ * The override comes first and exists for tests, which must never touch a real
+ * install.
  */
 export function stateDir(): string {
-  return process.env.HERBIE_STATE_DIR ?? join(homedir(), '.herbie-v2')
+  const override = process.env.HERBIE_STATE_DIR
+  if (override) return override
+  return join(homedir(), isDev() ? '.herbie-dev' : '.herbie')
+}
+
+/**
+ * One agent's own working tree.
+ *
+ * Per agent rather than shared, so two agents editing the same repository
+ * cannot fight over a working tree, and so a tool linked for one of them is
+ * written somewhere that belongs to it alone.
+ */
+export function agentsDir(): string {
+  return join(stateDir(), 'agents')
+}
+
+export function agentDir(id: string): string {
+  return join(agentsDir(), id)
+}
+
+/**
+ * Where skill bundles live, once, for every agent.
+ *
+ * Shared rather than per agent because the bundle is the same file; what is
+ * per agent is the link into its own folder that points at it.
+ */
+export function skillsDir(): string {
+  return join(stateDir(), 'skills')
 }
 
 /** Log verbosity, from the environment rather than from settings. */
