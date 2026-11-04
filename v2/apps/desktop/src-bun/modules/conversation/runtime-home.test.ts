@@ -1,7 +1,7 @@
+import { describe, expect, test } from 'bun:test'
 import { existsSync, lstatSync, mkdtempSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { describe, expect, test } from 'bun:test'
 import { runtimeHome } from '@bun/modules/conversation/runtime-home'
 
 function workspace(): string {
@@ -16,7 +16,10 @@ describe('a private config home', () => {
     expect(existsSync(join(dir, '.herbie', 'codex', 'config.toml'))).toBe(true)
   })
 
-  test('turns off the reviewer that replaces our own permission surface', () => {
+  // Asked for, not yet effective: the ACP adapter's session mode sets the
+  // reviewer after config is read. The assertion covers what this file
+  // writes, which is all it controls.
+  test('asks for the reviewer that leaves our permission surface in place', () => {
     const dir = workspace()
     const config = readFileSync(
       join(runtimeHome('codex', dir).env.CODEX_HOME ?? '', 'config.toml'),

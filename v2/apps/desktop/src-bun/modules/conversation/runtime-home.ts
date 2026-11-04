@@ -24,22 +24,31 @@ export interface RuntimeHome {
 }
 
 /**
- * Why `approvals_reviewer` is pinned to `user`.
+ * `approvals_reviewer` is asked for, and does not currently win.
  *
  * Codex's auto-review hands each escalation to a separate reviewer agent
- * instead of to the client. That is the wrong shape here twice over: Herbie
- * already has a permission surface, which the reviewer silently replaces, and
- * the reviewer is a model call per action. Measured on one research turn, it
- * was 206 seconds of 248.
+ * rather than to the client, which is wrong here twice over: Herbie already
+ * has a permission surface that the reviewer silently replaces, and the
+ * reviewer is a model call per action. Measured on one research turn it was
+ * 206 seconds out of 248.
  *
- * `user` is the documented default and routes escalations back over ACP,
- * which is what `onPermissionRequest` and the approval card exist for.
+ * `user` is the documented default, but this file does not decide it.
+ * `@agentclientprotocol/codex-acp` picks an ACP session mode, and its `agent`
+ * mode hardcodes `approvals_reviewer: auto_review` alongside
+ * `approval_policy: on-request`, applied after config is read. Verified by
+ * running a turn with this file in place: the reviewer still fired.
+ *
+ * The lever is `session/set_mode` to a mode whose reviewer is `user`, which
+ * acpx exposes as `AcpRuntime.setMode` and the provider does not surface.
+ * The line stays because it is correct and costs nothing, and it takes effect
+ * the moment the mode stops being forced over it.
  */
 const CODEX_CONFIG = `# Written by Herbie. Edits are overwritten.
 #
 # This assistant has its own home so it starts clean: no plugins, skills,
 # MCP servers or marketplaces inherited from the machine.
-
+#
+# Asked for, but currently overridden by the ACP adapter's session mode.
 approvals_reviewer = "user"
 `
 
