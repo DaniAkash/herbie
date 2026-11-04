@@ -12,8 +12,9 @@ export const POSTMAN_THREAD: readonly DraftRecord[] = [
   { kind: 'user', text: 'Draft today’s posts from what I shipped this week.' },
   { kind: 'turn.start' },
   { kind: 'activity', text: 'Reading the feed', phase: 'working' },
+  { kind: 'say', text: 'On it. Reading what you shipped this week.' },
   {
-    kind: 'say',
+    kind: 'explain',
     text: 'Five drafts are ready. Two are worth posting and the rest need an angle. Nothing is queued or published.',
     sources: [
       {
@@ -22,6 +23,7 @@ export const POSTMAN_THREAD: readonly DraftRecord[] = [
         href: 'https://github.com/DaniAkash',
       },
     ],
+    followUps: ['Show me the two', 'Why are the others weak'],
   },
   {
     kind: 'show_work',

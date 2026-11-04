@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { Ask } from '@/screens/conversation/blocks/Ask'
 import { Code } from '@/screens/conversation/blocks/Code'
 import { Context } from '@/screens/conversation/blocks/Context'
+import { Explain } from '@/screens/conversation/blocks/Explain'
 import { Insight } from '@/screens/conversation/blocks/Insight'
 import { Permission } from '@/screens/conversation/blocks/Permission'
 import { Recommendation } from '@/screens/conversation/blocks/Recommendation'
@@ -54,6 +55,8 @@ export function Block({
 
     case 'say':
       return <Say record={record} />
+    case 'explain':
+      return <Explain record={record} />
     case 'show_work':
       return <Work record={record} />
     case 'show_tasks':

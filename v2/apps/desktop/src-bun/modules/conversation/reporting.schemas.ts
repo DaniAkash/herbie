@@ -20,17 +20,34 @@ export const sayShape = z
       .min(1)
       .max(4000)
       .describe('Plain prose. No markdown; asterisks arrive as asterisks.'),
+  })
+  .strict()
+
+export const explainShape = z
+  .object({
+    text: z
+      .string()
+      .min(1)
+      .max(4000)
+      .describe('Plain prose. No markdown; asterisks arrive as asterisks.'),
     sources: z
       .array(
-        z.object({
-          name: z.string().min(1),
-          domain: z.string().min(1),
-          href: z.string().min(1),
-        }),
+        z
+          .object({
+            name: z.string().min(1).max(60),
+            domain: z.string().min(1).max(80),
+            href: z.string().min(1).max(400),
+          })
+          .strict(),
       )
       .max(10)
       .optional()
-      .describe('Where this came from, when it came from somewhere.'),
+      .describe('Where the answer came from.'),
+    followUps: z
+      .array(z.string().min(1).max(80))
+      .max(3)
+      .optional()
+      .describe('Up to three things the person might sensibly ask next.'),
   })
   .strict()
 

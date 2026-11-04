@@ -1,5 +1,6 @@
 import {
   askShape,
+  explainShape,
   recommendShape,
   sayShape,
   setActivityShape,
@@ -93,18 +94,32 @@ export function reportingTools(
   return {
     say: {
       description:
-        'Say something to the person, in plain prose. This is how you ' +
-        'talk to them, and most turns need nothing else. Reach for it ' +
-        'first and for anything that does not clearly belong in one of ' +
-        'the other tools. ' +
+        'Say something to the person, in plain prose, as a chat message. ' +
+        'This is the default and most turns need nothing else: greetings, ' +
+        'short answers, progress notes, anything conversational. ' +
         ONLY_CHANNEL +
         ' Say things as you learn them rather than saving everything for ' +
         'the end: on a turn that takes a while, a short note when you ' +
         'find something, change direction or hit a dead end is worth more ' +
         'than a perfect summary the person waited minutes in silence for. ' +
-        'Call it as often as you have something worth saying.',
+        'Call it as often as you have something worth saying. Use explain ' +
+        'instead only when you have sources to cite or sensible follow-up ' +
+        'questions to offer.',
       inputSchema: schemaOf(sayShape),
       execute: (input) => block({ kind: 'say', ...parsed(sayShape, input) }),
+    },
+
+    explain: {
+      description:
+        'Give a researched answer, with the sources it came from and what ' +
+        'the person might ask next. Use it when you went and found out, ' +
+        'and the citations or the follow-up questions are part of the ' +
+        'answer. It is presented as a document rather than a chat message, ' +
+        'so it is the wrong shape for a greeting, a one-line reply or a ' +
+        'progress note: those are say.',
+      inputSchema: schemaOf(explainShape),
+      execute: (input) =>
+        block({ kind: 'explain', ...parsed(explainShape, input) }),
     },
 
     show_work: {
@@ -237,6 +252,7 @@ function describeAnswers(
 /** The tool names, for the brief and for a test that the two agree. */
 export const REPORTING_TOOL_NAMES = [
   'say',
+  'explain',
   'show_work',
   'show_tasks',
   'show_code',

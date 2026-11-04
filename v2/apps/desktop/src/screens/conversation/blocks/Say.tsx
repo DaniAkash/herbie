@@ -10,15 +10,16 @@ type Said = Extract<TranscriptRecord, { kind: 'say' }>
 /**
  * A `say` block: plain text, shown whole.
  *
- * It was `StreamingText`, which revealed the words one at a time and carried
- * an action row, a sources toggle and a follow-ups list. Three things were
- * wrong with that on a real thread. The block arrives complete, so the reveal
- * was animation pretending to be transport and it delayed an answer the app
- * already had. The chrome dwarfed the content on a short reply. And it made a
- * one-line answer look like a research result.
+ * The plain one of the two text surfaces. A greeting or a one-line reply is
+ * a chat message, and dressing it in an action row, a sources toggle and a
+ * list of questions nobody asked makes it look like a research result.
  *
- * So this is a bubble. An agent that wants to deliver a long answer in parts
- * calls `say` more than once, which is also what the tool asks it to do.
+ * The block also arrives complete, so revealing it a word at a time would be
+ * animation pretending to be transport, delaying an answer the app already
+ * has. An agent delivering a long answer in parts calls `say` more than once,
+ * which is what the tool asks it to do anyway.
+ *
+ * `explain` is the surface for an answer that earns the chrome.
  */
 export function Say({ record }: { record: Said }) {
   return (
@@ -29,32 +30,9 @@ export function Say({ record }: { record: Said }) {
             {record.text}
           </MessageBubbleContent>
         </MessageBubble>
-        {record.sources && record.sources.length > 0 ? (
-          <Sources sources={record.sources} />
-        ) : null}
         {record.fallback ? <FallbackSeam /> : null}
       </div>
     </MessageSideContext.Provider>
-  )
-}
-
-/** Where it came from, when it came from somewhere, as small chips. */
-function Sources({ sources }: { sources: NonNullable<Said['sources']> }) {
-  return (
-    <div className="flex flex-wrap gap-1">
-      {sources.map((source) => (
-        <a
-          key={source.href}
-          href={source.href}
-          target="_blank"
-          rel="noreferrer"
-          title={source.name}
-          className="inline-flex h-6 items-center rounded-full bg-inset px-2 font-mono text-[11px] text-ink-2 shadow-hairline transition-colors hover:bg-hover hover:text-ink"
-        >
-          {source.domain}
-        </a>
-      ))}
-    </div>
   )
 }
 

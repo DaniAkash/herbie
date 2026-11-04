@@ -168,6 +168,7 @@ function apply(state: ThreadState, record: TranscriptRecord): ThreadState {
     // Everything the person simply reads.
     case 'user':
     case 'say':
+    case 'explain':
     case 'show_work':
     case 'show_tasks':
     case 'show_code':
