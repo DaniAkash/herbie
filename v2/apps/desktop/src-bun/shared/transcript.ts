@@ -194,6 +194,13 @@ export type TranscriptRecord = RecordBase &
         /** The chosen optionId, or null while it is still waiting. */
         readonly decision: string | null
       }
+    | {
+        readonly kind: 'decision'
+        /** The `permission` record this settles. */
+        readonly ref: string
+        /** The chosen optionId, or null when the turn was cancelled. */
+        readonly optionId: string | null
+      }
     | { readonly kind: 'error'; readonly text: string }
   )
 

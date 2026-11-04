@@ -9,3 +9,4 @@ export {
   mcpServers,
   skills,
 } from '@bun/modules/db/schema/tools.sql'
+export { transcriptCursors } from '@bun/modules/db/schema/transcripts.sql'
