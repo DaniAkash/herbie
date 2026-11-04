@@ -229,8 +229,18 @@ type DistributiveOmit<T, K extends PropertyKey> = T extends unknown
   ? Omit<T, K>
   : never
 
+/** The turn in flight, which is what the indicator draws. */
+export interface LiveTurn {
+  readonly turnId: string
+  readonly phase: 'thinking' | 'working'
+  readonly activity: string
+  /** Epoch milliseconds, so the elapsed clock survives a reconnect. */
+  readonly startedAt: number
+}
+
 /** What the replay route answers with, and what the stream pushes one of. */
 export interface TranscriptPage {
   readonly records: readonly TranscriptRecord[]
   readonly lastSeq: number
+  readonly live: LiveTurn | null
 }

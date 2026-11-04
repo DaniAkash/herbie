@@ -11,6 +11,7 @@ import {
 } from '@bun/modules/conversation/sessions'
 import type { Db } from '@bun/modules/db/db'
 import { agents } from '@bun/modules/db/schema/schema'
+import type { LiveTurn } from '@bun/shared/transcript'
 import { streamText } from 'ai'
 import { eq } from 'drizzle-orm'
 
@@ -34,13 +35,6 @@ export class TurnInProgressError extends Error {
     this.name = 'TurnInProgressError'
     this.turnId = turnId
   }
-}
-
-export interface LiveTurn {
-  readonly turnId: string
-  readonly phase: 'thinking' | 'working'
-  readonly activity: string
-  readonly startedAt: number
 }
 
 export function liveTurn(agentId: string): LiveTurn | null {

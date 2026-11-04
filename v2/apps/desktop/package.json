@@ -45,6 +45,7 @@
     "drizzle-orm": "^0.45.2",
     "glimm": "^0.3.1",
     "hono": "^4.12.16",
+    "liveline": "^0.0.7",
     "lucide-react": "^1.64.0",
     "motion": "^14.8.0",
     "react": "^19.2.4",
