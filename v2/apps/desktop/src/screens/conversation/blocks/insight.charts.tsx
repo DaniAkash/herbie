@@ -1,5 +1,5 @@
 import type { InsightPage } from '@bun/shared/transcript'
-import { Liveline, type LivelineSeries } from 'liveline'
+import { Liveline, type LivelinePoint, type LivelineSeries } from 'liveline'
 import { useDark } from '@/screens/conversation/blocks/insight.hooks'
 
 /**
@@ -16,6 +16,30 @@ import { useDark } from '@/screens/conversation/blocks/insight.hooks'
  */
 
 type Series = InsightPage['series']
+
+/**
+ * The chart's horizontal span, in seconds.
+ *
+ * `liveline` plots a live feed: a point's `time` is epoch seconds and
+ * `window` is how many seconds back from now to draw. A categorical series
+ * has no times, so it is laid out ending at now and spaced across this span.
+ * Indices would land in 1970, outside any window, and the chart would show
+ * its empty state rather than a line, which is exactly what it did.
+ */
+const SPAN_SECONDS = 42
+
+/** Resolved by the canvas, so it cannot be a token. */
+const LINE_COLOR = '#3d9aff'
+
+/** Lays a categorical series out along the window, ending at now. */
+function overLastSeconds(series: Series, span: number): LivelinePoint[] {
+  const end = Math.floor(Date.now() / 1000)
+  const gap = span / Math.max(series.length - 1, 1)
+  return series.map((point, at) => ({
+    time: end - Math.round((series.length - 1 - at) * gap),
+    value: point.value,
+  }))
+}
 
 function extent(series: Series): { min: number; max: number } {
   const values = series.map((point) => point.value)
@@ -70,9 +94,11 @@ export function AnomalyChart({ series }: { series: Series }) {
     {
       id: 'series',
       label: '',
-      color: 'var(--accent)',
+      // A literal, not a token: the chart paints to a canvas, where a CSS
+      // variable resolves to nothing and the line is drawn in transparent.
+      color: LINE_COLOR,
       value: series.at(-1)?.value ?? 0,
-      data: series.map((point, at) => ({ time: at, value: point.value })),
+      data: overLastSeconds(series, SPAN_SECONDS),
     },
   ]
 
@@ -100,7 +126,7 @@ export function AnomalyChart({ series }: { series: Series }) {
           paused
           scrub={false}
           cursor="default"
-          window={series.length}
+          window={SPAN_SECONDS}
           lineWidth={2.25}
           padding={{ top: 16, right: 0, bottom: 16, left: 0 }}
         />
