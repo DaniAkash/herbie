@@ -73,3 +73,33 @@ export const accessBody = z.object({
 export const cadenceBody = z.object({
   text: z.string().trim().max(200),
 })
+
+export const turnBody = z.object({
+  text: z.string().trim().min(1).max(8000),
+})
+
+export const cancelBody = z.object({
+  reason: z.string().trim().max(200).optional(),
+})
+
+/**
+ * The answers to an `ask` block, by question index.
+ *
+ * Indices as keys rather than an array, because a question the person
+ * skipped has no entry at all and an array would need a hole in it.
+ */
+export const answersBody = z.object({
+  answers: z.record(z.string(), z.array(z.number().int().min(0)).max(6)),
+})
+
+export const decisionBody = z.object({
+  /** The agent's own option id, taken from the record it was offered on. */
+  optionId: z.string().trim().min(1),
+  /** The record the option was offered on, which the decision references. */
+  recordId: z.string().trim().min(1),
+})
+
+/** How far the reader has got. -1, or absent, means the whole thread. */
+export const afterQuery = z.object({
+  after: z.coerce.number().int().optional(),
+})
