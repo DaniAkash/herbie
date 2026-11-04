@@ -98,7 +98,11 @@ export function reportingTools(
         'first and for anything that does not clearly belong in one of ' +
         'the other tools. ' +
         ONLY_CHANNEL +
-        ' Call it more than once to deliver a long answer in parts.',
+        ' Say things as you learn them rather than saving everything for ' +
+        'the end: on a turn that takes a while, a short note when you ' +
+        'find something, change direction or hit a dead end is worth more ' +
+        'than a perfect summary the person waited minutes in silence for. ' +
+        'Call it as often as you have something worth saying.',
       inputSchema: schemaOf(sayShape),
       execute: (input) => block({ kind: 'say', ...parsed(sayShape, input) }),
     },
@@ -197,9 +201,11 @@ export function reportingTools(
     set_activity: {
       description:
         'Say what you are doing right now, in a few words. This is not a ' +
-        'message: it replaces the label next to the working indicator and ' +
-        'is not kept. Call it as you move between pieces of work so the ' +
-        'person watching knows where you are.',
+        'message: it replaces the label beside the working indicator. Call ' +
+        'it every time you start a different piece of work, and before ' +
+        'anything that will take a while. During a long turn this label is ' +
+        'the only thing the person has to look at, so a stale one reads as ' +
+        'the app having hung.',
       inputSchema: schemaOf(setActivityShape),
       execute: (input) => {
         ctx.setActivity(parsed(setActivityShape, input).text)

@@ -143,7 +143,6 @@ export type TranscriptRecord = RecordBase &
         readonly kind: 'say'
         readonly text: string
         readonly sources?: readonly SaySource[]
-        readonly followUps?: readonly string[]
         /**
          * Set when the turn reported nothing and the final assistant text was
          * promoted into a block rather than leaving the person with silence.

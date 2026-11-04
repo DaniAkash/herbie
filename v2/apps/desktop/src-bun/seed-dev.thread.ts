@@ -22,7 +22,6 @@ export const POSTMAN_THREAD: readonly DraftRecord[] = [
         href: 'https://github.com/DaniAkash',
       },
     ],
-    followUps: ['Show me the two', 'Why are the others weak'],
   },
   {
     kind: 'show_work',

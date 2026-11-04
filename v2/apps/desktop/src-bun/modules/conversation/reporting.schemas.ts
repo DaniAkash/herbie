@@ -31,11 +31,6 @@ export const sayShape = z
       .max(10)
       .optional()
       .describe('Where this came from, when it came from somewhere.'),
-    followUps: z
-      .array(z.string().min(1).max(80))
-      .max(3)
-      .optional()
-      .describe('Up to three things the person might ask next.'),
   })
   .strict()
 

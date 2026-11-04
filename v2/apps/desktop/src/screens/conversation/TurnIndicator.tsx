@@ -23,15 +23,6 @@ import type { Phase } from '@/screens/conversation/conversation.reducer'
 /** When the third stage begins, from the brief. */
 const LONG_MS = 60_000
 
-/**
- * The video for the Surfer card, local rather than the component's default.
- *
- * Upstream points at a Vercel Blob URL, which would mean a desktop app
- * reaching the network to draw a loading state. This is a placeholder: swap
- * the file, keep the path.
- */
-const WORKING_VIDEO = '/working.mp4'
-
 export function TurnIndicator({
   phase,
   activity,
@@ -47,9 +38,11 @@ export function TurnIndicator({
 
   const variant = long ? 'Surfer' : phase === 'working' ? 'Orbit' : 'Drive'
   return (
+    // videoSrc is left alone: the component's own default is the clip this
+    // variant exists for, and overriding it with a local placeholder turned
+    // the card into a drifting gradient nobody asked for.
     <LoadingState
       variant={variant}
-      videoSrc={WORKING_VIDEO}
       label={activity || (phase === 'working' ? 'Working' : 'Thinking')}
     />
   )

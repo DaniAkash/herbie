@@ -1,77 +1,61 @@
-import type { SaySource, TranscriptRecord } from '@bun/shared/transcript'
-import StreamingText, {
-  type StreamingSource,
-} from '@/components/primitives/StreamingText'
-import { cn } from '@/lib/utils'
+import type { TranscriptRecord } from '@bun/shared/transcript'
+import {
+  MessageBubble,
+  MessageBubbleContent,
+} from '@/components/agents/message-bubble'
+import { MessageSideContext } from '@/components/agents/message-context'
 
 type Said = Extract<TranscriptRecord, { kind: 'say' }>
 
 /**
- * A `say` block, revealed a word at a time.
+ * A `say` block: plain text, shown whole.
  *
- * The block arrives whole, so the reveal is presentation rather than
- * transport. It reads as streaming and is far simpler than streaming, and an
- * agent that wants progressive output calls `say` more than once. `loop` is
- * off, which is what the component's own documentation recommends for a real
- * thread: it settles and stays settled.
+ * It was `StreamingText`, which revealed the words one at a time and carried
+ * an action row, a sources toggle and a follow-ups list. Three things were
+ * wrong with that on a real thread. The block arrives complete, so the reveal
+ * was animation pretending to be transport and it delayed an answer the app
+ * already had. The chrome dwarfed the content on a short reply. And it made a
+ * one-line answer look like a research result.
  *
- * No markdown. The component tokenises on whitespace and renders words, so
- * asterisks would arrive as asterisks. A block that needs structure has a
- * better tool to be reported through.
+ * So this is a bubble. An agent that wants to deliver a long answer in parts
+ * calls `say` more than once, which is also what the tool asks it to do.
  */
 export function Say({ record }: { record: Said }) {
-  const words = record.text.split(/\s+/).filter(Boolean)
-  const sources = record.sources ?? []
-  const followUps = record.followUps ?? []
   return (
-    // The component always draws its sources toggle and its follow-ups
-    // heading, even with nothing in either, which on a plain answer reads as
-    // "0 sources" above an empty list. It is vendored and reinstalled, so the
-    // two are hidden from here rather than patched there.
-    <div
-      className={cn(
-        'grid gap-1.5',
-        sources.length === 0 && 'say-no-sources',
-        followUps.length === 0 && 'say-no-follow-ups',
-      )}
-    >
-      <StreamingText
-        fill
-        loop={false}
-        content={words.map((text) => ({ text }))}
-        sources={sources.map(avatar)}
-        followUps={[...followUps]}
-        labels={{
-          sources: sourceLabel(sources.length),
-          followUps: 'You might ask',
-        }}
-      />
-      {record.fallback ? <FallbackSeam /> : null}
-    </div>
+    <MessageSideContext.Provider value="start">
+      <div className="grid gap-1.5">
+        <MessageBubble variant="soft">
+          <MessageBubbleContent className="max-w-[560px] whitespace-pre-wrap">
+            {record.text}
+          </MessageBubbleContent>
+        </MessageBubble>
+        {record.sources && record.sources.length > 0 ? (
+          <Sources sources={record.sources} />
+        ) : null}
+        {record.fallback ? <FallbackSeam /> : null}
+      </div>
+    </MessageSideContext.Provider>
   )
 }
 
-function sourceLabel(count: number): string {
-  return count === 1 ? '1 source' : `${count} sources`
-}
-
-/**
- * A letter in a coloured square, as the source's avatar.
- *
- * The component wants an image per source and a real one would mean fetching
- * a favicon, which is a desktop app reaching the network to draw a thread it
- * has already received. Derived from the domain so it is at least stable.
- */
-function avatar(source: SaySource): StreamingSource {
-  const hue =
-    [...source.domain].reduce((at, ch) => at + ch.charCodeAt(0), 0) % 360
-  const letter = (source.name[0] ?? '?').toUpperCase()
-  const svg =
-    `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'>` +
-    `<rect width='64' height='64' rx='16' fill='hsl(${hue} 52% 42%)'/>` +
-    `<text x='32' y='44' font-family='sans-serif' font-size='34' font-weight='600' ` +
-    `fill='white' text-anchor='middle'>${letter}</text></svg>`
-  return { ...source, image: `data:image/svg+xml,${encodeURIComponent(svg)}` }
+/** Where it came from, when it came from somewhere, as small chips. */
+function Sources({ sources }: { sources: NonNullable<Said['sources']> }) {
+  return (
+    <div className="flex flex-wrap gap-1">
+      {sources.map((source) => (
+        <a
+          key={source.href}
+          href={source.href}
+          target="_blank"
+          rel="noreferrer"
+          title={source.name}
+          className="inline-flex h-6 items-center rounded-full bg-inset px-2 font-mono text-[11px] text-ink-2 shadow-hairline transition-colors hover:bg-hover hover:text-ink"
+        >
+          {source.domain}
+        </a>
+      ))}
+    </div>
+  )
 }
 
 /**

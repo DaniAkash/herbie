@@ -177,7 +177,7 @@ async function run(
 function observe(db: Db, session: AgentSession, part: unknown): void {
   const current = session.current
   if (!current) return
-  const typed = part as { type?: string; text?: string; toolName?: string }
+  const typed = part as { type?: string; text?: string }
 
   if (typed.type === 'text-delta' && typeof typed.text === 'string') {
     current.text += typed.text
@@ -186,10 +186,6 @@ function observe(db: Db, session: AgentSession, part: unknown): void {
   }
   if (typed.type === 'tool-call') {
     promote(db, session, 'working')
-    if (current.activity === 'Thinking' && typed.toolName) {
-      current.activity = describeTool(typed.toolName)
-      setState(db, session.agentId, 'working', current.activity)
-    }
   }
 }
 
@@ -202,19 +198,6 @@ function promote(
   if (!current || current.phase === phase) return
   current.phase = phase
   write(db, session, { kind: 'activity', text: current.activity, phase })
-}
-
-/**
- * A tool name as a phrase, for the indicator.
- *
- * Deliberately shallow. The agent is asked to call `set_activity` and say
- * what it is doing in its own words; this is what the label says in the
- * seconds before it does, not a translation layer for every tool name an
- * agent might have.
- */
-function describeTool(name: string): string {
-  const bare = name.split(/[_.]/).pop() ?? name
-  return `Working with ${bare}`
 }
 
 /**

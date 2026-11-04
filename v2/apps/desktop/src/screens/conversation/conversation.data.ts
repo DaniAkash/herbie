@@ -84,8 +84,13 @@ export function useConversation(agentId: string): ConversationData {
               // columns, which the runtime moves as the turn does. Nothing
               // else would tell the list to re-read them, so a finished turn
               // would sit there saying "Thinking" until something unrelated
-              // refetched.
-              if (record.kind === 'turn.start' || record.kind === 'turn.end') {
+              // refetched. Activity is included because that label is what
+              // the rail shows while a long turn is running.
+              if (
+                record.kind === 'turn.start' ||
+                record.kind === 'turn.end' ||
+                record.kind === 'activity'
+              ) {
                 queryClient.invalidateQueries({ queryKey: useAgents.getKey() })
               }
               return

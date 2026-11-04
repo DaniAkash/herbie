@@ -16,7 +16,7 @@ import {
   type Transcript,
 } from '@bun/modules/conversation/transcript'
 import type { Db } from '@bun/modules/db/db'
-import { agentRules, type agents } from '@bun/modules/db/schema/schema'
+import { agentRules, agents } from '@bun/modules/db/schema/schema'
 import type { DraftRecord, TranscriptRecord } from '@bun/shared/transcript'
 import { type AcpxProvider, createAcpxProvider } from 'acpx-ai-provider'
 import { asc, eq } from 'drizzle-orm'
@@ -156,9 +156,7 @@ export function sessionFor(db: Db, agent: AgentRow): AgentSession {
         append: (draft) => write(db, session, draft),
         awaitAnswers: (recordId, signal) =>
           awaitAnswers(session.agentId, recordId, signal),
-        setActivity: (text) => {
-          if (session.current) session.current.activity = text
-        },
+        setActivity: (text) => setActivity(db, session, text),
       }),
     },
   })
@@ -202,6 +200,25 @@ function awaitAnswers(
       { once: true },
     )
   })
+}
+
+/**
+ * What the agent says it is doing, published rather than only remembered.
+ *
+ * This is the only thing the person has to look at during a long turn, so it
+ * has to reach three places: the turn state that the indicator reads, the
+ * agent row that the rail reads, and the thread as a record so a watcher that
+ * connects mid-turn sees the current label rather than the one it started on.
+ */
+function setActivity(db: Db, session: AgentSession, text: string): void {
+  const current = session.current
+  if (!current) return
+  current.activity = text
+  db.update(agents)
+    .set({ state: 'working', activity: text })
+    .where(eq(agents.id, session.agentId))
+    .run()
+  write(db, session, { kind: 'activity', text, phase: current.phase })
 }
 
 /** Forgets a session, closing the agent process behind it. */
