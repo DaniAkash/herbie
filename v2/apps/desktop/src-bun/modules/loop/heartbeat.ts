@@ -1,3 +1,7 @@
+import { createLogger } from '@bun/lib/log'
+
+const log = createLogger('loop')
+
 /**
  * The pulse, and the one thing in Herbie that runs without being asked.
  *
@@ -99,10 +103,12 @@ export function startHeartbeat(
 
     try {
       await onTick({ at, drift, slept })
-    } catch {
-      // A pass that threw must not kill the pulse. Whatever failed is the
-      // caller's to log; stopping the clock over it would take down every
-      // routine on the machine for one agent's bad turn.
+    } catch (cause) {
+      // A pass that threw must not kill the pulse: stopping the clock over
+      // it would take down every routine on the machine for one bad pass.
+      // It must not be silent either. A swallowed reason here is a loop
+      // that looks alive and does nothing, which is the worst of both.
+      log.error('a pass failed, the pulse continues', { cause: String(cause) })
     }
     schedule()
   }
