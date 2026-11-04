@@ -18,11 +18,21 @@ const log = createLogger('loop')
  * than compounding it.
  *
  * macOS gives no sleep or wake notification that reaches this process, so a
- * closed lid is detected after the fact, as a gap in the wall clock. A long
- * gap re-anchors rather than replaying: a laptop shut overnight is hundreds
- * of missed slots, and firing them all on wake would stampede every agent at
- * once. The due scan is idempotent and picks up whatever is genuinely
- * overdue on the next pass.
+ * closed lid is detected after the fact, as a gap in the wall clock, and a
+ * long gap re-anchors rather than counting forward from the old origin.
+ *
+ * What that is worth is measured rather than assumed: ten hours asleep is
+ * one pass with the re-anchor and 1,200 without, because every missed
+ * deadline is already in the past and fires immediately. Those 1,200 are
+ * back to back full scans and drains against the database on a machine that
+ * has just woken up.
+ *
+ * It is worth being exact about what re-anchoring does NOT buy, because the
+ * first draft of this claimed it. It does not stop a routine running twice.
+ * Nothing here could: every one of those replayed passes reads the same
+ * wall clock and so resolves the same slot, and the unique index on
+ * (routine_id, due_at) is what makes the second insert a no-op. The two
+ * protections are separate and both are needed.
  */
 
 const TICK_MS = 30_000

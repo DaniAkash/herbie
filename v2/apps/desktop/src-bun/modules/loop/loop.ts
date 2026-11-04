@@ -13,6 +13,7 @@ import {
   onSuccess,
 } from '@bun/modules/loop/breaker'
 import {
+  type Clock,
   type Heartbeat,
   startHeartbeat,
   type Tick,
@@ -114,7 +115,14 @@ function scan(db: Db, at: number): void {
 
 export function startLoop(
   db: Db,
-  options: { readonly intervalMs?: number; readonly autoStart?: boolean } = {},
+  options: {
+    readonly intervalMs?: number
+    readonly autoStart?: boolean
+    /** Injected so a test can drive a real sleep past a real pass. */
+    readonly clock?: Clock
+    /** Called on every pass, so a test can count them. */
+    readonly onPass?: (tick: Tick) => void
+  } = {},
 ): Loop {
   const breakers = new Map<string, BreakerState>()
   const dog = createWatchdog()
@@ -229,6 +237,8 @@ export function startLoop(
   }
 
   const pass = (tick: Tick): void => {
+    options.onPass?.(tick)
+
     // A closed lid stops every feed for hours and that is healthy, so the
     // deadlines move with the clock rather than declaring everything wedged.
     if (tick.slept !== null) {
@@ -255,7 +265,10 @@ export function startLoop(
 
   let beat: Heartbeat | null = null
   if (options.autoStart !== false) {
-    beat = startHeartbeat(pass, { intervalMs: options.intervalMs })
+    beat = startHeartbeat(pass, {
+      intervalMs: options.intervalMs,
+      ...(options.clock ? { clock: options.clock } : {}),
+    })
     log.info('loop started', { agents: db.select().from(agents).all().length })
   }
 
