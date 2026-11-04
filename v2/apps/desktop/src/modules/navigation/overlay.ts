@@ -12,7 +12,7 @@ import { z } from 'zod'
  */
 export const overlaySchema = z.object({
   overlay: z
-    .enum(['new', 'tools', 'server', 'herbie', 'search', 'routine'])
+    .enum(['new', 'tools', 'server', 'herbie', 'search'])
     .optional()
     .catch(undefined),
   /**

@@ -21,14 +21,14 @@
  * overdue on the next pass.
  */
 
-export const TICK_MS = 30_000
+const TICK_MS = 30_000
 
 /**
  * Above worst-case event-loop starvation under a heavy turn, below any real
  * sleep. Deliberately a different number from the watchdog deadline: this
  * one answers "did the clock jump", that one answers "has it stopped".
  */
-export const WAKE_THRESHOLD_MS = 5_000
+const WAKE_THRESHOLD_MS = 5_000
 
 export interface Tick {
   /** Wall clock when the tick actually ran. */

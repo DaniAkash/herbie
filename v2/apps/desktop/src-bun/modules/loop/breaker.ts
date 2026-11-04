@@ -12,11 +12,11 @@
  * screen; a machine definition would be more indirection than guarantee.
  */
 
-export const BREAKER_THRESHOLD = 3
+const BREAKER_THRESHOLD = 3
 export const BREAKER_COOLDOWN_MS = 300_000
-export const PARK_AFTER = 3
+const PARK_AFTER = 3
 
-export const BACKOFF_BASE_MS = 1_000
+const BACKOFF_BASE_MS = 1_000
 export const BACKOFF_CAP_MS = 300_000
 
 export type BreakerPhase = 'closed' | 'open' | 'half-open' | 'parked'

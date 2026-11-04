@@ -64,10 +64,15 @@ describe('the heartbeat', () => {
   test('ticks on its interval', async () => {
     const t = fakeClock()
     const ticks: Tick[] = []
-    const beat = startHeartbeat((tick) => void ticks.push(tick), {
-      intervalMs: 1000,
-      clock: t.clock,
-    })
+    const beat = startHeartbeat(
+      (tick) => {
+        ticks.push(tick)
+      },
+      {
+        intervalMs: 1000,
+        clock: t.clock,
+      },
+    )
 
     await t.advance(3000)
     beat.stop()
@@ -79,10 +84,15 @@ describe('the heartbeat', () => {
   test('absorbs a late tick instead of compounding it', async () => {
     const t = fakeClock()
     const ticks: Tick[] = []
-    const beat = startHeartbeat((tick) => void ticks.push(tick), {
-      intervalMs: 1000,
-      clock: t.clock,
-    })
+    const beat = startHeartbeat(
+      (tick) => {
+        ticks.push(tick)
+      },
+      {
+        intervalMs: 1000,
+        clock: t.clock,
+      },
+    )
 
     // One pass runs 400ms late. The next deadline is computed from the fixed
     // origin, so the lateness does not carry into it.
@@ -100,10 +110,15 @@ describe('the heartbeat', () => {
   test('reads a long gap as sleep and does not replay the missed slots', async () => {
     const t = fakeClock()
     const ticks: Tick[] = []
-    const beat = startHeartbeat((tick) => void ticks.push(tick), {
-      intervalMs: 1000,
-      clock: t.clock,
-    })
+    const beat = startHeartbeat(
+      (tick) => {
+        ticks.push(tick)
+      },
+      {
+        intervalMs: 1000,
+        clock: t.clock,
+      },
+    )
 
     // Eight hours with the lid shut: wall clock moves, nothing runs.
     t.sleep(8 * 60 * 60 * 1000)
@@ -143,10 +158,12 @@ describe('the heartbeat', () => {
   test('stops when told to', async () => {
     const t = fakeClock()
     let passes = 0
-    const beat = startHeartbeat(() => void (passes += 1), {
-      intervalMs: 1000,
-      clock: t.clock,
-    })
+    const beat = startHeartbeat(
+      () => {
+        passes += 1
+      },
+      { intervalMs: 1000, clock: t.clock },
+    )
 
     await t.advance(1000)
     beat.stop()

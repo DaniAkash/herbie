@@ -96,7 +96,7 @@ export function isQuiet(quiet: QuietHours | null, at: number): boolean {
 }
 
 /** "23:00" to minutes from midnight, or null when it is not a time. */
-export function parseTime(text: string): number | null {
+function parseTime(text: string): number | null {
   const match = /^(\d{1,2}):(\d{2})$/.exec(text.trim())
   if (!match) return null
   const hours = Number(match[1])

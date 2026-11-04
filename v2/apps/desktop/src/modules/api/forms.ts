@@ -1,4 +1,4 @@
-import { createAgentBody, createRoutineBody } from '@bun/shared/schemas'
+import { createAgentBody } from '@bun/shared/schemas'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { type UseFormReturn, useForm } from 'react-hook-form'
 import type { z } from 'zod'
@@ -21,9 +21,6 @@ export type AgentDraftInput = z.input<typeof createAgentBody>
 export type AgentDraft = z.output<typeof createAgentBody>
 export type AgentForm = UseFormReturn<AgentDraftInput, unknown, AgentDraft>
 
-type RoutineDraftInput = z.input<typeof createRoutineBody>
-type RoutineDraft = z.output<typeof createRoutineBody>
-
 /** The six face colours, as the schema defines them. */
 export type AgentColor = AgentDraft['color']
 
@@ -39,20 +36,6 @@ export function useAgentDraftForm(): AgentForm {
       model: null,
       effort: 'medium',
       workspaceDir: null,
-    },
-  })
-}
-
-export function useRoutineDraftForm() {
-  return useForm<RoutineDraftInput, unknown, RoutineDraft>({
-    resolver: zodResolver(createRoutineBody),
-    mode: 'onTouched',
-    defaultValues: {
-      name: '',
-      kind: 'schedule',
-      cadence: '',
-      prompt: '',
-      deliverTelegram: false,
     },
   })
 }

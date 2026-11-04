@@ -1,10 +1,28 @@
 import type { Db } from '@bun/modules/db/db'
-import { routineRuns, routines } from '@bun/modules/db/schema/schema'
-import { matches } from '@bun/modules/loop/schedule'
+import { routines } from '@bun/modules/db/schema/schema'
 import { toCron } from '@bun/modules/routines/cadence'
-import type { AcpxHostTool, AcpxHostToolSchema } from 'acpx-ai-provider'
-import { and, desc, eq } from 'drizzle-orm'
-import { z } from 'zod'
+import {
+  createShape,
+  deleteShape,
+  enabledShape,
+  find,
+  lastRunOf,
+  listRoutines,
+  listShape,
+  nextRun,
+  type RoutineView,
+  schemaOf,
+  updateShape,
+  view,
+} from '@bun/modules/routines/tools.schemas'
+import type { AcpxHostTool } from 'acpx-ai-provider'
+import { eq } from 'drizzle-orm'
+import type { z } from 'zod'
+
+// One import path for everything a caller needs, so the split stays an
+// implementation detail of this module rather than something every call
+// site has to know about.
+export { nextRun, type RoutineView }
 
 /**
  * Routine management, as five tools the agent calls while talking.
@@ -43,130 +61,6 @@ const PROMPT_ADVICE =
   '"Check it" means nothing in an empty thread. Say what to look at, what ' +
   'counts as worth reporting, and what to leave out.'
 
-const nameShape = z.string().min(1).max(80)
-const cadenceShape = z.string().min(1).max(120)
-const promptShape = z.string().min(1).max(4000)
-
-const listShape = z.object({}).strict()
-const createShape = z
-  .object({ name: nameShape, cadence: cadenceShape, prompt: promptShape })
-  .strict()
-const updateShape = z
-  .object({
-    id: z.string().min(1),
-    name: nameShape.optional(),
-    cadence: cadenceShape.optional(),
-    prompt: promptShape.optional(),
-  })
-  .strict()
-  .refine(
-    (value) =>
-      value.name !== undefined ||
-      value.cadence !== undefined ||
-      value.prompt !== undefined,
-    'Change at least one of name, cadence or prompt.',
-  )
-const enabledShape = z
-  .object({ id: z.string().min(1), enabled: z.boolean() })
-  .strict()
-const deleteShape = z.object({ id: z.string().min(1) }).strict()
-
-function schemaOf(shape: z.ZodType): AcpxHostToolSchema {
-  return z.toJSONSchema(shape, {
-    target: 'draft-7',
-    io: 'input',
-  }) as AcpxHostToolSchema
-}
-
-export interface RoutineView {
-  readonly id: string
-  readonly name: string
-  readonly cadence: string
-  readonly reading: string | null
-  readonly enabled: boolean
-  readonly prompt: string
-  readonly lastRunAt: string | null
-  readonly nextRunAt: string | null
-  readonly fires: boolean
-}
-
-/**
- * When this cron next comes round, by walking forward a minute at a time.
- *
- * A year of minutes is the bound, which is more than any cadence the
- * grammar can express needs. Walking rather than solving keeps one matcher
- * in the codebase: a second implementation that disagreed with the loop's
- * would show the person a time the routine does not actually run at.
- */
-export function nextRun(cron: string | null, from: number): string | null {
-  if (!cron) return null
-  const start = new Date(from)
-  start.setSeconds(0, 0)
-  for (let minute = 1; minute <= 366 * 24 * 60; minute += 1) {
-    const at = start.getTime() + minute * 60_000
-    if (matches(cron, at)) return new Date(at).toISOString()
-  }
-  return null
-}
-
-function view(
-  row: typeof routines.$inferSelect,
-  lastRunAt: string | null,
-  now: number,
-): RoutineView {
-  const reading = toCron(row.cadence)
-  return {
-    id: row.id,
-    name: row.name,
-    cadence: row.cadence,
-    reading: reading?.reading ?? null,
-    enabled: row.enabled,
-    prompt: row.prompt,
-    lastRunAt,
-    nextRunAt: row.enabled ? nextRun(row.cron, now) : null,
-    fires: row.cron !== null,
-  }
-}
-
-function lastRunOf(db: Db, routineId: string): string | null {
-  const row = db
-    .select()
-    .from(routineRuns)
-    .where(
-      and(eq(routineRuns.routineId, routineId), eq(routineRuns.state, 'done')),
-    )
-    .orderBy(desc(routineRuns.dueAt))
-    .limit(1)
-    .get()
-  return row?.dueAt ?? null
-}
-
-function find(
-  db: Db,
-  agentId: string,
-  id: string,
-): typeof routines.$inferSelect | undefined {
-  return db
-    .select()
-    .from(routines)
-    .where(and(eq(routines.id, id), eq(routines.agentId, agentId)))
-    .get()
-}
-
-/** Everything the agent is allowed to know, so it can list or confirm. */
-export function listRoutines(
-  db: Db,
-  agentId: string,
-  now: number,
-): RoutineView[] {
-  return db
-    .select()
-    .from(routines)
-    .where(eq(routines.agentId, agentId))
-    .all()
-    .map((row) => view(row, lastRunOf(db, row.id), now))
-}
-
 export interface RoutineToolContext {
   readonly db: Db
   readonly agentId: string
@@ -183,6 +77,28 @@ export function routineTools(
 
   const refuse = (why: string): never => {
     throw new Error(why)
+  }
+
+  /**
+   * Changes one of this agent's routines and gives back how it now reads.
+   *
+   * The re-read is the point: the agent is about to tell the person what
+   * the routine does, and the row is the only thing that knows, since the
+   * cron is derived and the next run is computed from it.
+   */
+  const change = (
+    id: string,
+    patch: Partial<typeof routines.$inferInsert>,
+  ): RoutineView => {
+    const existing = find(ctx.db, ctx.agentId, id)
+    if (!existing) return refuse('No routine of yours has that id.')
+
+    ctx.db.update(routines).set(patch).where(eq(routines.id, id)).run()
+
+    const row = find(ctx.db, ctx.agentId, id)
+    return row
+      ? view(row, lastRunOf(ctx.db, row.id), now())
+      : refuse('The routine was not changed.')
   }
 
   return {
@@ -267,22 +183,13 @@ export function routineTools(
           cron = cadence.cron
         }
 
-        ctx.db
-          .update(routines)
-          .set({
-            ...(draft.name !== undefined ? { name: draft.name } : {}),
-            ...(draft.prompt !== undefined ? { prompt: draft.prompt } : {}),
-            ...(draft.cadence !== undefined
-              ? { cadence: draft.cadence, cron }
-              : {}),
-          })
-          .where(eq(routines.id, draft.id))
-          .run()
-
-        const row = find(ctx.db, ctx.agentId, draft.id)
-        return row
-          ? view(row, lastRunOf(ctx.db, row.id), now())
-          : refuse('The routine was not changed.')
+        return change(draft.id, {
+          ...(draft.name !== undefined ? { name: draft.name } : {}),
+          ...(draft.prompt !== undefined ? { prompt: draft.prompt } : {}),
+          ...(draft.cadence !== undefined
+            ? { cadence: draft.cadence, cron }
+            : {}),
+        })
       },
     },
 
@@ -295,19 +202,7 @@ export function routineTools(
       inputSchema: schemaOf(enabledShape),
       execute: (input) => {
         const draft = parse(enabledShape, input)
-        const existing = find(ctx.db, ctx.agentId, draft.id)
-        if (!existing) return refuse('No routine of yours has that id.')
-
-        ctx.db
-          .update(routines)
-          .set({ enabled: draft.enabled })
-          .where(eq(routines.id, draft.id))
-          .run()
-
-        const row = find(ctx.db, ctx.agentId, draft.id)
-        return row
-          ? view(row, lastRunOf(ctx.db, row.id), now())
-          : refuse('The routine was not changed.')
+        return change(draft.id, { enabled: draft.enabled })
       },
     },
 

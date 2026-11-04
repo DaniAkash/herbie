@@ -13,7 +13,7 @@
  * latency, and 30 to 90s in the range that does not.
  */
 
-export const WATCHDOG_DEADLINE_MS = 60_000
+const WATCHDOG_DEADLINE_MS = 60_000
 
 export interface Watchdog {
   /** Says a subject is alive now, and resets its deadline. */

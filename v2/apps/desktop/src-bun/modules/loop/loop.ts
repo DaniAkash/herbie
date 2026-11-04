@@ -135,6 +135,34 @@ export function startLoop(
    * a turn the person began has no run row, so `runForTurn` finds nothing
    * and the breaker is left alone.
    */
+  const settle = (
+    agentId: string,
+    runId: string,
+    reason: 'stop' | 'cancel' | 'error',
+  ): void => {
+    held.delete(agentId)
+    dog.forget(agentId)
+
+    if (reason === 'stop') {
+      settleRun(db, runId, 'done')
+      breakers.set(agentId, onSuccess(stateOf(agentId)))
+      return
+    }
+    if (reason === 'cancel') {
+      // The person stopped it. Not the agent failing, so the streak stands.
+      settleRun(db, runId, 'failed', 'cancelled')
+      breakers.set(agentId, onCancelled(stateOf(agentId)))
+      return
+    }
+
+    settleRun(db, runId, 'failed', 'the turn ended in error')
+    const next = onFailure(stateOf(agentId), Date.now())
+    breakers.set(agentId, next)
+    if (next.phase === 'parked') {
+      log.warn('agent parked after repeated failures', { agent: agentId })
+    }
+  }
+
   const watch = (agentId: string): (() => void) =>
     subscribe(agentId, (signal) => {
       if (signal.type !== 'record') return
@@ -142,75 +170,61 @@ export function startLoop(
       if (record.kind !== 'turn.end') return
 
       const run = runForTurn(db, record.turn)
-      if (!run) return
-
-      held.delete(agentId)
-      dog.forget(agentId)
-
-      if (record.reason === 'stop') {
-        settleRun(db, run.id, 'done')
-        breakers.set(agentId, onSuccess(stateOf(agentId)))
-        return
-      }
-      if (record.reason === 'cancel') {
-        // The person stopped it. Not the agent failing, so the streak stands.
-        settleRun(db, run.id, 'failed', 'cancelled')
-        breakers.set(agentId, onCancelled(stateOf(agentId)))
-        return
-      }
-      settleRun(db, run.id, 'failed', 'the turn ended in error')
-      const next = onFailure(stateOf(agentId), Date.now())
-      breakers.set(agentId, next)
-      if (next.phase === 'parked') {
-        log.warn('agent parked after repeated failures', { agent: agentId })
-      }
+      if (run) settle(agentId, run.id, record.reason)
     })
 
   const watchers = new Map<string, () => void>()
 
+  /** Whether this agent can be handed work right now, and the upkeep if not. */
+  const readyFor = (agentId: string, at: number): boolean => {
+    const before = stateOf(agentId)
+    const state = advance(before, at)
+    if (state !== before) breakers.set(agentId, state)
+    if (!allows(state, at)) return false
+
+    // Already working. Renew what it holds so the lease does not lapse under
+    // a turn that is genuinely running, and come back next tick.
+    const running = held.get(agentId)
+    if (running !== undefined) {
+      renew(db, running, at)
+      dog.feed(agentId, at)
+      return false
+    }
+    return liveTurn(agentId) === null
+  }
+
+  const startOne = (agentId: string, at: number): void => {
+    const run = claimNext(db, agentId, at)
+    if (!run) return
+
+    const routine = db
+      .select()
+      .from(routines)
+      .where(eq(routines.id, run.routineId))
+      .get()
+    if (!routine) {
+      settleRun(db, run.id, 'failed', 'the routine was deleted')
+      return
+    }
+
+    try {
+      const { turnId } = startTurn(db, agentId, routine.prompt)
+      attachTurn(db, run.id, turnId)
+      held.set(agentId, run.id)
+      dog.feed(agentId, at)
+      if (!watchers.has(agentId)) watchers.set(agentId, watch(agentId))
+      log.info('routine started', { routine: routine.id, agent: agentId })
+    } catch (cause) {
+      // Busy after all, or unreachable. Recorded rather than lost: the slot
+      // keeps its row and the breaker counts the failure.
+      settleRun(db, run.id, 'failed', String(cause))
+      breakers.set(agentId, onFailure(stateOf(agentId), at))
+    }
+  }
+
   const drain = (at: number): void => {
     for (const agentId of waitingAgents(db, at)) {
-      const before = stateOf(agentId)
-      const state = advance(before, at)
-      if (state !== before) breakers.set(agentId, state)
-      if (!allows(state, at)) continue
-
-      // Already working. Renew what it holds so the lease does not lapse
-      // under a turn that is genuinely running, and come back next tick.
-      const running = held.get(agentId)
-      if (running !== undefined) {
-        renew(db, running, at)
-        dog.feed(agentId, at)
-        continue
-      }
-      if (liveTurn(agentId) !== null) continue
-
-      const run = claimNext(db, agentId, at)
-      if (!run) continue
-
-      const routine = db
-        .select()
-        .from(routines)
-        .where(eq(routines.id, run.routineId))
-        .get()
-      if (!routine) {
-        settleRun(db, run.id, 'failed', 'the routine was deleted')
-        continue
-      }
-
-      try {
-        const { turnId } = startTurn(db, agentId, routine.prompt)
-        attachTurn(db, run.id, turnId)
-        held.set(agentId, run.id)
-        dog.feed(agentId, at)
-        if (!watchers.has(agentId)) watchers.set(agentId, watch(agentId))
-        log.info('routine started', { routine: routine.id, agent: agentId })
-      } catch (cause) {
-        // The agent was busy after all, or could not be reached. Put it back
-        // rather than losing it: the next tick will try again.
-        settleRun(db, run.id, 'failed', String(cause))
-        breakers.set(agentId, onFailure(stateOf(agentId), at))
-      }
+      if (readyFor(agentId, at)) startOne(agentId, at)
     }
   }
 
