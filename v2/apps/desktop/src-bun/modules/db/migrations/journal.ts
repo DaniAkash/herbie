@@ -10,6 +10,7 @@ import retireMessages from './0004_retire_messages_for_transcript.sql' with {
 import sessionGeneration from './0005_add_session_generation_to_agents.sql' with {
   type: 'text',
 }
+import routineRuns from './0006_add_routine_runs.sql' with { type: 'text' }
 
 export interface Migration {
   readonly name: string
@@ -31,4 +32,5 @@ export const MIGRATIONS: readonly Migration[] = [
   { name: '0003_add_transcript_cursors', sql: transcriptCursors },
   { name: '0004_retire_messages_for_transcript', sql: retireMessages },
   { name: '0005_add_session_generation_to_agents', sql: sessionGeneration },
+  { name: '0006_add_routine_runs', sql: routineRuns },
 ]
