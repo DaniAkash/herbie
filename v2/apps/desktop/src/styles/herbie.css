@@ -16,7 +16,7 @@
  *    --ink-2 is darkened with it so secondary copy still clears AA.
  */
 
-:root {
+:root:not(.dark) {
   --page: oklch(0.938 0.004 258);
   --canvas: oklch(0.915 0.005 258);
   --surface: oklch(0.966 0.003 258);

@@ -52,6 +52,7 @@ export function Conversation({ agent }: { agent: Agent }) {
         agentId={agentId}
         panelOpen={panelOpen}
         phase={thread.phase}
+        error={thread.error}
       />
 
       <MessageScroller
@@ -135,22 +136,38 @@ export function Conversation({ agent }: { agent: Agent }) {
   )
 }
 
+function faceState(phase: Phase, error: string | null, state: string) {
+  if (phase === 'waiting') return 'input-needed'
+  if (phase !== 'idle') return 'thinking'
+  if (error) return 'error'
+  return state === 'stuck' ? 'input-needed' : 'idle'
+}
+
 /** The agent, its state, and the way into its panel. */
 function Header({
   agent,
   agentId,
   panelOpen,
   phase,
+  error,
 }: {
   agent: Agent
   agentId: string
   panelOpen: boolean
   phase: Phase
+  error: string | null
 }) {
   const working = phase !== 'idle'
+  const expression = faceState(phase, error, agent.state)
   return (
     <div className="flex items-center gap-2.5 px-[22px] py-2.5">
-      <AgentFace color={agent.color} size="sm" />
+      <AgentFace
+        key={`${agentId}-${expression}`}
+        color={agent.color}
+        shape={agent.shape}
+        size="xl"
+        state={expression}
+      />
       <span className="font-semibold text-[15px]">{agent.name}</span>
       {working || agent.state === 'stuck' ? (
         <span className="flex items-center gap-1.5 text-[13px] text-ink-2">

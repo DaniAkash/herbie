@@ -34,6 +34,7 @@ export function useAgentDraftForm(): AgentForm {
     defaultValues: {
       name: '',
       color: 'house',
+      shape: 'squircle',
       brief: '',
       acpAgent: '',
       model: null,

@@ -4,6 +4,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { queryClient } from '@/modules/api/queryClient'
 import { routeTree } from './routeTree.gen'
+import '@/modules/theme/theme'
 import './index.css'
 
 const router = createRouter({ routeTree, context: { queryClient } })

@@ -22,12 +22,16 @@ export function Overlay({
   footer,
   children,
   lead,
+  className,
+  footerClassName,
 }: {
   title: string
   narrow?: boolean
   footer?: React.ReactNode
   children: React.ReactNode
   lead?: React.ReactNode
+  className?: string
+  footerClassName?: string
 }) {
   const navigate = useNavigate()
 
@@ -42,6 +46,7 @@ export function Overlay({
         className={cn(
           '!p-0 !gap-0 !max-w-none grid max-h-[82vh] grid-rows-[auto_1fr_auto] overflow-hidden rounded-card bg-surface',
           narrow ? 'w-[min(380px,100%)]' : 'w-[min(540px,100%)]',
+          className,
         )}
       >
         <div className="flex items-center gap-2 px-4 pt-3.5 pr-11 pb-1">
@@ -54,7 +59,11 @@ export function Overlay({
           {children}
         </div>
         {footer ? (
-          <div className="flex justify-end gap-2 px-4 pb-4">{footer}</div>
+          <div
+            className={cn('flex justify-end gap-2 px-4 pb-4', footerClassName)}
+          >
+            {footer}
+          </div>
         ) : (
           <div />
         )}

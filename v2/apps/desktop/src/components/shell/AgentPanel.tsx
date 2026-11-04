@@ -57,8 +57,16 @@ export function AgentPanel({ children }: { children: React.ReactNode }) {
       <div className="grid w-[332px] place-items-center gap-2 px-4 pt-[18px] pb-3.5 text-center">
         <AgentFace
           color={agent.color}
+          shape={agent.shape}
+          animate
           size="lg"
-          working={agent.state === 'working'}
+          state={
+            agent.state === 'working'
+              ? 'thinking'
+              : agent.state === 'stuck'
+                ? 'input-needed'
+                : 'idle'
+          }
           off={agent.state === 'off'}
         />
         <div>

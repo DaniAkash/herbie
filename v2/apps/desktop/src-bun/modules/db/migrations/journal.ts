@@ -11,6 +11,8 @@ import sessionGeneration from './0005_add_session_generation_to_agents.sql' with
   type: 'text',
 }
 
+import agentShape from './0006_add_agent_shape.sql' with { type: 'text' }
+
 export interface Migration {
   readonly name: string
   readonly sql: string
@@ -31,4 +33,5 @@ export const MIGRATIONS: readonly Migration[] = [
   { name: '0003_add_transcript_cursors', sql: transcriptCursors },
   { name: '0004_retire_messages_for_transcript', sql: retireMessages },
   { name: '0005_add_session_generation_to_agents', sql: sessionGeneration },
+  { name: '0006_add_agent_shape', sql: agentShape },
 ]
