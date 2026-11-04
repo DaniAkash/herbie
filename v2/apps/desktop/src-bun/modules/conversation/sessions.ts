@@ -18,6 +18,7 @@ import {
 } from '@bun/modules/conversation/transcript'
 import type { Db } from '@bun/modules/db/db'
 import { agentRules, agents } from '@bun/modules/db/schema/schema'
+import { routineTools } from '@bun/modules/routines/tools'
 import type { DraftRecord, TranscriptRecord } from '@bun/shared/transcript'
 import { type AcpxProvider, createAcpxProvider } from 'acpx-ai-provider'
 import { asc, eq, sql } from 'drizzle-orm'
@@ -174,12 +175,19 @@ export function sessionFor(db: Db, agent: AgentRow): AgentSession {
     },
     hostTools: {
       serverName: 'herbie',
-      tools: reportingTools({
-        append: (draft) => write(db, session, draft),
-        awaitAnswers: (recordId, signal) =>
-          awaitAnswers(session.agentId, recordId, signal),
-        setActivity: (text) => setActivity(db, session, text),
-      }),
+      // Two sets on one server. The reporting tools decide what the person
+      // sees; the routine tools decide what the agent does when nobody is
+      // watching. Both are fixed at session/new, which is why the version
+      // above hashes their names.
+      tools: {
+        ...reportingTools({
+          append: (draft) => write(db, session, draft),
+          awaitAnswers: (recordId, signal) =>
+            awaitAnswers(session.agentId, recordId, signal),
+          setActivity: (text) => setActivity(db, session, text),
+        }),
+        ...routineTools({ db, agentId: agent.id }),
+      },
     },
   })
 
