@@ -20,7 +20,7 @@ import type { Db } from '@bun/modules/db/db'
 import { agentRules, agents } from '@bun/modules/db/schema/schema'
 import type { DraftRecord, TranscriptRecord } from '@bun/shared/transcript'
 import { type AcpxProvider, createAcpxProvider } from 'acpx-ai-provider'
-import { asc, eq } from 'drizzle-orm'
+import { asc, eq, sql } from 'drizzle-orm'
 
 const log = createLogger('conversation')
 
@@ -119,7 +119,7 @@ export function write(
 export function sessionFor(db: Db, agent: AgentRow): AgentSession {
   const input = briefInput(db, agent)
   const home = runtimeHome(agent.acpAgent, agent.workspaceDir)
-  const version = briefVersion(input, home.env)
+  const version = sessionVersion(input, home.env, agent.sessionGeneration)
   const existing = sessions.get(agent.id)
   if (existing && existing.version === version) return existing
 
@@ -235,6 +235,39 @@ function setActivity(db: Db, session: AgentSession, text: string): void {
     .where(eq(agents.id, session.agentId))
     .run()
   write(db, session, { kind: 'activity', text, phase: current.phase })
+}
+
+/**
+ * The version, plus the generation that retires a key the runtime rejected.
+ *
+ * A generation of zero is left off the end, so the common case produces the
+ * same key it always did and an existing session is not restarted by the
+ * arrival of this field.
+ */
+function sessionVersion(
+  input: BriefInput,
+  env: Record<string, string>,
+  generation: number,
+): string {
+  const base = briefVersion(input, env)
+  return generation > 0 ? `${base}.${generation}` : base
+}
+
+/**
+ * Gives up on a session the runtime will not resume.
+ *
+ * Closing it is not enough on its own: the key is derived from the brief, so
+ * rebuilding produces the same key and acpx reads back the same unresumable
+ * record from its own store. The provider offers no way to discard that
+ * record, so the key is what has to change, and the generation is what
+ * changes it. Persisted, because the record outlives this process.
+ */
+export async function retireSession(db: Db, agentId: string): Promise<void> {
+  db.update(agents)
+    .set({ sessionGeneration: sql`${agents.sessionGeneration} + 1` })
+    .where(eq(agents.id, agentId))
+    .run()
+  await closeSession(agentId)
 }
 
 /** Forgets a session, closing the agent process behind it. */

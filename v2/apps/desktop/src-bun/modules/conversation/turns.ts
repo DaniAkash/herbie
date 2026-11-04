@@ -5,8 +5,8 @@ import { writeRecord } from '@bun/modules/conversation/records'
 import {
   type AgentRow,
   type AgentSession,
-  closeSession,
   liveSession,
+  retireSession,
   sessionFor,
   target,
   write,
@@ -203,12 +203,14 @@ async function run(
   } finally {
     await settleTurn(db, session, reason)
     // After the turn has settled, because settling reads the provider. A
-    // session the runtime cannot resume will fail the same way on every
-    // later turn, so it is dropped here and the next send builds a new one
+    // session the runtime cannot resume fails the same way on every later
+    // turn, so its key is retired here and the next send creates a session
     // rather than leaving the agent permanently unable to answer.
     if (dead) {
-      log.warn('session cannot be resumed, dropping it', { agent: agent.id })
-      await closeSession(session.agentId)
+      log.warn('session cannot be resumed, retiring its key', {
+        agent: agent.id,
+      })
+      await retireSession(db, session.agentId)
     }
   }
 }
