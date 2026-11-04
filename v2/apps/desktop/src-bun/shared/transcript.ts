@@ -246,6 +246,16 @@ export interface LiveTurn {
   readonly activity: string
   /** Epoch milliseconds, so the elapsed clock survives a reconnect. */
   readonly startedAt: number
+  /**
+   * Tool calls the agent has made this turn.
+   *
+   * Telemetry rather than content, and the one thing that keeps moving when
+   * an agent works for minutes without reporting. A still indicator reads as
+   * a hung app; a rising count reads as work.
+   */
+  readonly steps: number
+  /** Seconds since the last block the person can see, or null if none yet. */
+  readonly quietFor: number | null
 }
 
 /** What the replay route answers with, and what the stream pushes one of. */

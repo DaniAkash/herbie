@@ -11,6 +11,7 @@ import { cancelAll, hold, release } from '@bun/modules/conversation/pending'
 import { escalate } from '@bun/modules/conversation/permissions'
 import { isBlock, writeRecord } from '@bun/modules/conversation/records'
 import { reportingTools } from '@bun/modules/conversation/reporting'
+import { runtimeHome } from '@bun/modules/conversation/runtime-home'
 import {
   openTranscript,
   type Transcript,
@@ -41,6 +42,12 @@ export interface TurnState {
   readonly controller: AbortController
   readonly startedAt: number
   phase: 'thinking' | 'working'
+  /** Tool calls so far, which is the only thing moving during a long silence. */
+  steps: number
+  /** When the last block the person can see was written. */
+  lastBlockAt: number
+  /** When progress was last pushed, so a busy turn does not flood watchers. */
+  lastPushAt: number
   /** What the live indicator says. Set by the agent, or inferred from a call. */
   activity: string
   /** Blocks reported so far, which is what the no-report fallback reads. */
@@ -92,7 +99,10 @@ export function write(
   draft: DraftRecord,
 ): TranscriptRecord {
   const record = writeRecord(db, target(session), draft)
-  if (session.current && isBlock(draft.kind)) session.current.reported += 1
+  if (session.current && isBlock(draft.kind)) {
+    session.current.reported += 1
+    session.current.lastBlockAt = Date.now()
+  }
   return record
 }
 
@@ -134,6 +144,9 @@ export function sessionFor(db: Db, agent: AgentRow): AgentSession {
   const provider = createAcpxProvider({
     agent: agent.acpAgent,
     cwd: agent.workspaceDir,
+    // Its own config directory, so a new assistant starts as itself rather
+    // than as a copy of whatever is installed on this machine.
+    agentProcessEnv: runtimeHome(agent.acpAgent, agent.workspaceDir).env,
     sessionKey: `${agent.id}:${version}`,
     sessionMode: 'persistent',
     stateDir: join(stateDir(), 'acpx'),

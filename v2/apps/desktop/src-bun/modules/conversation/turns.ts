@@ -1,4 +1,5 @@
 import { createLogger } from '@bun/lib/log'
+import { publish } from '@bun/modules/conversation/bus'
 import { cancelAll, settle } from '@bun/modules/conversation/pending'
 import { writeRecord } from '@bun/modules/conversation/records'
 import {
@@ -45,7 +46,28 @@ export function liveTurn(agentId: string): LiveTurn | null {
     phase: current.phase,
     activity: current.activity,
     startedAt: current.startedAt,
+    steps: current.steps,
+    quietFor: Math.round((Date.now() - current.lastBlockAt) / 1000),
   }
+}
+
+/** How often progress reaches a watcher, at most. */
+const PUSH_EVERY_MS = 1500
+
+/**
+ * Tells watchers the turn is still moving.
+ *
+ * Not a record: this is telemetry about a turn in flight and is kept nowhere.
+ * It exists because an agent can work for minutes without reporting, and a
+ * still indicator with a rising clock reads as a hung app rather than as work.
+ */
+function pushProgress(session: AgentSession, force = false): void {
+  const current = session.current
+  if (!current) return
+  const now = Date.now()
+  if (!force && now - current.lastPushAt < PUSH_EVERY_MS) return
+  current.lastPushAt = now
+  publish(session.agentId, { type: 'turn', live: liveTurn(session.agentId) })
 }
 
 function findAgent(db: Db, id: string): AgentRow | undefined {
@@ -82,6 +104,9 @@ export function startTurn(
     activity: 'Thinking',
     reported: 0,
     text: '',
+    steps: 0,
+    lastBlockAt: Date.now(),
+    lastPushAt: 0,
   }
 
   write(db, session, { kind: 'user', text })
@@ -185,7 +210,9 @@ function observe(db: Db, session: AgentSession, part: unknown): void {
     return
   }
   if (typed.type === 'tool-call') {
+    current.steps += 1
     promote(db, session, 'working')
+    pushProgress(session)
   }
 }
 

@@ -82,6 +82,7 @@ export function Conversation({ agent }: { agent: Agent }) {
           phase={thread.phase}
           activity={thread.activity}
           startedAt={thread.startedAt}
+          steps={thread.steps}
         />
       </MessageScroller>
 

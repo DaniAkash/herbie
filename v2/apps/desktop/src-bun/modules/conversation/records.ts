@@ -40,7 +40,7 @@ export function writeRecord(
     })
     .run()
 
-  publish(target.agentId, record)
+  publish(target.agentId, { type: 'record', record })
   return record
 }
 

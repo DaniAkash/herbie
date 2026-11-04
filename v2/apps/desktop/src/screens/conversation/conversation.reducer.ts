@@ -30,6 +30,8 @@ export interface ThreadState {
   readonly activity: string
   /** When the turn in flight began, for the indicator's elapsed clock. */
   readonly startedAt: number | null
+  /** Tool calls this turn, which is what moves while the agent is quiet. */
+  readonly steps: number
   readonly error: string | null
 }
 
@@ -42,6 +44,7 @@ export const EMPTY: ThreadState = {
   phase: 'idle',
   activity: '',
   startedAt: null,
+  steps: 0,
   error: null,
 }
 
@@ -89,6 +92,7 @@ function applyLive(state: ThreadState, live: LiveTurn | null): ThreadState {
     phase: state.pending.length > 0 ? 'waiting' : live.phase,
     activity: live.activity,
     startedAt: live.startedAt,
+    steps: live.steps,
   }
 }
 
@@ -105,6 +109,7 @@ function apply(state: ThreadState, record: TranscriptRecord): ThreadState {
         ...state,
         phase: 'thinking',
         startedAt: Date.parse(record.at),
+        steps: 0,
         error: null,
       }
 

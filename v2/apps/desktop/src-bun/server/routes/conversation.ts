@@ -156,9 +156,19 @@ export function conversationRoute(deps: Deps) {
                 // The connection went away mid-write. onAbort unsubscribes.
               })
 
-          const unsubscribe = subscribe(agentId, (record) => {
-            if (replaying) buffered.push(record)
-            else void send(record)
+          const unsubscribe = subscribe(agentId, (signal) => {
+            // A turn update is telemetry about the turn in flight, not part
+            // of the thread, so it is never buffered against the replay
+            // cursor: there is nothing to dedupe it against.
+            if (signal.type === 'turn') {
+              void stream.writeSSE({
+                event: 'turn',
+                data: JSON.stringify(signal.live),
+              })
+              return
+            }
+            if (replaying) buffered.push(signal.record)
+            else void send(signal.record)
           })
           stream.onAbort(unsubscribe)
 

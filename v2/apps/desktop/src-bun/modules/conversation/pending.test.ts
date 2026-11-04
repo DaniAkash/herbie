@@ -74,15 +74,19 @@ describe('the record bus', () => {
   test('delivers to every watcher of that agent and nobody else', () => {
     const mine: TranscriptRecord[] = []
     const theirs: TranscriptRecord[] = []
-    const off = subscribe('postman', (r) => mine.push(r))
-    subscribe('scout', (r) => theirs.push(r))
+    const off = subscribe('postman', (s) => {
+      if (s.type === 'record') mine.push(s.record)
+    })
+    subscribe('scout', (s) => {
+      if (s.type === 'record') theirs.push(s.record)
+    })
 
-    publish('postman', record)
+    publish('postman', { type: 'record', record })
     expect(mine).toHaveLength(1)
     expect(theirs).toHaveLength(0)
 
     off()
-    publish('postman', record)
+    publish('postman', { type: 'record', record })
     expect(mine).toHaveLength(1)
     expect(watcherCount('postman')).toBe(0)
   })
@@ -93,11 +97,11 @@ describe('the record bus', () => {
       throw new Error('connection gone')
     })
     subscribe('postman', () => seen.push('second'))
-    expect(() => publish('postman', record)).not.toThrow()
+    expect(() => publish('postman', { type: 'record', record })).not.toThrow()
     expect(seen).toEqual(['second'])
   })
 
   test('publishing to nobody is free', () => {
-    expect(() => publish('nobody', record)).not.toThrow()
+    expect(() => publish('nobody', { type: 'record', record })).not.toThrow()
   })
 })

@@ -121,12 +121,15 @@ describe('the stream', () => {
     expect(text).toContain('line 2')
 
     publish('postman', {
-      seq: 3,
-      id: 'r_3',
-      at: new Date().toISOString(),
-      turn: 't_1',
-      kind: 'say',
-      text: 'arrived live',
+      type: 'record',
+      record: {
+        seq: 3,
+        id: 'r_3',
+        at: new Date().toISOString(),
+        turn: 't_1',
+        kind: 'say',
+        text: 'arrived live',
+      },
     })
 
     while (!text.includes('arrived live')) {

@@ -27,24 +27,33 @@ export function TurnIndicator({
   phase,
   activity,
   startedAt,
+  steps,
 }: {
   phase: Phase
   activity: string
   startedAt: number | null
+  steps: number
 }) {
   const long = usePastLong(startedAt)
 
   if (phase === 'idle' || phase === 'waiting' || startedAt === null) return null
 
   const variant = long ? 'Surfer' : phase === 'working' ? 'Orbit' : 'Drive'
+  const label = activity || (phase === 'working' ? 'Working' : 'Thinking')
   return (
-    // videoSrc is left alone: the component's own default is the clip this
-    // variant exists for, and overriding it with a local placeholder turned
-    // the card into a drifting gradient nobody asked for.
-    <LoadingState
-      variant={variant}
-      label={activity || (phase === 'working' ? 'Working' : 'Thinking')}
-    />
+    <div className="grid gap-1">
+      {/*
+        videoSrc is left alone: the component's own default is the clip this
+        variant exists for, and overriding it with a local placeholder turned
+        the card into a drifting gradient nobody asked for.
+      */}
+      <LoadingState variant={variant} label={label} />
+      {steps > 0 ? (
+        <span className="pl-[18px] text-[11.5px] text-ink-3 tabular-nums">
+          {steps === 1 ? '1 step' : `${steps} steps`}
+        </span>
+      ) : null}
+    </div>
   )
 }
 
