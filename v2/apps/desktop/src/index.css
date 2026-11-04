@@ -14,3 +14,18 @@
 body {
   -webkit-font-smoothing: antialiased;
 }
+
+/*
+ * StreamingText always draws its sources toggle and its follow-ups heading,
+ * with nothing in them when there is nothing to show, which on a plain answer
+ * reads as "0 sources" above an empty list. The component is vendored and
+ * reinstalled by `bun run ui:add`, so a patch there would not survive; the
+ * `say` renderer sets these classes when it has neither.
+ */
+.say-no-sources button[aria-expanded] {
+  display: none;
+}
+
+.say-no-follow-ups > div > div:last-child {
+  display: none;
+}

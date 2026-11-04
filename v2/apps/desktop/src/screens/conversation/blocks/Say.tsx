@@ -2,6 +2,7 @@ import type { SaySource, TranscriptRecord } from '@bun/shared/transcript'
 import StreamingText, {
   type StreamingSource,
 } from '@/components/primitives/StreamingText'
+import { cn } from '@/lib/utils'
 
 type Said = Extract<TranscriptRecord, { kind: 'say' }>
 
@@ -20,16 +21,28 @@ type Said = Extract<TranscriptRecord, { kind: 'say' }>
  */
 export function Say({ record }: { record: Said }) {
   const words = record.text.split(/\s+/).filter(Boolean)
+  const sources = record.sources ?? []
+  const followUps = record.followUps ?? []
   return (
-    <div className="grid gap-1.5">
+    // The component always draws its sources toggle and its follow-ups
+    // heading, even with nothing in either, which on a plain answer reads as
+    // "0 sources" above an empty list. It is vendored and reinstalled, so the
+    // two are hidden from here rather than patched there.
+    <div
+      className={cn(
+        'grid gap-1.5',
+        sources.length === 0 && 'say-no-sources',
+        followUps.length === 0 && 'say-no-follow-ups',
+      )}
+    >
       <StreamingText
         fill
         loop={false}
         content={words.map((text) => ({ text }))}
-        sources={(record.sources ?? []).map(avatar)}
-        followUps={[...(record.followUps ?? [])]}
+        sources={sources.map(avatar)}
+        followUps={[...followUps]}
         labels={{
-          sources: sourceLabel(record.sources?.length ?? 0),
+          sources: sourceLabel(sources.length),
           followUps: 'You might ask',
         }}
       />

@@ -1,10 +1,13 @@
+import type { TranscriptRecord } from '@bun/shared/transcript'
 import { useEffect, useReducer, useRef, useState } from 'react'
+import { useAgents } from '@/modules/api/agents.hooks'
 import {
   useAnswer,
   useCancelTurn,
   useDecide,
   useSendTurn,
 } from '@/modules/api/conversation.hooks'
+import { queryClient } from '@/modules/api/queryClient'
 import { openStream } from '@/modules/api/stream'
 import {
   EMPTY,
@@ -75,7 +78,16 @@ export function useConversation(agentId: string): ConversationData {
           onEvent: (event, data) => {
             setConnection('open')
             if (event === 'record') {
-              dispatch({ type: 'record', record: JSON.parse(data) })
+              const record: TranscriptRecord = JSON.parse(data)
+              dispatch({ type: 'record', record })
+              // The rail reads the agent row's own state and activity
+              // columns, which the runtime moves as the turn does. Nothing
+              // else would tell the list to re-read them, so a finished turn
+              // would sit there saying "Thinking" until something unrelated
+              // refetched.
+              if (record.kind === 'turn.start' || record.kind === 'turn.end') {
+                queryClient.invalidateQueries({ queryKey: useAgents.getKey() })
+              }
               return
             }
             if (event === 'turn') {

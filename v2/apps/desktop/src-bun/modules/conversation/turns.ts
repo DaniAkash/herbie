@@ -254,14 +254,23 @@ async function settleTurn(
   const usage = session.provider.getUsage(
     `${session.agentId}:${session.version}`,
   )
+
+  // The row settles before the record that announces it. turn.end is
+  // published to every watcher as it is written, and the webview re-reads
+  // the agent row when it sees one: written first, that read races this
+  // update and wins, leaving the rail saying the agent is still thinking
+  // about a turn that has already ended.
+  setState(db, session.agentId, reason === 'error' ? 'stuck' : 'idle', null)
+
   write(db, session, {
     kind: 'turn.end',
     reason,
     ...(usage ? { usage: { used: usage.used, size: usage.size } } : {}),
   })
 
+  // Last, because the write above files the record under it, and because a
+  // send arriving before this point should still be told the agent is busy.
   session.current = null
-  setState(db, session.agentId, reason === 'error' ? 'stuck' : 'idle', null)
 }
 
 /** The rail reads these two columns, so they move with the turn. */
