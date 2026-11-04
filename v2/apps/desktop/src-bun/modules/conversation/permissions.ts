@@ -4,7 +4,11 @@ import {
   writeRecord,
 } from '@bun/modules/conversation/records'
 import type { Db } from '@bun/modules/db/db'
-import type { PermissionChoice } from '@bun/shared/transcript'
+import type {
+  DraftRecord,
+  PermissionChoice,
+  TranscriptRecord,
+} from '@bun/shared/transcript'
 import type {
   AcpPermissionDecision,
   AcpPermissionRequest,
@@ -41,8 +45,8 @@ const QUIET = new Set(['read', 'search', 'fetch', 'think'])
  * window v1 was built for.
  */
 export function escalate(
-  db: Db,
-  target: RecordTarget,
+  agentId: string,
+  append: (draft: DraftRecord) => TranscriptRecord,
   request: AcpPermissionRequest,
   signal: AbortSignal,
 ): Promise<AcpPermissionDecision | undefined> {
@@ -60,7 +64,12 @@ export function escalate(
   if (options.length === 0) return Promise.resolve(undefined)
 
   const requestId = request.raw.toolCall.toolCallId
-  writeRecord(db, target, {
+  // Through the session's writer, not straight to the transcript. A
+  // permission is a block the person can see, so it has to count towards the
+  // turn's reported total and move its quiet clock. Written the other way it
+  // left a turn that asked and then stopped looking as though it had
+  // reported nothing, and the no-report fallback fired over the top of it.
+  const record = append({
     kind: 'permission',
     requestId,
     toolName: request.raw.toolCall.title ?? 'A tool',
@@ -69,8 +78,13 @@ export function escalate(
     decision: null,
   })
 
-  return new Promise((resolve) => {
-    hold<AcpPermissionDecision>(target.agentId, requestId, {
+  offered.set(offerKey(agentId, requestId), {
+    recordId: record.id,
+    options: new Set(options.map((option) => option.optionId)),
+  })
+
+  return new Promise<AcpPermissionDecision | undefined>((resolve) => {
+    hold<AcpPermissionDecision>(agentId, requestId, {
       resolve,
       onCancel: () => ({ outcome: 'cancel' }),
     })
@@ -80,12 +94,32 @@ export function escalate(
     signal.addEventListener(
       'abort',
       () => {
-        release(target.agentId, requestId)
+        release(agentId, requestId)
         resolve({ outcome: 'cancel' })
       },
       { once: true },
     )
-  })
+    // Every path that ends this wait goes through a resolve, including the
+    // cancel drain, so this is the one place that reliably forgets the offer.
+  }).finally(() => offered.delete(offerKey(agentId, requestId)))
+}
+
+/**
+ * What each waiting request actually offered, so a decision can be checked.
+ *
+ * The option ids come from the agent and are meaningless to anyone else, so
+ * a decision naming one it never offered is not a choice the person made. It
+ * is kept here rather than read back out of the transcript because the
+ * thread is append-only and scanning it to answer one question is the wrong
+ * shape for something on the path of every click.
+ */
+const offered = new Map<
+  string,
+  { readonly recordId: string; readonly options: ReadonlySet<string> }
+>()
+
+function offerKey(agentId: string, requestId: string): string {
+  return `${agentId}\u0000${requestId}`
 }
 
 /**
@@ -102,6 +136,15 @@ export function decide(
   recordId: string,
   optionId: string,
 ): boolean {
+  // Checked against what this request actually offered, rather than taken on
+  // trust from the request body. A decision for an option the agent never
+  // put up is not an answer, and a decision filed against someone else's
+  // record would fold onto the wrong card in the thread.
+  const offer = offered.get(offerKey(target.agentId, requestId))
+  if (!offer) return false
+  if (offer.recordId !== recordId) return false
+  if (!offer.options.has(optionId)) return false
+
   const settled = settle<AcpPermissionDecision>(target.agentId, requestId, {
     outcome: 'selected',
     optionId,

@@ -87,6 +87,11 @@ export function Conversation({ agent }: { agent: Agent }) {
       </MessageScroller>
 
       <div className="composer-host px-[22px] pt-2.5 pb-[18px]">
+        {conversation.sendError ? (
+          <p className="pb-1.5 text-[12px] text-red" role="alert">
+            {conversation.sendError}
+          </p>
+        ) : null}
         {/*
           beui rather than beautifui's PromptBar: that one hardcodes its model
           list at module scope, so it would ship invented model names with no
@@ -115,8 +120,12 @@ export function Conversation({ agent }: { agent: Agent }) {
           onSubmit={(text) => {
             const message = text.trim()
             if (!message) return
-            conversation.send(message)
-            setDraft('')
+            // Cleared only once it has landed. The failure is shown above
+            // the composer with the text still in the box, so the person can
+            // press send again rather than retype what they lost.
+            void conversation.send(message).then((sent) => {
+              if (sent) setDraft('')
+            })
           }}
           minRows={1}
           maxRows={6}

@@ -119,6 +119,11 @@ function apply(state: ThreadState, record: TranscriptRecord): ThreadState {
         phase: 'idle',
         startedAt: null,
         activity: '',
+        // Nothing is waiting on a turn that has ended. A cancel drains the
+        // registry server side without writing an answer or a decision, so
+        // without this the card stays live and the next click gets a 409.
+        // The block itself and anything already answered are untouched.
+        pending: [],
       }
 
     case 'activity':

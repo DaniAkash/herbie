@@ -159,7 +159,13 @@ export function sessionFor(db: Db, agent: AgentRow): AgentSession {
     onPermissionRequest:
       agent.autonomy === 'auto'
         ? undefined
-        : (request, ctx) => escalate(db, target(session), request, ctx.signal),
+        : (request, ctx) =>
+            escalate(
+              agent.id,
+              (draft) => write(db, session, draft),
+              request,
+              ctx.signal,
+            ),
     sessionOptions: {
       // Only some runtimes take one: codex advertises systemPrompt false and
       // ignores it, which is why the same text is also on disk.

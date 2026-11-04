@@ -84,6 +84,7 @@ export function resetTranscripts(): void {
 
 function create(workspaceDir: string): Transcript {
   const dir = transcriptDir(workspaceDir)
+  sealPartialTail(dir)
   let seq = lastSeqOnDisk(dir)
 
   const transcript: Transcript = {
@@ -135,6 +136,31 @@ function create(workspaceDir: string): Transcript {
     },
   }
   return transcript
+}
+
+/**
+ * Closes a record that a crash left without its newline.
+ *
+ * The reader already drops that half line, so the record is gone either way.
+ * What it cannot do is stop the next append landing on the same line: the
+ * two then concatenate into one unparsable line and the good record is lost
+ * along with the broken one. Ending the line here costs one byte and keeps
+ * the damage to the write that was actually interrupted.
+ */
+function sealPartialTail(dir: string): void {
+  const present = segments(dir)
+  const last = present[present.length - 1]
+  if (last === undefined) return
+
+  const path = join(dir, segmentName(last))
+  try {
+    const text = readFileSync(path, 'utf8')
+    if (text.length === 0 || text.endsWith('\n')) return
+    appendFileSync(path, '\n', 'utf8')
+  } catch {
+    // Unreadable here means unreadable to the reader too, which already
+    // treats a missing segment as empty. An append will recreate it.
+  }
 }
 
 /** The segment indices present, in order. */

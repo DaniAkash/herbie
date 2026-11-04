@@ -13,6 +13,24 @@ import { z } from 'zod'
  * call rather than a field silently dropped on the way to the transcript.
  */
 
+/**
+ * A link the agent supplies, which the webview will put in an `href`.
+ *
+ * Restricted to the two schemes a citation can legitimately use. The window
+ * already refuses to run `javascript:` under its content security policy, so
+ * this is the second lock rather than the only one: what it actually stops
+ * is a `file:` or an app scheme being handed to the operating system when
+ * the person clicks what looks like a source.
+ */
+const webUrl = z
+  .string()
+  .min(1)
+  .max(400)
+  .refine(
+    (value) => /^https?:\/\//i.test(value),
+    'Must be an http or https URL.',
+  )
+
 export const sayShape = z
   .object({
     text: z
@@ -36,7 +54,7 @@ export const explainShape = z
           .object({
             name: z.string().min(1).max(60),
             domain: z.string().min(1).max(80),
-            href: z.string().min(1).max(400),
+            href: webUrl,
           })
           .strict(),
       )
@@ -159,6 +177,14 @@ export const showCodeShape = z
       .describe('Line by line, when the change matters more than the file.'),
   })
   .strict()
+  // Neither one filled renders a panel with nothing in it, which is a worse
+  // outcome than the call being rejected and the agent trying again.
+  .refine(
+    (value) =>
+      (value.code !== undefined && value.code.length > 0) !==
+      (value.diff?.length ?? 0) > 0,
+    'Fill exactly one of code or diff, and not with an empty value.',
+  )
 
 export const recommendShape = z
   .object({
@@ -196,6 +222,14 @@ export const recommendShape = z
       .describe('Mark exactly one as recommended.'),
   })
   .strict()
+  // The description has always asked for one. Without this the renderer is
+  // left to guess, and it guesses by sort order, which is not a reason.
+  .refine(
+    (value) =>
+      value.options.filter((option) => option.recommended === true).length ===
+      1,
+    'Mark exactly one option as recommended.',
+  )
 
 export const showContextShape = z
   .object({
@@ -206,7 +240,7 @@ export const showContextShape = z
           .object({
             source: z.string().min(1).max(120),
             text: z.string().min(1).max(1200),
-            href: z.string().max(400).optional(),
+            href: webUrl.optional(),
           })
           .strict(),
       )

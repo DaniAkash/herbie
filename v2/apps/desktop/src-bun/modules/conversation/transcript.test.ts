@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test'
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
@@ -105,5 +105,26 @@ describe('the transcript', () => {
       text: 'hm',
     })
     expect(transcript.read(-1)).toEqual([])
+  })
+
+  test('keeps the record written after a crash cut the previous one short', () => {
+    const dir = workspace()
+    const segment = join(dir, '.herbie', 'transcript')
+    mkdirSync(segment, { recursive: true })
+    // A write interrupted between the record and its newline.
+    writeFileSync(
+      join(segment, '0001.jsonl'),
+      '{"seq":1,"id":"a","at":"t","turn":"t_1","kind":"say","text":"one"}\n' +
+        '{"seq":2,"id":"b","at":"t","turn":"t_1","kind":"say","te',
+      'utf8',
+    )
+
+    const transcript = openTranscript(dir)
+    transcript.append('t_1', { kind: 'say', text: 'after the crash' })
+
+    // The torn record is gone either way. The one after it must not be:
+    // appended onto the same line, the two would merge and both be lost.
+    const texts = transcript.read(0).map((r) => (r as { text: string }).text)
+    expect(texts).toEqual(['one', 'after the crash'])
   })
 })

@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { REPORTING_TOOL_NAMES } from '@bun/modules/conversation/reporting'
 
@@ -108,15 +108,51 @@ export function systemPrompt(input: BriefInput): string {
  *
  * Both rather than one, because which name is read is a property of the
  * runtime and an agent can be moved between runtimes after it was created.
- * Overwritten every time rather than merged: this file is Herbie's output,
- * not a document the person edits.
+ *
+ * Only Herbie's own section is replaced. An agent can be pointed at a
+ * directory the person already had, and a repository that already carries
+ * instructions for its contributors is exactly the kind of directory that
+ * gets pointed at. Rewriting the whole file would delete those instructions
+ * on the first turn, and again on every brief change after it.
  */
 export function writeBrief(workspaceDir: string, input: BriefInput): void {
   mkdirSync(workspaceDir, { recursive: true })
   const document = briefDocument(input)
   for (const name of ['AGENTS.md', 'CLAUDE.md']) {
-    writeFileSync(join(workspaceDir, name), document, 'utf8')
+    const path = join(workspaceDir, name)
+    writeFileSync(path, merged(read(path), document), 'utf8')
   }
+}
+
+const OPEN = '<!-- herbie:begin -->'
+const CLOSE = '<!-- herbie:end -->'
+
+/** The file as it is, or empty when there is not one yet. */
+function read(path: string): string {
+  try {
+    return readFileSync(path, 'utf8')
+  } catch {
+    return ''
+  }
+}
+
+/**
+ * The person's file with Herbie's section in it, put back where it was.
+ *
+ * A missing or unterminated marker is treated as no section at all and the
+ * block is appended, because the alternative is guessing where someone's
+ * edit ended and cutting their prose in half to find out.
+ */
+function merged(existing: string, document: string): string {
+  const block = `${OPEN}\n${document}\n${CLOSE}\n`
+  if (existing.trim().length === 0) return block
+
+  const from = existing.indexOf(OPEN)
+  const to = existing.indexOf(CLOSE)
+  if (from === -1 || to === -1 || to < from) {
+    return `${existing.replace(/\n*$/, '')}\n\n${block}`
+  }
+  return existing.slice(0, from) + block + existing.slice(to + CLOSE.length + 1)
 }
 
 /**

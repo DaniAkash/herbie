@@ -32,7 +32,17 @@ export interface ConversationData {
   readonly connection: Connection
   /** True while a turn is being started or stopped, for the composer. */
   readonly isSending: boolean
-  readonly send: (text: string) => void
+  /**
+   * Resolves false when the message did not reach the agent.
+   *
+   * The caller keeps the draft on false. A message is the one thing in this
+   * screen the person cannot get back by retrying, so clearing the box
+   * before the send has landed throws away their typing on a busy agent or
+   * a sidecar that is restarting.
+   */
+  readonly send: (text: string) => Promise<boolean>
+  /** Why the last send failed, in words, or null. */
+  readonly sendError: string | null
   readonly stop: () => void
   readonly answer: (recordId: string, answers: Record<string, number[]>) => void
   readonly decide: (
@@ -120,11 +130,35 @@ export function useConversation(agentId: string): ConversationData {
     thread,
     connection,
     isSending: send.isPending || cancel.isPending,
-    send: (text) => send.mutate({ agentId, text }),
+    send: async (text) => {
+      try {
+        await send.mutateAsync({ agentId, text })
+        return true
+      } catch {
+        // Reported through sendError rather than thrown on: the composer is
+        // the only caller and it needs the answer, not an exception.
+        return false
+      }
+    },
+    sendError: send.error ? sendFailure(send.error) : null,
     stop: () => cancel.mutate({ agentId }),
     answer: (recordId, answers) =>
       answer.mutate({ agentId, recordId, answers }),
     decide: (recordId, requestId, optionId) =>
       decide.mutate({ agentId, requestId, recordId, optionId }),
   }
+}
+
+/**
+ * A failed send, said to the person rather than at them.
+ *
+ * The busy case is the one worth naming: it is not a fault, it is the agent
+ * still working, and the thing to do about it is wait or stop it.
+ */
+function sendFailure(cause: unknown): string {
+  const text = cause instanceof Error ? cause.message : String(cause)
+  if (text.includes('409')) {
+    return 'Still working on the last message. Wait for it to finish, or stop it first.'
+  }
+  return 'Could not send that. Your message is still in the box.'
 }

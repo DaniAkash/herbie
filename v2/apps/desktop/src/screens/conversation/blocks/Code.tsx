@@ -15,6 +15,10 @@ export function Code({ record }: { record: Code }) {
   if (record.diff && record.diff.length > 0) {
     return (
       <CodeBlock
+        // Without this the component stays on its Code view and renders its
+        // own sample listing, so a reported diff came out as somebody else's
+        // source under the agent's filename.
+        variant="Diff"
         filename={record.filename}
         diff={record.diff.map((row) => ({
           old: row.old,

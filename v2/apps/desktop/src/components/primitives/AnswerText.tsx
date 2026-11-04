@@ -96,7 +96,7 @@ export function AnswerText({
                 {sources.map((source) => (
                   <a
                     key={source.domain}
-                    href={source.href}
+                    href={webHref(source.href)}
                     target="_blank"
                     rel="noreferrer"
                     className="flex items-center gap-2 rounded-[6px] px-1.5 py-1 text-[12px] text-ink-2 transition-colors duration-150 hover:bg-hover hover:text-ink"
@@ -156,6 +156,20 @@ export function AnswerText({
   )
 }
 
+/**
+ * A link, or nothing, so that only the two web schemes become an `href`.
+ *
+ * The schema already refuses anything else and the window's content policy
+ * already refuses to run `javascript:`, which makes this the third lock on
+ * the same door. It is here anyway because this is the component that hands
+ * a string the agent wrote to the operating system, and the cost of being
+ * sure at that point is one function.
+ */
+function webHref(href: string | undefined): string | undefined {
+  if (href === undefined) return undefined
+  return /^https?:\/\//i.test(href) ? href : undefined
+}
+
 function countedSources(count: number): string {
   return count === 1 ? '1 source' : `${count} sources`
 }
@@ -202,7 +216,7 @@ const MARKDOWN: Components = {
   em: ({ children }: Slot) => <em className="italic">{children}</em>,
   a: ({ children, href }: Slot & { href?: string }) => (
     <a
-      href={href}
+      href={webHref(href)}
       target="_blank"
       rel="noreferrer"
       className="text-ink underline decoration-line underline-offset-2 transition-colors hover:decoration-ink-3"
