@@ -69,8 +69,14 @@ export interface CodeDiffRow {
 export interface RecommendOption {
   readonly label: string
   readonly detail: string
-  /** Why this one, in a few words. Rendered as the option's signal line. */
-  readonly signal: string
+  /**
+   * How sure the agent is, drawn as the card's three-bar meter.
+   *
+   * An enum rather than prose because the component plots it. Asking for a
+   * sentence and drawing a bar from its position in the list would be the
+   * card inventing a confidence the agent never stated.
+   */
+  readonly confidence: 'strong' | 'fair' | 'weak'
   /** Exactly one option should be the default. */
   readonly recommended?: boolean
 }

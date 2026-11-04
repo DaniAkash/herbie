@@ -155,14 +155,27 @@ export const recommendShape = z
       .array(
         z
           .object({
-            label: z.string().min(1).max(80),
-            detail: z.string().min(1).max(400),
-            signal: z
+            label: z
               .string()
               .min(1)
               .max(80)
-              .describe('Why this one, in a few words.'),
-            recommended: z.boolean().optional(),
+              .describe('The option itself, in a few words.'),
+            detail: z
+              .string()
+              .min(1)
+              .max(400)
+              .describe('What choosing it means, and why.'),
+            confidence: z
+              .enum(['strong', 'fair', 'weak'])
+              .describe(
+                'How sure you are about this option. Drawn as a meter, so ' +
+                  'be honest: weak on everything is better than a confident ' +
+                  'guess.',
+              ),
+            recommended: z
+              .boolean()
+              .optional()
+              .describe('Mark exactly one option with this.'),
           })
           .strict(),
       )
