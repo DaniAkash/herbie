@@ -1,36 +1,38 @@
 import { Link, useLocation, useParams } from '@tanstack/react-router'
 import { PanelRight, Repeat } from 'lucide-react'
+import { useState } from 'react'
 import { AgentFace } from '@/components/agent/AgentFace'
-import {
-  MessageBubble,
-  MessageBubbleContent,
-} from '@/components/agents/message-bubble'
-import { MessageSideContext } from '@/components/agents/message-context'
 import { MessageScroller } from '@/components/agents/message-scroller'
 import { PromptInput } from '@/components/agents/prompt-input'
-import ApprovalCard from '@/components/primitives/ApprovalCard'
-import ThinkingState from '@/components/primitives/ThinkingState'
-import ToolChips from '@/components/primitives/ToolChips'
 import { AgentStateDot } from '@/components/shell/AgentStateDot'
 import { cn } from '@/lib/utils'
-import type { Agent, Message } from '@/modules/api/agents.hooks'
-import { useMessages } from '@/modules/api/agents.hooks'
+import type { Agent } from '@/modules/api/agents.hooks'
 import { useRuntimes } from '@/modules/api/runtimes.hooks'
+import { Block } from '@/screens/conversation/blocks/Block'
+import type { Connection } from '@/screens/conversation/conversation.data'
+import { useConversation } from '@/screens/conversation/conversation.data'
+import type { Phase } from '@/screens/conversation/conversation.reducer'
 import { FirstRunCard } from '@/screens/conversation/FirstRunCard'
+import { TurnIndicator } from '@/screens/conversation/TurnIndicator'
 
 /**
  * The middle column, and the only place you can be.
  *
- * A routine's output arrives here as a message from the agent, which is why
- * there is no inbox. The viewport is beui's MessageScroller rather than a
- * scroll effect of our own, because it already follows a streamed reply at
- * the live edge and lets go when the reader scrolls up.
+ * Every block here is one the agent chose to report. Its ordinary replies are
+ * not messages: they move the indicator's label and go to the raw log, and
+ * nothing else. That is the whole difference between this and v1, which
+ * rendered every part the agent emitted.
+ *
+ * A routine's output arrives here as blocks from the same runtime, which is
+ * why there is no inbox.
  */
 export function Conversation({ agent }: { agent: Agent }) {
   const { agentId } = useParams({ from: '/_shell/agents/$agentId' })
-  const { data, isPending, isError } = useMessages({ variables: { agentId } })
+  const conversation = useConversation(agentId)
+  const { thread, connection } = conversation
   const runtimes = useRuntimes()
   const { pathname } = useLocation()
+  const [draft, setDraft] = useState('')
 
   // Named from what the sidecar found rather than a map in here, so a runtime
   // this file has never heard of still reads as its own name.
@@ -41,53 +43,55 @@ export function Conversation({ agent }: { agent: Agent }) {
   // The panel is a route, so whether it is open is a fact about the url
   // rather than state of ours. The button closes it when it is open.
   const panelOpen = /\/(overview|routines|permissions)$/.test(pathname)
+  const working = thread.phase !== 'idle'
 
   return (
     <section className="grid min-h-0 min-w-0 grid-rows-[auto_1fr_auto] bg-page">
-      <div className="flex items-center gap-2.5 px-[22px] py-2.5">
-        <AgentFace color={agent.color} size="sm" />
-        <span className="font-semibold text-[15px]">{agent.name}</span>
-        {agent.state === 'working' || agent.state === 'stuck' ? (
-          <span className="flex items-center gap-1.5 text-[13px] text-ink-2">
-            <AgentStateDot state={agent.state} />
-            {agent.state}
-          </span>
-        ) : null}
-        <span className="flex-1" />
-        <Link
-          to={panelOpen ? '/agents/$agentId' : '/agents/$agentId/overview'}
-          params={{ agentId }}
-          aria-label={panelOpen ? 'Hide agent settings' : 'Show agent settings'}
-          aria-pressed={panelOpen}
-          className={cn(
-            'inline-flex size-7 items-center justify-center rounded-control transition-colors',
-            panelOpen
-              ? 'bg-hover-2 text-ink'
-              : 'text-ink-3 hover:bg-hover hover:text-ink',
-          )}
-        >
-          <PanelRight size={16} />
-        </Link>
-      </div>
+      <Header
+        agent={agent}
+        agentId={agentId}
+        panelOpen={panelOpen}
+        phase={thread.phase}
+      />
 
       <MessageScroller
         label={`Conversation with ${agent.name}`}
-        busy={agent.state === 'working'}
+        busy={working}
         className="min-h-0"
         viewportClassName="px-[22px] pt-3 pb-2"
         contentClassName="grid content-start gap-[18px]"
       >
-        {isPending ? <ThreadSkeleton /> : null}
-        {isError ? (
-          <p className="text-red">The sidecar did not answer. Is it running?</p>
-        ) : null}
-        {data?.messages.length === 0 ? <FirstRunCard agent={agent} /> : null}
-        {data?.messages.map((message) => (
-          <Turn key={message.id} message={message} agent={agent} />
+        <ThreadState
+          agent={agent}
+          connection={connection}
+          empty={thread.records.length === 0}
+        />
+
+        {thread.records.map((record) => (
+          <Block
+            key={record.id}
+            record={record}
+            thread={thread}
+            agentName={agent.name}
+            onAnswer={conversation.answer}
+            onDecide={conversation.decide}
+          />
         ))}
+
+        <TurnIndicator
+          phase={thread.phase}
+          activity={thread.activity}
+          startedAt={thread.startedAt}
+          steps={thread.steps}
+        />
       </MessageScroller>
 
       <div className="composer-host px-[22px] pt-2.5 pb-[18px]">
+        {conversation.sendError ? (
+          <p className="pb-1.5 text-[12px] text-red" role="alert">
+            {conversation.sendError}
+          </p>
+        ) : null}
         {/*
           beui rather than beautifui's PromptBar: that one hardcodes its model
           list at module scope, so it would ship invented model names with no
@@ -96,6 +100,8 @@ export function Conversation({ agent }: { agent: Agent }) {
         */}
         <PromptInput
           placeholder={`Message ${agent.name}`}
+          value={draft}
+          onValueChange={setDraft}
           models={[{ value: agent.acpAgent, label: runtimeName }]}
           model={agent.acpAgent}
           actions={[
@@ -106,7 +112,21 @@ export function Conversation({ agent }: { agent: Agent }) {
               icon: <Repeat size={15} />,
             },
           ]}
-          loading={agent.state === 'working'}
+          // A turn in flight turns the send button into a stop button, which
+          // is the only way to interrupt an agent that has gone somewhere
+          // long. Cancelling also releases anything it was waiting on.
+          loading={working || conversation.isSending}
+          onStop={conversation.stop}
+          onSubmit={(text) => {
+            const message = text.trim()
+            if (!message) return
+            // Cleared only once it has landed. The failure is shown above
+            // the composer with the text still in the box, so the person can
+            // press send again rather than retype what they lost.
+            void conversation.send(message).then((sent) => {
+              if (sent) setDraft('')
+            })
+          }}
           minRows={1}
           maxRows={6}
         />
@@ -115,107 +135,70 @@ export function Conversation({ agent }: { agent: Agent }) {
   )
 }
 
-function Turn({ message, agent }: { message: Message; agent: Agent }) {
-  if (message.role === 'divider') {
-    return (
-      <div className="flex items-center gap-2.5 text-[12px] text-ink-3 before:h-px before:flex-1 before:bg-line after:h-px after:flex-1 after:bg-line">
-        {message.body}
-      </div>
-    )
-  }
-
-  if (message.role === 'tool') {
-    return (
-      <ToolChips
-        // its root hardcodes min-h-[220px] and max-w-80 for the gallery, which
-        // leaves a dead gap under a single tool line
-        className="!min-h-0 !max-w-[540px]"
-        labels={{ header: '1 tool call', more: '' }}
-        steps={[
-          {
-            icon: 'browser',
-            label: message.body,
-            chip: 'done',
-            mono: false,
-            detailMono: false,
-            detail: [],
-          },
-        ]}
-        diffs={[]}
-        diffLines={{}}
-      />
-    )
-  }
-
-  if (message.role === 'question') {
-    // beautifui's own surface for "ask before acting", which is what an
-    // always-ask rule produces when it fires.
-    return (
-      <ApprovalCard
-        resettable={false}
-        labels={{ send: 'Answer', sentMessage: `Sent to ${agent.name}` }}
-        questions={[
-          {
-            q: message.body,
-            type: 'radio',
-            options: ['Post it now', 'Hold it', 'Show me the text first'],
-          },
-        ]}
-      />
-    )
-  }
-
-  if (message.role === 'thinking') {
-    // rows must be passed or it falls back to its gallery trace about
-    // flavour briefs and supplier lists.
-    return (
-      <ThinkingState
-        active={message.body}
-        done={message.body}
-        rows={[
-          { primary: 'Read the feed', secondary: '41 posts' },
-          { primary: 'Ranked by engagement' },
-          { primary: 'Drafting', secondary: '5 candidates' },
-        ]}
-      />
-    )
-  }
-
-  if (message.role === 'error') {
-    return (
-      <MessageSideContext.Provider value="start">
-        <div className="grid gap-1.5">
-          <div className="text-[12px] text-ink-3">{agent.name}</div>
-          <MessageBubble variant="danger">
-            <MessageBubbleContent className="max-w-[540px]">
-              {message.body}
-            </MessageBubbleContent>
-          </MessageBubble>
-        </div>
-      </MessageSideContext.Provider>
-    )
-  }
-
-  const mine = message.role === 'user'
+/** The agent, its state, and the way into its panel. */
+function Header({
+  agent,
+  agentId,
+  panelOpen,
+  phase,
+}: {
+  agent: Agent
+  agentId: string
+  panelOpen: boolean
+  phase: Phase
+}) {
+  const working = phase !== 'idle'
   return (
-    <MessageSideContext.Provider value={mine ? 'end' : 'start'}>
-      <div className="grid gap-1.5">
-        <div
-          className={
-            mine
-              ? 'text-right text-[12px] text-ink-3'
-              : 'text-[12px] text-ink-3'
-          }
-        >
-          {mine ? 'You' : agent.name}
-        </div>
-        <MessageBubble variant={mine ? 'tint' : 'soft'}>
-          <MessageBubbleContent className="max-w-[540px]">
-            {message.body}
-          </MessageBubbleContent>
-        </MessageBubble>
-      </div>
-    </MessageSideContext.Provider>
+    <div className="flex items-center gap-2.5 px-[22px] py-2.5">
+      <AgentFace color={agent.color} size="sm" />
+      <span className="font-semibold text-[15px]">{agent.name}</span>
+      {working || agent.state === 'stuck' ? (
+        <span className="flex items-center gap-1.5 text-[13px] text-ink-2">
+          <AgentStateDot state={working ? 'working' : 'stuck'} />
+          {phase === 'waiting' ? 'waiting on you' : agent.state}
+        </span>
+      ) : null}
+      <span className="flex-1" />
+      <Link
+        to={panelOpen ? '/agents/$agentId' : '/agents/$agentId/overview'}
+        params={{ agentId }}
+        aria-label={panelOpen ? 'Hide agent settings' : 'Show agent settings'}
+        aria-pressed={panelOpen}
+        className={cn(
+          'inline-flex size-7 items-center justify-center rounded-control transition-colors',
+          panelOpen
+            ? 'bg-hover-2 text-ink'
+            : 'text-ink-3 hover:bg-hover hover:text-ink',
+        )}
+      >
+        <PanelRight size={16} />
+      </Link>
+    </div>
+  )
+}
+
+/** Whatever stands in for the thread when there is not one yet. */
+function ThreadState({
+  agent,
+  connection,
+  empty,
+}: {
+  agent: Agent
+  connection: Connection
+  empty: boolean
+}) {
+  if (connection === 'lost') {
+    return (
+      <p className="text-[13px] text-red">
+        Lost the connection to the sidecar. Trying again.
+      </p>
+    )
+  }
+  if (!empty) return null
+  return connection === 'open' ? (
+    <FirstRunCard agent={agent} />
+  ) : (
+    <ThreadSkeleton />
   )
 }
 

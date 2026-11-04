@@ -3,12 +3,7 @@ import {
   deleteAgent,
   plannedWorkspace,
 } from '@bun/modules/agents/agents'
-import {
-  agentRules,
-  agents,
-  messages,
-  routines,
-} from '@bun/modules/db/schema/schema'
+import { agentRules, agents, routines } from '@bun/modules/db/schema/schema'
 import { toCron } from '@bun/modules/routines/cadence'
 import { moveAccess } from '@bun/modules/tools/access'
 import type { Deps } from '@bun/server/deps'
@@ -102,15 +97,6 @@ export function agentsRoute(deps: Deps) {
         const gone = deleteAgent(deps.db, deps.agentsRoot, c.req.param('id'))
         if (!gone) return c.json({ error: 'no such agent' }, 404)
         return c.json({ deleted: true })
-      })
-      .get('/:id/messages', (c) => {
-        const rows = deps.db
-          .select()
-          .from(messages)
-          .where(eq(messages.agentId, c.req.param('id')))
-          .orderBy(asc(messages.createdAt))
-          .all()
-        return c.json({ messages: rows })
       })
       .get('/:id/routines', (c) => {
         const rows = deps.db

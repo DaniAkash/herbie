@@ -8,10 +8,6 @@ import { useToolAccess } from '@/modules/api/tools.hooks'
 
 export type AgentsResponse = InferResponseType<Client['api']['agents']['$get']>
 export type Agent = AgentsResponse['agents'][number]
-export type MessagesResponse = InferResponseType<
-  Client['api']['agents'][':id']['messages']['$get']
->
-export type Message = MessagesResponse['messages'][number]
 export type RoutinesResponse = InferResponseType<
   Client['api']['agents'][':id']['routines']['$get']
 >
@@ -97,16 +93,6 @@ export function useAgent(agentId: string): Agent | undefined {
   const { data } = useAgents()
   return data?.agents.find((a) => a.id === agentId)
 }
-
-export const useMessages = createQuery<MessagesResponse, { agentId: string }>({
-  queryKey: ['agent-messages'],
-  fetcher: async ({ agentId }) => {
-    const client = await api()
-    return parseResponse<MessagesResponse>(
-      await client.api.agents[':id'].messages.$get({ param: { id: agentId } }),
-    )
-  },
-})
 
 export const useRoutines = createQuery<RoutinesResponse, { agentId: string }>({
   queryKey: ['agent-routines'],

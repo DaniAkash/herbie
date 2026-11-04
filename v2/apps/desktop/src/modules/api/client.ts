@@ -78,3 +78,23 @@ export async function api(): Promise<Client> {
     headers: { authorization: `Bearer ${token}` },
   })
 }
+
+/**
+ * One request, on whichever transport this host has, without the typed client.
+ *
+ * The RPC client is the right way to reach a JSON route and the wrong way to
+ * reach a stream: it parses the body. This is the same transport choice made
+ * one layer lower, so a stream in the window goes through Rust exactly as
+ * every other request does and the browser path stays same origin.
+ */
+export async function rawFetch(
+  path: string,
+  init: RequestInit = {},
+): Promise<Response> {
+  if (!isDesktop()) return fetch(path, init)
+  const { port, token } = await desktopInfo()
+  return tauriFetch(`http://127.0.0.1:${port}${path}`, {
+    ...init,
+    headers: { ...init.headers, authorization: `Bearer ${token}` },
+  }) as unknown as Promise<Response>
+}

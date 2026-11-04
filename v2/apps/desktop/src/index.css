@@ -11,6 +11,13 @@
 @import "./styles/bridge.css";
 @import "./styles/herbie.css";
 
+/*
+ * Streamdown ships Tailwind classes inside its own bundle, so its dist has
+ * to be scanned or the markdown it renders comes out unstyled. Its animation
+ * stylesheet is deliberately not imported: the answer surface is static.
+ */
+@source "../node_modules/streamdown/dist/*.js";
+
 body {
   -webkit-font-smoothing: antialiased;
 }

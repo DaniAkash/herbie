@@ -47,4 +47,14 @@ export const agents = sqliteTable('agents', {
   telegramResults: integer('telegram_results', { mode: 'boolean' })
     .notNull()
     .default(false),
+
+  /**
+   * Bumped when the runtime refuses to resume this agent's session.
+   *
+   * It is part of the session key, so raising it retires the key the runtime
+   * cannot load and the next turn creates a session instead of resuming a
+   * dead one. Persisted rather than held in memory because a refusal
+   * survives a restart and would otherwise be met once per launch, forever.
+   */
+  sessionGeneration: integer('session_generation').notNull().default(0),
 })
