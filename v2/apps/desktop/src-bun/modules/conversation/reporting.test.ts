@@ -167,6 +167,13 @@ describe('the brief', () => {
     expect(briefVersion({ ...input, autonomy: 'auto' })).not.toBe(before)
     expect(briefVersion({ ...input, rules: [] })).not.toBe(before)
   })
+
+  test('versions on the config home, which a session cannot be resumed across', () => {
+    const before = briefVersion(input, { CODEX_HOME: '/one' })
+    expect(briefVersion(input, { CODEX_HOME: '/one' })).toBe(before)
+    expect(briefVersion(input, { CODEX_HOME: '/two' })).not.toBe(before)
+    expect(briefVersion(input, {})).not.toBe(before)
+  })
 })
 
 function context() {

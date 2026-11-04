@@ -118,7 +118,8 @@ export function write(
  */
 export function sessionFor(db: Db, agent: AgentRow): AgentSession {
   const input = briefInput(db, agent)
-  const version = briefVersion(input)
+  const home = runtimeHome(agent.acpAgent, agent.workspaceDir)
+  const version = briefVersion(input, home.env)
   const existing = sessions.get(agent.id)
   if (existing && existing.version === version) return existing
 
@@ -145,8 +146,10 @@ export function sessionFor(db: Db, agent: AgentRow): AgentSession {
     agent: agent.acpAgent,
     cwd: agent.workspaceDir,
     // Its own config directory, so a new assistant starts as itself rather
-    // than as a copy of whatever is installed on this machine.
-    agentProcessEnv: runtimeHome(agent.acpAgent, agent.workspaceDir).env,
+    // than as a copy of whatever is installed on this machine. It is in the
+    // version above, because a persisted session cannot be resumed from a
+    // different home than the one that recorded it.
+    agentProcessEnv: home.env,
     sessionKey: `${agent.id}:${version}`,
     sessionMode: 'persistent',
     stateDir: join(stateDir(), 'acpx'),

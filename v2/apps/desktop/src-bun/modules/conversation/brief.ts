@@ -128,13 +128,23 @@ export function writeBrief(workspaceDir: string, input: BriefInput): void {
  * key is what makes a brief edit take effect: the key changes, a fresh
  * session is created with the new prompt, and the old record stays on disk.
  *
+ * The agent's process environment is in the material too. A session the
+ * runtime persisted is only resumable from the configuration directory it
+ * was recorded under, so moving that directory has to produce a new key:
+ * resuming across the move fails inside the runtime, permanently, with
+ * nothing this side can do about it afterwards.
+ *
  * The transcript is unaffected, because it is ours. The person sees one
  * continuous thread while the agent starts again.
  */
-export function briefVersion(input: BriefInput): string {
+export function briefVersion(
+  input: BriefInput,
+  env: Record<string, string> = {},
+): string {
   const material = JSON.stringify({
     document: briefDocument(input),
     tools: REPORTING_TOOL_NAMES,
+    env,
   })
   return createHash('sha256').update(material).digest('hex').slice(0, 12)
 }

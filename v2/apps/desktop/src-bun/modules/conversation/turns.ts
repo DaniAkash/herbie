@@ -5,6 +5,7 @@ import { writeRecord } from '@bun/modules/conversation/records'
 import {
   type AgentRow,
   type AgentSession,
+  closeSession,
   liveSession,
   sessionFor,
   target,
@@ -163,6 +164,7 @@ async function run(
   const current = session.current
   if (!current) return
   let reason: 'stop' | 'cancel' | 'error' = 'stop'
+  let dead = false
 
   try {
     const result = streamText({
@@ -174,13 +176,24 @@ async function run(
       abortSignal: current.controller.signal,
     })
 
+    let failure: string | null = null
     for await (const part of result.fullStream) {
       session.transcript.appendRaw(current.id, part)
+      failure ??= streamFailure(part)
       observe(db, session, part)
     }
 
     const finish = await result.finishReason
-    if (finish === 'error') reason = 'error'
+    if (finish === 'error') {
+      reason = 'error'
+      // The stream reports a failure as a part rather than by throwing, so
+      // without this the turn ends silently and the person is told only that
+      // there was nothing to report, which is not what happened.
+      const text = failure ?? 'The agent stopped without saying why.'
+      log.error('turn ended in error', { agent: agent.id, cause: text })
+      write(db, session, { kind: 'error', text })
+      dead = unresumable(text)
+    }
   } catch (cause) {
     reason = current.controller.signal.aborted ? 'cancel' : 'error'
     if (reason === 'error') {
@@ -189,7 +202,43 @@ async function run(
     }
   } finally {
     await settleTurn(db, session, reason)
+    // After the turn has settled, because settling reads the provider. A
+    // session the runtime cannot resume will fail the same way on every
+    // later turn, so it is dropped here and the next send builds a new one
+    // rather than leaving the agent permanently unable to answer.
+    if (dead) {
+      log.warn('session cannot be resumed, dropping it', { agent: agent.id })
+      await closeSession(session.agentId)
+    }
   }
+}
+
+/**
+ * The failure behind an errored turn, in the person's words where possible.
+ *
+ * Read from the step rather than the error part: the error part carries a
+ * code and no message, and the message is on the step's provider metadata.
+ */
+function streamFailure(part: unknown): string | null {
+  const typed = part as {
+    type?: string
+    providerMetadata?: { acpx?: { errorMessage?: unknown } }
+  }
+  if (typed.type !== 'finish-step') return null
+  const text = typed.providerMetadata?.acpx?.errorMessage
+  return typeof text === 'string' && text.length > 0 ? text : null
+}
+
+/**
+ * Whether the session behind this failure is gone for good.
+ *
+ * Matched on the message because the code is `RUNTIME` for every runtime
+ * fault and does not separate a dead session from a transient one. Being
+ * wrong is cheap either way: a miss leaves today's behaviour, and a false
+ * positive costs one fresh session.
+ */
+function unresumable(text: string): boolean {
+  return /could not be resumed/i.test(text)
 }
 
 /**
@@ -235,6 +284,10 @@ function promote(
  * a `say` block, marked as having come from the fallback. The mark matters:
  * if this fires often the contract is not landing, and a quiet fallback would
  * hide that while looking like it worked.
+ *
+ * Only on a turn that ran to its end. A turn that was cancelled or that
+ * failed has already said so, and telling the person there was nothing to
+ * report would describe the wrong thing as the problem.
  */
 async function settleTurn(
   db: Db,
@@ -244,7 +297,7 @@ async function settleTurn(
   const current = session.current
   if (!current) return
 
-  if (current.reported === 0 && reason !== 'cancel') {
+  if (current.reported === 0 && reason === 'stop') {
     const text = current.text.trim()
     write(db, session, {
       kind: 'say',
