@@ -30,7 +30,7 @@ export const QUIET_HOURS_KEY = 'loop.quietHours'
  * had no writer anywhere in production, which made "nothing runs from
  * eleven to seven" a sentence in the panel and nothing else.
  */
-export const DEFAULT_QUIET_HOURS = '23:00-07:00'
+const DEFAULT_QUIET_HOURS = '23:00-07:00'
 /** Finished rows older than this are dropped, so the ledger stays small. */
 function quietHours(db: Db): QuietHours | null {
   const row = db

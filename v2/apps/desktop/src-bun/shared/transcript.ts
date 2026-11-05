@@ -11,12 +11,6 @@
  * renders them, and nothing in between is allowed to reshape them.
  */
 
-/** A word of a `say` block. `cite` marks it as carrying a source marker. */
-export interface SayToken {
-  readonly text: string
-  readonly cite?: boolean
-}
-
 export interface SaySource {
   readonly name: string
   readonly domain: string
@@ -81,7 +75,10 @@ export interface RecommendOption {
   readonly recommended?: boolean
 }
 
-export interface ContextChunk {
+// Named apart from the registry component's own prop type of the same
+// shape. Both are exported, and two identical names across the tree is
+// how a barrel re-export silently resolves to the wrong one.
+export interface ContextPassage {
   readonly source: string
   readonly text: string
   readonly href?: string
@@ -96,7 +93,8 @@ export interface ContextChunk {
  */
 export type InsightKind = 'compare' | 'anomaly' | 'allocation'
 
-export interface InsightPage {
+// Renamed for the same reason as ContextPassage above.
+export interface InsightBoard {
   readonly kind: InsightKind
   readonly heading: string
   readonly prose: string
@@ -117,7 +115,7 @@ export interface PermissionChoice {
 }
 
 /** What every record carries, whoever wrote it. */
-interface RecordBase {
+export interface RecordBase {
   /** Monotonic per agent, and the cursor both routes take. */
   readonly seq: number
   readonly id: string
@@ -176,12 +174,12 @@ export type TranscriptRecord = RecordBase &
     | {
         readonly kind: 'show_context'
         readonly header: string
-        readonly chunks: readonly ContextChunk[]
+        readonly chunks: readonly ContextPassage[]
       }
     | {
         readonly kind: 'show_insight'
         readonly title: string
-        readonly pages: readonly InsightPage[]
+        readonly pages: readonly InsightBoard[]
       }
     | {
         readonly kind: 'ask'
@@ -214,8 +212,6 @@ export type TranscriptRecord = RecordBase &
     | { readonly kind: 'error'; readonly text: string }
   )
 
-export type RecordKind = TranscriptRecord['kind']
-
 /**
  * A record before the transcript has given it a place.
  *
@@ -235,7 +231,7 @@ export type DraftRecord = DistributiveOmit<
  * carrying only the keys they all share, which is `kind` and nothing else.
  * Distributing over the union first is what keeps each block's own payload.
  */
-type DistributiveOmit<T, K extends PropertyKey> = T extends unknown
+export type DistributiveOmit<T, K extends PropertyKey> = T extends unknown
   ? Omit<T, K>
   : never
 
@@ -256,11 +252,4 @@ export interface LiveTurn {
   readonly steps: number
   /** Seconds since the last block the person can see, or null if none yet. */
   readonly quietFor: number | null
-}
-
-/** What the replay route answers with, and what the stream pushes one of. */
-export interface TranscriptPage {
-  readonly records: readonly TranscriptRecord[]
-  readonly lastSeq: number
-  readonly live: LiveTurn | null
 }

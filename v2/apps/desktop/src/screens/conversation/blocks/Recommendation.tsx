@@ -3,7 +3,7 @@ import RecommendationCard, {
   type RecommendationOption,
 } from '@/components/primitives/RecommendationCard'
 
-type Recommend = Extract<TranscriptRecord, { kind: 'recommend' }>
+export type Recommend = Extract<TranscriptRecord, { kind: 'recommend' }>
 
 /**
  * A `recommend` block: a decision with a default and alternatives.

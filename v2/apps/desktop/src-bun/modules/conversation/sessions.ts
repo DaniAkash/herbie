@@ -285,7 +285,7 @@ export async function retireSession(db: Db, agentId: string): Promise<void> {
 }
 
 /** Forgets a session, closing the agent process behind it. */
-export async function closeSession(agentId: string): Promise<void> {
+async function closeSession(agentId: string): Promise<void> {
   const session = sessions.get(agentId)
   if (!session) return
   sessions.delete(agentId)

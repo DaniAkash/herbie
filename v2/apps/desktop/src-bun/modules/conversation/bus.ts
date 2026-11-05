@@ -20,7 +20,7 @@ export type Signal =
   | { readonly type: 'record'; readonly record: TranscriptRecord }
   | { readonly type: 'turn'; readonly live: LiveTurn | null }
 
-type Listener = (signal: Signal) => void
+export type Listener = (signal: Signal) => void
 
 const listeners = new Map<string, Set<Listener>>()
 

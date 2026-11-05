@@ -39,10 +39,7 @@ import {
 import { scan } from '@bun/modules/loop/scan'
 import { createWatchdog } from '@bun/modules/loop/watchdog'
 
-export {
-  DEFAULT_QUIET_HOURS,
-  QUIET_HOURS_KEY,
-} from '@bun/modules/loop/scan'
+export { QUIET_HOURS_KEY } from '@bun/modules/loop/scan'
 
 const KEEP_RUNS_MS = 14 * 24 * 60 * 60 * 1000
 

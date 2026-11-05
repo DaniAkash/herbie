@@ -6,7 +6,10 @@ import {
   sessionFor,
   target,
 } from '@bun/modules/conversation/sessions'
-import { openTranscript } from '@bun/modules/conversation/transcript'
+import {
+  openTranscript,
+  type Transcript,
+} from '@bun/modules/conversation/transcript'
 import {
   answer,
   cancelTurn,
@@ -27,6 +30,7 @@ import type { TranscriptRecord } from '@bun/shared/transcript'
 import { zValidator } from '@hono/zod-validator'
 import { eq } from 'drizzle-orm'
 import { Hono } from 'hono'
+import { HTTPException } from 'hono/http-exception'
 import { streamSSE } from 'hono/streaming'
 
 /**
@@ -46,6 +50,29 @@ function threadOf(deps: Deps, agentId: string) {
     .get()
   if (!agent) return null
   return openTranscript(agent.workspaceDir)
+}
+
+/**
+ * What both readers need before they can answer: the thread and the cursor.
+ *
+ * Replay and stream resolve the same two things from the same request, and
+ * written out twice they drifted apart once already. `missing` rather than
+ * null, so the caller cannot forget which of the two it got.
+ */
+function open(
+  deps: Deps,
+  c: {
+    req: {
+      param: (k: string) => string
+      valid: (k: 'query') => { after?: number }
+    }
+  },
+): { thread: Transcript; after: number } {
+  const thread = threadOf(deps, c.req.param('id'))
+  // Thrown rather than returned, so neither caller repeats the same three
+  // lines of unpacking and neither can forget to check.
+  if (!thread) throw new HTTPException(404, { message: 'no such agent' })
+  return { thread, after: c.req.valid('query').after ?? -1 }
 }
 
 export function conversationRoute(deps: Deps) {
@@ -115,9 +142,7 @@ export function conversationRoute(deps: Deps) {
 
       .get('/:id/transcript', zValidator('query', afterQuery), (c) => {
         const agentId = c.req.param('id')
-        const thread = threadOf(deps, agentId)
-        if (!thread) return c.json({ error: 'no such agent' }, 404)
-        const after = c.req.valid('query').after ?? -1
+        const { thread, after } = open(deps, c)
         const records = thread.read(after)
         return c.json({
           records,
@@ -137,9 +162,7 @@ export function conversationRoute(deps: Deps) {
        */
       .get('/:id/stream', zValidator('query', afterQuery), (c) => {
         const agentId = c.req.param('id')
-        const thread = threadOf(deps, agentId)
-        if (!thread) return c.json({ error: 'no such agent' }, 404)
-        const after = c.req.valid('query').after ?? -1
+        const { thread, after } = open(deps, c)
 
         return streamSSE(c, async (stream) => {
           const buffered: TranscriptRecord[] = []

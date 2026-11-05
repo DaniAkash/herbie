@@ -1,4 +1,4 @@
-import type { InsightPage } from '@bun/shared/transcript'
+import type { InsightBoard } from '@bun/shared/transcript'
 import { Liveline, type LivelinePoint, type LivelineSeries } from 'liveline'
 import { useDark } from '@/screens/conversation/blocks/insight.hooks'
 
@@ -15,7 +15,7 @@ import { useDark } from '@/screens/conversation/blocks/insight.hooks'
  * three kinds of chart, not any chart, and the tool's schema says which.
  */
 
-type Series = InsightPage['series']
+export type Series = InsightBoard['series']
 
 /**
  * The chart's horizontal span, in seconds.
