@@ -40,7 +40,33 @@ export interface BlockProps {
   ) => void
 }
 
-export function Block({
+export function Block(props: BlockProps) {
+  const content = renderBlock(props)
+  if (!content) return null
+  return (
+    <section
+      // biome-ignore lint/a11y/noNoninteractiveTabindex: Messages need focus to reveal timestamps without a mouse.
+      tabIndex={0}
+      className="group rounded-control focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+      aria-label={
+        props.record.kind === 'user' ? 'Your message' : 'Agent response'
+      }
+    >
+      {content}
+      <MessageMetadata
+        at={props.record.at}
+        startedAt={
+          props.record.kind === 'user'
+            ? undefined
+            : props.thread.turnStarts[props.record.turn]
+        }
+        mine={props.record.kind === 'user'}
+      />
+    </section>
+  )
+}
+
+function renderBlock({
   record,
   thread,
   agentName,
@@ -52,17 +78,10 @@ export function Block({
       return <Bubble who="You" mine record={record} />
 
     case 'error':
-      return (
-        <Bubble
-          who={agentName}
-          variant="danger"
-          record={record}
-          startedAt={thread.turnStarts[record.turn]}
-        />
-      )
+      return <Bubble who={agentName} variant="danger" record={record} />
 
     case 'say':
-      return <Say record={record} startedAt={thread.turnStarts[record.turn]} />
+      return <Say record={record} />
     case 'explain':
       return <Explain record={record} />
     case 'show_work':
@@ -122,19 +141,17 @@ function never(_unreachable: never): null {
 function Bubble({
   who,
   record,
-  startedAt,
   mine = false,
   variant = 'soft',
 }: {
   who: string
   record: Extract<TranscriptRecord, { kind: 'user' | 'error' }>
-  startedAt?: number
   mine?: boolean
   variant?: 'soft' | 'tint' | 'danger'
 }) {
   return (
     <MessageSideContext.Provider value={mine ? 'end' : 'start'}>
-      <div className="group grid gap-1.5">
+      <div className="grid gap-1.5">
         <div className={cn('text-[12px] text-ink-3', mine && 'text-right')}>
           {who}
         </div>
@@ -148,7 +165,6 @@ function Bubble({
             {record.text}
           </MessageBubbleContent>
         </MessageBubble>
-        <MessageMetadata at={record.at} startedAt={startedAt} mine={mine} />
       </div>
     </MessageSideContext.Provider>
   )
