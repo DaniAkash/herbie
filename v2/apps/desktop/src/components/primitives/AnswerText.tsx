@@ -33,6 +33,7 @@ export function AnswerText({
   sourcesLabel,
   followUpsLabel = 'You might ask',
   onFollowUp,
+  followUpsDisabled = false,
 }: {
   /** The answer, as markdown. */
   children: string
@@ -42,6 +43,7 @@ export function AnswerText({
   sourcesLabel?: string
   followUpsLabel?: string
   onFollowUp?: (text: string, index: number) => void
+  followUpsDisabled?: boolean
 }) {
   const [sourcesOpen, setSourcesOpen] = useState(false)
 
@@ -126,10 +128,11 @@ export function AnswerText({
               <button
                 key={text}
                 type="button"
+                disabled={followUpsDisabled || !onFollowUp}
                 onClick={() => onFollowUp?.(text, i)}
                 className="-mx-1.5 flex items-center gap-2 rounded-[7px] border-b border-line
                   px-1.5 py-1.5 text-left text-[12.5px] text-ink transition-colors
-                  duration-100 hover:bg-hover-2"
+                  duration-100 hover:bg-hover-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <svg
                   width="11"
@@ -187,7 +190,8 @@ function countedSources(count: number): string {
  */
 type Slot = { children?: ReactNode }
 
-const MARKDOWN: Components = {
+// Streamdown combines intrinsic props with an incompatible catch-all index signature.
+const MARKDOWN = {
   p: ({ children }: Slot) => <p className="my-1.5">{children}</p>,
   h1: ({ children }: Slot) => (
     <h1 className="mt-4 mb-1.5 text-[16px] font-semibold">{children}</h1>
@@ -260,7 +264,7 @@ const MARKDOWN: Components = {
       {children}
     </td>
   ),
-}
+} as unknown as Components
 
 /**
  * Copies the answer's markdown, and says so for a moment.

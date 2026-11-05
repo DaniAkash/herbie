@@ -18,13 +18,23 @@ type Explain = Extract<TranscriptRecord, { kind: 'explain' }>
  * The text is markdown and is rendered whole, because the agent writes the
  * whole block in one call.
  */
-export function Explain({ record }: { record: Explain }) {
+export function Explain({
+  record,
+  onFollowUp,
+  followUpsDisabled,
+}: {
+  record: Explain
+  onFollowUp: (text: string) => void
+  followUpsDisabled: boolean
+}) {
   const sources = record.sources ?? []
 
   return (
     <AnswerText
       sources={sources.map(avatar)}
       followUps={record.followUps ?? []}
+      onFollowUp={onFollowUp}
+      followUpsDisabled={followUpsDisabled}
     >
       {record.text}
     </AnswerText>
