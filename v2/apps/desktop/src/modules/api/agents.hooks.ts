@@ -28,9 +28,6 @@ type CreateAgentBody = InferRequestType<
 type PatchAgentBody = InferRequestType<
   Client['api']['agents'][':id']['$patch']
 >['json']
-type CreateRoutineBody = InferRequestType<
-  Client['api']['agents'][':id']['routines']['$post']
->['json']
 type PatchRoutineBody = InferRequestType<
   Client['api']['routines'][':id']['$patch']
 >['json']
@@ -44,10 +41,6 @@ type CreatedAgent = InferResponseType<Client['api']['agents']['$post'], 201>
 type PatchedAgent = InferResponseType<
   Client['api']['agents'][':id']['$patch'],
   200
->
-type CreatedRoutine = InferResponseType<
-  Client['api']['agents'][':id']['routines']['$post'],
-  201
 >
 type PatchedRoutine = InferResponseType<
   Client['api']['routines'][':id']['$patch'],
@@ -165,25 +158,6 @@ export const useDeleteAgent = createMutation({
     queryClient.invalidateQueries({ queryKey: useAgents.getKey() })
     queryClient.invalidateQueries({ queryKey: ['runtimes'] })
   },
-})
-
-export const useCreateRoutine = createMutation({
-  mutationFn: async ({
-    agentId,
-    ...body
-  }: CreateRoutineBody & { agentId: string }) => {
-    const client = await api()
-    return parseResponse<CreatedRoutine>(
-      await client.api.agents[':id'].routines.$post({
-        param: { id: agentId },
-        json: body,
-      }),
-    )
-  },
-  onSuccess: (_data, { agentId }) =>
-    queryClient.invalidateQueries({
-      queryKey: useRoutines.getKey({ agentId }),
-    }),
 })
 
 /**

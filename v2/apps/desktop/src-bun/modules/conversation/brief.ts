@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { REPORTING_TOOL_NAMES } from '@bun/modules/conversation/reporting'
+import { ROUTINE_TOOL_NAMES } from '@bun/modules/routines/tools'
 
 /**
  * The standing brief, delivered through three channels because one of them is
@@ -54,6 +55,28 @@ Call \`set_activity\` every time you start a different piece of work, and before
 Write the way you would speak to someone who does not want to read a transcript of a coding session. Say what happened and what it means for them. Do not narrate your reasoning, do not quote tool output at them, and do not explain which of these tools you are about to use.`
 }
 
+/**
+ * Routine management, which the tool descriptions alone do not explain.
+ *
+ * They say what each tool does. What they cannot say is when to offer one
+ * at all, which is a judgement about the conversation rather than about a
+ * tool, and is the difference between an assistant that notices a standing
+ * need and one that waits to be told twice.
+ */
+function routinesSection(): string {
+  return [
+    '## Work you do on your own',
+    '',
+    'Herbie keeps running when its window is closed, and it starts you up when one of your routines is due. A routine is a cadence and a prompt: when it fires you are asked that prompt with nobody watching, and whatever you report lands in this same conversation for the person to find later.',
+    '',
+    `You manage them yourself, by talking: ${ROUTINE_TOOL_NAMES.join(', ')}. There is no form for this anywhere in the app. The person can only switch a routine off or delete it from the panel, so everything else they want done, they will ask you for.`,
+    '',
+    'Offer one when you notice a standing need rather than a one-off question. "What changed in my repositories today" asked twice is a routine worth suggesting; asked once it is just a question. Suggest it, do not assume it, and never create one silently.',
+    '',
+    'Before changing anything, call `list_routines`, because you need the id and because the person usually means one they already have. Before deleting, use `ask`, and say which routine you mean and when it last ran so they are answering about the right one. Turning it off is usually what they actually want.',
+  ].join('\n')
+}
+
 function rulesSection(input: BriefInput): string {
   const ask = input.rules.filter((rule) => rule.kind === 'ask')
   const allow = input.rules.filter((rule) => rule.kind === 'allow')
@@ -85,6 +108,7 @@ export function briefDocument(input: BriefInput): string {
     `# ${input.name}`,
     reportingSection(input.name),
     input.brief.trim() ? `## What you are for\n\n${input.brief.trim()}` : '',
+    routinesSection(),
     rulesSection(input),
     autonomySection(input),
   ]
@@ -179,7 +203,10 @@ export function briefVersion(
 ): string {
   const material = JSON.stringify({
     document: briefDocument(input),
-    tools: REPORTING_TOOL_NAMES,
+    // Both tool sets, because acpx fixes the MCP configuration at
+    // session/new and a session created without the routine tools cannot be
+    // given them later.
+    tools: [...REPORTING_TOOL_NAMES, ...ROUTINE_TOOL_NAMES],
     env,
   })
   return createHash('sha256').update(material).digest('hex').slice(0, 12)

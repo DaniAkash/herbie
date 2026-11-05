@@ -209,8 +209,3 @@ function apply(state: ThreadState, record: TranscriptRecord): ThreadState {
 function exhausted(_unreachable: never, state: ThreadState): ThreadState {
   return state
 }
-
-/** Whether the person is being waited on by this block, right now. */
-export function isWaiting(state: ThreadState, recordId: string): boolean {
-  return state.pending.includes(recordId)
-}

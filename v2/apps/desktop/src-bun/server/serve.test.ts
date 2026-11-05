@@ -59,7 +59,7 @@ describe('the api', () => {
     expect(response.status).toBe(200)
     expect(await response.json()).toMatchObject({
       agentCount: 0,
-      migrations: MIGRATIONS.map((migration) => migration.name),
+      migrations: MIGRATIONS.map((migration) => migration.name).sort(),
     })
   })
 

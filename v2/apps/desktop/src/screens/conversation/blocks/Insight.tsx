@@ -1,4 +1,4 @@
-import type { InsightPage, TranscriptRecord } from '@bun/shared/transcript'
+import type { InsightBoard, TranscriptRecord } from '@bun/shared/transcript'
 import InsightCards from '@/components/primitives/InsightCards'
 import {
   AllocationChart,
@@ -23,7 +23,7 @@ const PLOTS = {
   allocation: AllocationChart,
 } as const
 
-const PILLS: Record<InsightPage['kind'], string> = {
+const PILLS: Record<InsightBoard['kind'], string> = {
   compare: 'Compare',
   anomaly: 'Outlier',
   allocation: 'Split',

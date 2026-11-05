@@ -36,6 +36,12 @@ export function routinesRoute(deps: Deps) {
         .where(eq(routines.id, c.req.param('id')))
         .returning()
         .get()
+
+      // Switching a routine back on is the person saying the thing that
+      // kept failing is dealt with, and it is the only signal the loop gets
+      // that a parked agent is worth trying again.
+      if (patch.enabled === true) deps.revive?.(row.agentId)
+
       return c.json({ routine: row })
     })
     .delete('/:id', (c) => {

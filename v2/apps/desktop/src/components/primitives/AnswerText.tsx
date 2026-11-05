@@ -190,7 +190,8 @@ function countedSources(count: number): string {
  */
 type Slot = { children?: ReactNode }
 
-const MARKDOWN: Components = {
+// Streamdown combines intrinsic props with an incompatible catch-all index signature.
+const MARKDOWN = {
   p: ({ children }: Slot) => <p className="my-1.5">{children}</p>,
   h1: ({ children }: Slot) => (
     <h1 className="mt-4 mb-1.5 text-[16px] font-semibold">{children}</h1>
@@ -263,7 +264,7 @@ const MARKDOWN: Components = {
       {children}
     </td>
   ),
-}
+} as unknown as Components
 
 /**
  * Copies the answer's markdown, and says so for a moment.

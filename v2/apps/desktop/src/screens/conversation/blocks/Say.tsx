@@ -6,7 +6,7 @@ import {
 import { MessageSideContext } from '@/components/agents/message-context'
 import { MessageMetadata } from '@/screens/conversation/blocks/MessageMetadata'
 
-type Said = Extract<TranscriptRecord, { kind: 'say' }>
+export type Said = Extract<TranscriptRecord, { kind: 'say' }>
 
 /**
  * A `say` block: plain text, shown whole.

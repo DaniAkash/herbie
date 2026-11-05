@@ -1,4 +1,4 @@
-import type { ContextChunk, TranscriptRecord } from '@bun/shared/transcript'
+import type { ContextPassage, TranscriptRecord } from '@bun/shared/transcript'
 import ContextCards from '@/components/primitives/ContextCards'
 
 type Context = Extract<TranscriptRecord, { kind: 'show_context' }>
@@ -34,7 +34,7 @@ export function Context({ record }: { record: Context }) {
 }
 
 /** The host of a link, or the source's own name when it is not one. */
-function label(chunk: ContextChunk): string {
+function label(chunk: ContextPassage): string {
   if (!chunk.href) return chunk.source
   try {
     return new URL(chunk.href).hostname
@@ -43,7 +43,7 @@ function label(chunk: ContextChunk): string {
   }
 }
 
-function badge(chunk: ContextChunk): string {
+function badge(chunk: ContextPassage): string {
   if (chunk.href?.startsWith('http')) return 'WEB'
   const extension = chunk.source.split('.').pop()
   return extension && extension !== chunk.source

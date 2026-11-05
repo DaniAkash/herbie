@@ -4,6 +4,7 @@ import { createLogger } from '@bun/lib/log'
 import { openDb } from '@bun/modules/db/db'
 import { ensureInstalledAt } from '@bun/modules/db/install'
 import { appliedMigrations } from '@bun/modules/db/migrate'
+import { startLoop } from '@bun/modules/loop/loop'
 import { createApp } from '@bun/server/app'
 import { startApi, stopServer } from '@bun/server/serve'
 
@@ -30,8 +31,14 @@ function main(): void {
   const { db, sqlite, path } = openDb()
   ensureInstalledAt(db)
 
+  // Built before the routes so they can reach it, and safe to build here:
+  // the first tick is a full interval away, so nothing runs before the API
+  // is listening to publish it to.
+  const loop = startLoop(db)
+
   const app = createApp({
     db,
+    revive: (agentId) => loop.revive(agentId),
     databasePath: path,
     agentsRoot: agentsDir(),
     skillsWorkspace: skillsDir(),
@@ -61,6 +68,9 @@ function main(): void {
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {
     process.on(signal, () => {
       log.info(`${signal} received, stopping`)
+      // Best effort. The ledger is the durability guarantee, not this path:
+      // a run claimed and never settled is requeued on the next boot.
+      loop.stop()
       stopServer()
       sqlite.close()
       process.exit(0)
