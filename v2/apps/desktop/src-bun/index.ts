@@ -31,8 +31,14 @@ function main(): void {
   const { db, sqlite, path } = openDb()
   ensureInstalledAt(db)
 
+  // Built before the routes so they can reach it, and safe to build here:
+  // the first tick is a full interval away, so nothing runs before the API
+  // is listening to publish it to.
+  const loop = startLoop(db)
+
   const app = createApp({
     db,
+    revive: (agentId) => loop.revive(agentId),
     databasePath: path,
     agentsRoot: agentsDir(),
     skillsWorkspace: skillsDir(),
@@ -58,11 +64,6 @@ function main(): void {
   }
 
   startApi({ app, defaultPort: DEFAULT_PORT, port: flag('port'), token })
-
-  // Started after the API, because a routine that fires immediately will
-  // write to the transcript and publish to the bus, and a watcher that
-  // connects a moment later reads the record back off disk either way.
-  const loop = startLoop(db)
 
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {
     process.on(signal, () => {

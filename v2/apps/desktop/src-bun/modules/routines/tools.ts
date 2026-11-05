@@ -65,6 +65,8 @@ export interface RoutineToolContext {
   readonly db: Db
   readonly agentId: string
   readonly now?: () => number
+  /** Clears a park when a routine is switched back on. */
+  readonly revive?: (agentId: string) => void
 }
 
 export function routineTools(
@@ -202,7 +204,11 @@ export function routineTools(
       inputSchema: schemaOf(enabledShape),
       execute: (input) => {
         const draft = parse(enabledShape, input)
-        return change(draft.id, { enabled: draft.enabled })
+        const after = change(draft.id, { enabled: draft.enabled })
+        // Same meaning as the panel's switch: on is the person saying the
+        // cause is dealt with, so a parked agent gets another chance.
+        if (draft.enabled) ctx.revive?.(ctx.agentId)
+        return after
       },
     },
 

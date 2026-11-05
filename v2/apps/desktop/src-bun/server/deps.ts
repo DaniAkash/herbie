@@ -14,6 +14,15 @@ export interface Deps {
   readonly agentsRoot: string
   /** Where skill bundles live, shared by every agent that links one. */
   readonly skillsWorkspace: string
+  /**
+   * Clears a parked agent, for the one caller who can know it is fixed.
+   *
+   * The loop parks an agent that keeps failing and nothing times that out,
+   * because recovering on a clock would simply park again on the next
+   * failure. Turning a routine back on is the person saying they dealt with
+   * the cause, so that is where this is called from.
+   */
+  readonly revive?: (agentId: string) => void
   readonly appliedMigrations: readonly string[]
   readonly startedAt: number
 }

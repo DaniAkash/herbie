@@ -4,9 +4,14 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { Db } from '@bun/modules/db/db'
 import { openDb } from '@bun/modules/db/db'
-import { agents, routineRuns, routines } from '@bun/modules/db/schema/schema'
+import {
+  agents,
+  routineRuns,
+  routines,
+  settings,
+} from '@bun/modules/db/schema/schema'
 import type { Clock } from '@bun/modules/loop/heartbeat'
-import { startLoop } from '@bun/modules/loop/loop'
+import { QUIET_HOURS_KEY, startLoop } from '@bun/modules/loop/loop'
 
 /**
  * The laptop-sleep path, driven through the whole loop rather than through
@@ -94,6 +99,9 @@ beforeEach(() => {
       workspaceDir: '/tmp/scout',
     })
     .run()
+  // Quiet hours off, explicitly. This file is about waking, and the
+  // overnight window would otherwise silence the very hours it tests.
+  db.insert(settings).values({ key: QUIET_HOURS_KEY, value: '' }).run()
   db.insert(routines)
     .values({
       id: 'r1',

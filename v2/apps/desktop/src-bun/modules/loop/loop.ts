@@ -1,16 +1,23 @@
 import { createLogger } from '@bun/lib/log'
 import { subscribe } from '@bun/modules/conversation/bus'
-import { liveTurn, startTurn } from '@bun/modules/conversation/turns'
+import {
+  cancelTurn,
+  liveTurn,
+  startTurn,
+} from '@bun/modules/conversation/turns'
 import type { Db } from '@bun/modules/db/db'
-import { agents, routines, settings } from '@bun/modules/db/schema/schema'
+import { agents, routines } from '@bun/modules/db/schema/schema'
 import {
   advance,
   allows,
+  BREAKER_THRESHOLD,
   type BreakerState,
   CLOSED,
   onCancelled,
   onFailure,
   onSuccess,
+  PARK_AFTER,
+  reset,
 } from '@bun/modules/loop/breaker'
 import {
   type Clock,
@@ -21,21 +28,33 @@ import {
 import {
   attachTurn,
   claimNext,
-  enqueue,
   prune,
+  recentFailures,
   recoverOrphans,
   renew,
   runForTurn,
   settleRun,
   waitingAgents,
 } from '@bun/modules/loop/queue'
-import {
-  parseQuietHours,
-  type QuietHours,
-  slotOf,
-  verdictFor,
-} from '@bun/modules/loop/schedule'
+import { scan } from '@bun/modules/loop/scan'
 import { createWatchdog } from '@bun/modules/loop/watchdog'
+
+export {
+  DEFAULT_QUIET_HOURS,
+  QUIET_HOURS_KEY,
+} from '@bun/modules/loop/scan'
+
+const KEEP_RUNS_MS = 14 * 24 * 60 * 60 * 1000
+
+export interface Loop {
+  stop: () => void
+  /** Puts a parked agent back to work, for the person who fixed the cause. */
+  revive: (agentId: string) => void
+  /** For tests and for the live soak: run one pass by hand. */
+  tick: (at: number) => void
+  stateOf: (agentId: string) => BreakerState
+}
+
 import { eq } from 'drizzle-orm'
 
 const log = createLogger('loop')
@@ -49,69 +68,6 @@ const log = createLogger('loop')
  * only way a turn begins, and a second runner would mean two sessions per
  * agent and two transcripts to reconcile.
  */
-
-export const QUIET_HOURS_KEY = 'loop.quietHours'
-/** Finished rows older than this are dropped, so the ledger stays small. */
-const KEEP_RUNS_MS = 14 * 24 * 60 * 60 * 1000
-
-export interface Loop {
-  stop: () => void
-  /** For tests and for the live soak: run one pass by hand. */
-  tick: (at: number) => void
-  stateOf: (agentId: string) => BreakerState
-}
-
-function quietHours(db: Db): QuietHours | null {
-  const row = db
-    .select()
-    .from(settings)
-    .where(eq(settings.key, QUIET_HOURS_KEY))
-    .get()
-  return parseQuietHours(row?.value ?? null)
-}
-
-/**
- * Enqueues whatever this minute owes, once.
- *
- * Quiet hours record a skipped row rather than holding the work, because a
- * report about this morning delivered at seven is useful and eight overnight
- * reports delivered at once are not.
- */
-function scan(db: Db, at: number): void {
-  const quiet = quietHours(db)
-  const slot = slotOf(at)
-
-  for (const routine of db.select().from(routines).all()) {
-    const verdict = verdictFor(
-      {
-        id: routine.id,
-        agentId: routine.agentId,
-        cron: routine.cron,
-        enabled: routine.enabled,
-        kind: routine.kind,
-      },
-      at,
-      quiet,
-    )
-    if (verdict === 'not-due') continue
-
-    const created = enqueue(db, {
-      routineId: routine.id,
-      agentId: routine.agentId,
-      dueAt: slot,
-      state: verdict === 'quiet' ? 'skipped' : 'queued',
-    })
-    if (created) {
-      log.info(
-        verdict === 'quiet' ? 'routine skipped, quiet hours' : 'routine due',
-        {
-          routine: routine.id,
-          agent: routine.agentId,
-        },
-      )
-    }
-  }
-}
 
 export function startLoop(
   db: Db,
@@ -127,6 +83,8 @@ export function startLoop(
   const breakers = new Map<string, BreakerState>()
   const dog = createWatchdog()
   const held = new Map<string, string>()
+  /** Agents this loop cancelled for not progressing, so settle can tell. */
+  const wedged = new Set<string>()
   let lastPruneAt = 0
 
   const stateOf = (agentId: string): BreakerState =>
@@ -135,6 +93,26 @@ export function startLoop(
   // Boot is the one moment every lease is known stale. Requeue rather than
   // wait it out: a 24x7 process may not restart again for weeks.
   recoverOrphans(db)
+
+  // A park is a safety decision, and it must not be undone by a restart.
+  // Reconstructed from the ledger rather than persisted separately, so there
+  // is no second copy of the streak to keep in step with the first.
+  for (const agent of db.select().from(agents).all()) {
+    const streak = recentFailures(db, agent.id)
+    if (streak >= PARK_AFTER * BREAKER_THRESHOLD) {
+      breakers.set(agent.id, {
+        phase: 'parked',
+        streak,
+        trips: PARK_AFTER,
+        openedAt: Date.now(),
+        retryAt: null,
+      })
+      log.warn('agent is still parked from before the restart', {
+        agent: agent.id,
+        failures: streak,
+      })
+    }
+  }
 
   /**
    * Closes the run a finished turn belonged to.
@@ -171,34 +149,83 @@ export function startLoop(
     }
   }
 
+  /**
+   * Watches one agent, for progress and for the end of its turn.
+   *
+   * The watchdog is fed from here rather than from the pass, which is the
+   * correction that makes it a watchdog at all. Feeding it on the loop's own
+   * tick proved only that the loop was running: a turn wedged inside acpx
+   * would have been renewed forever by the very thing meant to notice it.
+   * Every signal on this bus is the agent doing something, so this is the
+   * evidence the deadline should be measured against.
+   */
   const watch = (agentId: string): (() => void) =>
     subscribe(agentId, (signal) => {
+      dog.feed(agentId, Date.now())
+
       if (signal.type !== 'record') return
       const record = signal.record
       if (record.kind !== 'turn.end') return
 
       const run = runForTurn(db, record.turn)
-      if (run) settle(agentId, run.id, record.reason)
+      if (!run) return
+      // A cancel this loop asked for is a failure, not the person stopping
+      // work. Without this a wedged agent would clear its own streak.
+      const reason = wedged.has(agentId) ? 'error' : record.reason
+      wedged.delete(agentId)
+      settle(agentId, run.id, reason)
     })
 
   const watchers = new Map<string, () => void>()
 
-  /** Whether this agent can be handed work right now, and the upkeep if not. */
+  /** Whether this agent can be handed work right now. */
   const readyFor = (agentId: string, at: number): boolean => {
     const before = stateOf(agentId)
     const state = advance(before, at)
     if (state !== before) breakers.set(agentId, state)
     if (!allows(state, at)) return false
 
-    // Already working. Renew what it holds so the lease does not lapse under
-    // a turn that is genuinely running, and come back next tick.
-    const running = held.get(agentId)
-    if (running !== undefined) {
-      renew(db, running, at)
-      dog.feed(agentId, at)
-      return false
-    }
+    // Upkeep deliberately does not live here. This is reached only for
+    // agents the drain found work for, and an agent with a healthy run in
+    // flight and nothing queued behind it is not one of them, so renewing
+    // from here left the common case never renewed at all.
+    if (held.has(agentId)) return false
     return liveTurn(agentId) === null
+  }
+
+  /**
+   * Keeps alive what this loop is holding, and gives up on what is not.
+   *
+   * Runs on every pass over every held run, rather than only over agents the
+   * drain happens to visit. A lease renewed only when other work is queued
+   * is a lease that lapses under exactly the turn it exists to protect.
+   */
+  const upkeep = (at: number): void => {
+    for (const [agentId, runId] of [...held]) {
+      if (dog.wedged(at).includes(agentId)) continue
+      renew(db, runId, at)
+    }
+
+    for (const agentId of dog.wedged(at)) {
+      const runId = held.get(agentId)
+      if (runId === undefined) continue
+
+      // Stop renewing and take the session back. Clearing the bookkeeping
+      // alone would leave the hung turn live, and every later pass would
+      // refuse to claim for this agent because a turn was still running.
+      log.warn('agent stopped making progress, cancelling its turn', {
+        agent: agentId,
+      })
+      wedged.add(agentId)
+      held.delete(agentId)
+      dog.forget(agentId)
+      if (!cancelTurn(agentId, 'no progress')) {
+        // Nothing to cancel, so nothing will settle the row either.
+        settleRun(db, runId, 'failed', 'stopped making progress')
+        wedged.delete(agentId)
+        breakers.set(agentId, onFailure(stateOf(agentId), at))
+      }
+    }
   }
 
   const startOne = (agentId: string, at: number): void => {
@@ -212,6 +239,13 @@ export function startLoop(
       .get()
     if (!routine) {
       settleRun(db, run.id, 'failed', 'the routine was deleted')
+      return
+    }
+    // Checked here and not only at scan time. A slot enqueued while the
+    // agent was busy would otherwise still run after the person switched
+    // the routine off, which is the opposite of what the switch means.
+    if (!routine.enabled) {
+      settleRun(db, run.id, 'skipped', 'the routine was turned off')
       return
     }
 
@@ -246,16 +280,9 @@ export function startLoop(
       log.info('woke after a gap, re-anchored', { sleptMs: tick.slept })
     }
 
+    upkeep(tick.at)
     scan(db, tick.at)
     drain(tick.at)
-
-    for (const agentId of dog.wedged(tick.at)) {
-      log.warn('agent stopped feeding, letting its lease lapse', {
-        agent: agentId,
-      })
-      held.delete(agentId)
-      dog.forget(agentId)
-    }
 
     if (tick.at - lastPruneAt > 60 * 60 * 1000) {
       lastPruneAt = tick.at
@@ -273,6 +300,18 @@ export function startLoop(
   }
 
   return {
+    /**
+     * Clears a park, which nothing else can do.
+     *
+     * The person is the only one who knows the cause is fixed, so this is
+     * reached from them turning a routine back on rather than from a timer.
+     * Recovering on a clock would just park again on the next failure.
+     */
+    revive(agentId) {
+      if (stateOf(agentId).phase !== 'parked') return
+      breakers.set(agentId, reset())
+      log.info('agent revived', { agent: agentId })
+    },
     stop() {
       beat?.stop()
       for (const off of watchers.values()) off()

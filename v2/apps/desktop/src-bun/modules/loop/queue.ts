@@ -1,7 +1,7 @@
 import { createLogger } from '@bun/lib/log'
 import type { Db } from '@bun/modules/db/db'
 import { routineRuns } from '@bun/modules/db/schema/schema'
-import { and, asc, eq, inArray, lt, or, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, lt, or, sql } from 'drizzle-orm'
 
 const log = createLogger('loop')
 
@@ -160,7 +160,7 @@ export function attachTurn(db: Db, runId: string, turnId: string): void {
 export function settleRun(
   db: Db,
   runId: string,
-  state: 'done' | 'failed',
+  state: 'done' | 'failed' | 'skipped',
   error?: string,
 ): void {
   db.update(routineRuns)
@@ -241,4 +241,35 @@ export function prune(db: Db, before: number): number {
     .returning()
     .all()
   return rows.length
+}
+
+/**
+ * How many of an agent's most recent runs failed, newest first.
+ *
+ * The breaker lives in memory, which means a restart would otherwise clear
+ * a park and quietly reverse a safety decision. Reading the streak back off
+ * the ledger is what makes the decision survive, without a second copy of
+ * it to keep in step. Skipped runs are not judged: they never reached the
+ * agent, so they are evidence of nothing.
+ */
+export function recentFailures(db: Db, agentId: string, limit = 5): number {
+  const rows = db
+    .select()
+    .from(routineRuns)
+    .where(
+      and(
+        eq(routineRuns.agentId, agentId),
+        inArray(routineRuns.state, ['done', 'failed']),
+      ),
+    )
+    .orderBy(desc(routineRuns.dueAt))
+    .limit(limit)
+    .all()
+
+  let streak = 0
+  for (const row of rows) {
+    if (row.state !== 'failed') break
+    streak += 1
+  }
+  return streak
 }

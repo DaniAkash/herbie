@@ -46,7 +46,7 @@ export function AgentRoutines({
       ) : null}
 
       {evented.length > 0 ? (
-        <PanelSection label="When something happens">
+        <PanelSection label="When something happens, one day">
           {evented.map((routine) => (
             <RoutineRow key={routine.id} routine={routine} agentId={agentId} />
           ))}
@@ -105,9 +105,12 @@ function RoutineRow({
   const remove = useDeleteRoutine()
   const Icon = routine.kind === 'event' ? Bell : Clock
 
-  // A schedule with no cron never fires, which the panel has to say rather
-  // than showing a switch that looks on and does nothing.
-  const silent = routine.kind === 'schedule' && !routine.cron
+  // Two ways a routine cannot run: a cadence Herbie could not read, and an
+  // event trigger, which nothing fires yet. Both have to be said rather
+  // than shown as a switch that looks on and does nothing.
+  const silent =
+    routine.kind !== 'schedule' ||
+    (routine.kind === 'schedule' && !routine.cron)
 
   return (
     <PanelRow
@@ -148,6 +151,13 @@ function RoutineRow({
  * ordinary case of when it next goes.
  */
 function Status({ routine, silent }: { routine: Routine; silent: boolean }) {
+  if (routine.kind !== 'schedule') {
+    return (
+      <span className="text-ink-3">
+        Waiting on something that cannot happen yet
+      </span>
+    )
+  }
   if (silent) {
     return (
       <span className="text-red">
