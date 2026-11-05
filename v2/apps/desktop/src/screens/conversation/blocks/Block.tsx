@@ -10,6 +10,7 @@ import { Code } from '@/screens/conversation/blocks/Code'
 import { Context } from '@/screens/conversation/blocks/Context'
 import { Explain } from '@/screens/conversation/blocks/Explain'
 import { Insight } from '@/screens/conversation/blocks/Insight'
+import { MessageMetadata } from '@/screens/conversation/blocks/MessageMetadata'
 import { Permission } from '@/screens/conversation/blocks/Permission'
 import { Recommendation } from '@/screens/conversation/blocks/Recommendation'
 import { Say } from '@/screens/conversation/blocks/Say'
@@ -28,6 +29,8 @@ export interface BlockProps {
   readonly record: TranscriptRecord
   readonly thread: ThreadState
   readonly agentName: string
+  readonly onFollowUp: (text: string) => void
+  readonly followUpsDisabled: boolean
   readonly onAnswer: (
     recordId: string,
     answers: Record<string, number[]>,
@@ -43,20 +46,35 @@ export function Block({
   record,
   thread,
   agentName,
+  onFollowUp,
+  followUpsDisabled,
   onAnswer,
   onDecide,
 }: BlockProps) {
   switch (record.kind) {
     case 'user':
-      return <Bubble who="You" mine text={record.text} />
+      return <Bubble who="You" mine record={record} />
 
     case 'error':
-      return <Bubble who={agentName} variant="danger" text={record.text} />
+      return (
+        <Bubble
+          who={agentName}
+          variant="danger"
+          record={record}
+          startedAt={thread.turnStarts[record.turn]}
+        />
+      )
 
     case 'say':
-      return <Say record={record} />
+      return <Say record={record} startedAt={thread.turnStarts[record.turn]} />
     case 'explain':
-      return <Explain record={record} />
+      return (
+        <Explain
+          record={record}
+          onFollowUp={onFollowUp}
+          followUpsDisabled={followUpsDisabled}
+        />
+      )
     case 'show_work':
       return <Work record={record} />
     case 'show_tasks':
@@ -113,26 +131,34 @@ function never(_unreachable: never): null {
 
 function Bubble({
   who,
-  text,
+  record,
+  startedAt,
   mine = false,
   variant = 'soft',
 }: {
   who: string
-  text: string
+  record: Extract<TranscriptRecord, { kind: 'user' | 'error' }>
+  startedAt?: number
   mine?: boolean
   variant?: 'soft' | 'tint' | 'danger'
 }) {
   return (
     <MessageSideContext.Provider value={mine ? 'end' : 'start'}>
-      <div className="grid gap-1.5">
+      <div className="group grid gap-1.5">
         <div className={cn('text-[12px] text-ink-3', mine && 'text-right')}>
           {who}
         </div>
         <MessageBubble variant={mine ? 'tint' : variant}>
-          <MessageBubbleContent className="max-w-[560px]">
-            {text}
+          <MessageBubbleContent
+            className={cn(
+              'max-w-[560px]',
+              mine && 'dark:text-[#28241f] dark:[--muted:#f3f0e9]',
+            )}
+          >
+            {record.text}
           </MessageBubbleContent>
         </MessageBubble>
+        <MessageMetadata at={record.at} startedAt={startedAt} mine={mine} />
       </div>
     </MessageSideContext.Provider>
   )

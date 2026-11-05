@@ -2,7 +2,9 @@ import { Link, useParams } from '@tanstack/react-router'
 import { Plug, Plus, Search, Settings } from 'lucide-react'
 import { useState } from 'react'
 import { AgentFace } from '@/components/agent/AgentFace'
+import { ConversationFace } from '@/components/agent/ConversationFace'
 import { AgentStateDot } from '@/components/shell/AgentStateDot'
+import { SidebarProfile } from '@/components/shell/SidebarProfile'
 import { cn } from '@/lib/utils'
 import type { Agent } from '@/modules/api/agents.hooks'
 import { openOverlay } from '@/modules/navigation/overlay'
@@ -55,13 +57,20 @@ export function AgentRail({ agents }: { agents: readonly Agent[] }) {
             <AgentFace
               color={agent.color}
               shape={agent.shape}
-              animate={agent.id === active || agent.id === hovered}
+              animate={
+                agent.state === 'working' ||
+                agent.state === 'stuck' ||
+                agent.id === active ||
+                agent.id === hovered
+              }
               state={
                 agent.state === 'working'
                   ? 'thinking'
                   : agent.state === 'stuck'
-                    ? 'input-needed'
-                    : 'idle'
+                    ? 'error'
+                    : agent.id === hovered && agent.state !== 'off'
+                      ? 'delighted'
+                      : 'idle'
               }
               off={agent.state === 'off'}
             />
@@ -98,21 +107,10 @@ export function AgentRail({ agents }: { agents: readonly Agent[] }) {
               'transition-colors duration-150 ease-out hover:bg-hover aria-[current]:bg-hover-2',
             )}
           >
-            <AgentFace
-              color={agent.color}
-              shape={agent.shape}
-              animate={agent.id === active || agent.id === hovered}
-              size="xl"
-              state={
-                agent.id === hovered
-                  ? 'blink'
-                  : agent.state === 'working'
-                    ? 'thinking'
-                    : agent.state === 'stuck'
-                      ? 'input-needed'
-                      : 'idle'
-              }
-              off={agent.state === 'off'}
+            <ConversationFace
+              agent={agent}
+              selected={agent.id === active}
+              hovered={agent.id === hovered}
             />
             <span className="min-w-0">
               <span className="block font-medium text-[13.5px] leading-tight">
@@ -128,8 +126,7 @@ export function AgentRail({ agents }: { agents: readonly Agent[] }) {
       </div>
 
       <div className="flex items-center gap-2 px-2.5 pt-[7px] pb-2.5">
-        <div className="size-[23px] shrink-0 rounded-full bg-hover-2" />
-        <span className="font-medium text-[13.5px]">Dani</span>
+        <SidebarProfile />
         <span className="flex-1" />
         <RailIcon to="tools" label="Tools">
           <Plug size={16} />
@@ -156,7 +153,8 @@ function RailIcon({
       to="."
       search={openOverlay(to)}
       aria-label={label}
-      className="inline-flex size-7 items-center justify-center rounded-control text-ink-3 transition-[background-color,color,transform] duration-150 ease-out hover:bg-hover hover:text-ink active:scale-[0.96]"
+      data-tooltip-side={to === 'search' || to === 'new' ? 'bottom' : undefined}
+      className="icon-tooltip inline-flex size-7 items-center justify-center rounded-control text-ink-3 transition-[background-color,color,transform] duration-150 ease-out hover:bg-hover hover:text-ink active:scale-[0.96]"
     >
       {children}
     </Link>

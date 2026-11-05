@@ -1,6 +1,7 @@
 import { AGENT_SHAPES } from '@bun/shared/schemas'
 import { useIsMutating } from '@tanstack/react-query'
 import { useNavigate, useSearch } from '@tanstack/react-router'
+import { useState } from 'react'
 import { Controller } from 'react-hook-form'
 import { AgentFace } from '@/components/agent/AgentFace'
 import { Button } from '@/components/atoms/Button'
@@ -144,10 +145,11 @@ export function NewAgentOverlay() {
 function WhoItIsStep({ form }: { form: AgentForm }) {
   const color = form.watch('color')
   const shape = form.watch('shape') ?? 'squircle'
+  const [hoveredShape, setHoveredShape] = useState<string | null>(null)
 
   return (
     <div className="grid justify-items-center gap-5">
-      <AgentFace color={color} shape={shape} size="preview" />
+      <AgentFace color={color} shape={shape} size="preview" animate />
       <fieldset className="w-full">
         <legend className="mb-3 font-medium text-ink-2 text-sm">
           Choose a shape
@@ -156,6 +158,8 @@ function WhoItIsStep({ form }: { form: AgentForm }) {
           {AGENT_SHAPES.map((option) => (
             <label
               key={option}
+              onMouseEnter={() => setHoveredShape(option)}
+              onMouseLeave={() => setHoveredShape(null)}
               className="grid cursor-pointer place-items-center rounded-control py-2.5 transition-colors hover:bg-hover has-[:checked]:bg-hover-2 has-[:focus-visible]:outline has-[:focus-visible]:outline-2"
             >
               <input
@@ -163,9 +167,18 @@ function WhoItIsStep({ form }: { form: AgentForm }) {
                 value={option}
                 aria-label={option.replaceAll('-', ' ')}
                 className="sr-only"
-                {...form.register('shape')}
+                {...form.register('shape', {
+                  onBlur: () => setHoveredShape(null),
+                })}
+                onFocus={() => setHoveredShape(option)}
               />
-              <AgentFace color={color} shape={option} size="lg" />
+              <AgentFace
+                color={color}
+                shape={option}
+                size="lg"
+                animate={option === shape || option === hoveredShape}
+                state={option === hoveredShape ? 'delighted' : 'idle'}
+              />
             </label>
           ))}
         </div>

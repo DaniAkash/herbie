@@ -111,8 +111,9 @@ export function startTurn(
   }
 
   write(db, session, { kind: 'user', text })
-  write(db, session, { kind: 'turn.start' })
+  // Publish only after the rail can read the new state.
   setState(db, agentId, 'working', 'Thinking')
+  write(db, session, { kind: 'turn.start' })
 
   void run(db, session, agent, text).catch((cause) => {
     log.error('turn crashed outside its own handler', {

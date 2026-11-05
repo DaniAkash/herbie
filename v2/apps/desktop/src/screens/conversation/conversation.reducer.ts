@@ -19,6 +19,8 @@ export type Phase = 'idle' | 'thinking' | 'working' | 'waiting'
 export interface ThreadState {
   /** What the thread renders, in order, lifecycle records already dropped. */
   readonly records: readonly TranscriptRecord[]
+  /** Start times retained per turn for message timing, including replay. */
+  readonly turnStarts: Readonly<Record<string, number>>
   /** Answers, by the id of the `ask` record they belong to. */
   readonly answers: Readonly<Record<string, Record<string, readonly number[]>>>
   /** Decisions, by the id of the `permission` record they settle. */
@@ -37,6 +39,7 @@ export interface ThreadState {
 
 export const EMPTY: ThreadState = {
   records: [],
+  turnStarts: {},
   answers: {},
   decisions: {},
   pending: [],
@@ -89,6 +92,7 @@ function applyLive(state: ThreadState, live: LiveTurn | null): ThreadState {
   }
   return {
     ...state,
+    turnStarts: { ...state.turnStarts, [live.turnId]: live.startedAt },
     phase: state.pending.length > 0 ? 'waiting' : live.phase,
     activity: live.activity,
     startedAt: live.startedAt,
@@ -108,6 +112,10 @@ function apply(state: ThreadState, record: TranscriptRecord): ThreadState {
       return {
         ...state,
         phase: 'thinking',
+        turnStarts: {
+          ...state.turnStarts,
+          [record.turn]: Date.parse(record.at),
+        },
         startedAt: Date.parse(record.at),
         steps: 0,
         error: null,

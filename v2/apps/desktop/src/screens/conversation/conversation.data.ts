@@ -160,5 +160,5 @@ function sendFailure(cause: unknown): string {
   if (text.includes('409')) {
     return 'Still working on the last message. Wait for it to finish, or stop it first.'
   }
-  return 'Could not send that. Your message is still in the box.'
+  return 'Could not send that. Please try again.'
 }

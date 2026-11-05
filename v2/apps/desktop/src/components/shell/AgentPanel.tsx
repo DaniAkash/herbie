@@ -64,8 +64,10 @@ export function AgentPanel({ children }: { children: React.ReactNode }) {
             agent.state === 'working'
               ? 'thinking'
               : agent.state === 'stuck'
-                ? 'input-needed'
-                : 'idle'
+                ? 'error'
+                : agent.state !== 'off'
+                  ? 'look-left'
+                  : 'idle'
           }
           off={agent.state === 'off'}
         />

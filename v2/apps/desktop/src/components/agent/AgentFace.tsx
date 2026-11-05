@@ -1,6 +1,7 @@
 import { useReducedMotion } from 'motion/react'
 import { useId } from 'react'
 import fallback from '@/assets/herbie-motion/static/squircle/idle.svg?raw'
+import { steadyFace } from '@/components/agent/steady-face'
 import { cn } from '@/lib/utils'
 
 const HUE: Record<string, string> = {
@@ -32,6 +33,13 @@ type FaceState =
   | 'input-needed'
   | 'error'
   | 'scheduled'
+  | 'delighted'
+  | 'surprised'
+  | 'gentle-nod'
+  | 'look-up'
+  | 'look-down'
+  | 'look-left'
+  | 'look-right'
 
 /** Locally bundled SVGs render as vectors, with IDs isolated per instance. */
 export function AgentFace({
@@ -55,11 +63,21 @@ export function AgentFace({
   const reduce = useReducedMotion()
   const silhouette = shapes.has(shape) ? shape : 'squircle'
   const kind = animate && !reduce ? 'motion' : 'static'
+  const expression =
+    reduce &&
+    (state === 'blink' ||
+      state === 'delighted' ||
+      state === 'surprised' ||
+      state === 'gentle-nod' ||
+      state.startsWith('look-'))
+      ? 'idle'
+      : state
   const source =
-    assets[`../../assets/herbie-motion/${kind}/${silhouette}/${state}.svg`] ??
-    fallback
+    assets[
+      `../../assets/herbie-motion/${kind}/${silhouette}/${expression}.svg`
+    ] ?? fallback
   // The bundled assets are trusted; IDs must be unique across faces.
-  const svg = source
+  const svg = steadyFace(source)
     .replaceAll('id="face"', `id="face-${id}"`)
     .replaceAll('url(#face)', `url(#face-${id})`)
     .replaceAll('id="title"', `id="title-${id}"`)
@@ -68,13 +86,13 @@ export function AgentFace({
       'aria-labelledby="title desc"',
       `aria-labelledby="title-${id} desc-${id}"`,
     )
-    .replace(
-      '<defs>',
-      `<defs><linearGradient id="color-${id}" x1="0" y1="0" x2="0.8" y2="1"><stop offset="0" stop-color="color-mix(in srgb, currentColor 72%, white)"/><stop offset="0.48" stop-color="currentColor"/><stop offset="1" stop-color="color-mix(in srgb, currentColor 72%, black)"/></linearGradient><radialGradient id="shine-${id}" cx="30%" cy="28%" r="55%" gradientTransform="translate(0 .12) scale(1 .65)"><stop offset="0" stop-color="white" stop-opacity=".58"/><stop offset=".42" stop-color="white" stop-opacity=".18"/><stop offset="1" stop-color="white" stop-opacity="0"/></radialGradient>`,
-    )
+    .replaceAll('fill="#006239"', 'fill="currentColor"')
+    // The pack's blink waits several seconds; a hover should respond promptly.
     .replaceAll(
-      `<rect width="512" height="512" fill="#006239" mask="url(#face-${id})"/>`,
-      `<rect width="512" height="512" fill="url(#color-${id})" mask="url(#face-${id})"/><rect width="512" height="512" fill="url(#shine-${id})" mask="url(#face-${id})"/>`,
+      'keyTimes="0;0.67;0.70;0.73;0.78;0.81;0.84;1"',
+      expression === 'blink'
+        ? 'keyTimes="0;0.03;0.06;0.09;0.78;0.81;0.84;1"'
+        : 'keyTimes="0;0.67;0.70;0.73;0.78;0.81;0.84;1"',
     )
   const px = SIZE[size]
   return (

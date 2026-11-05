@@ -145,3 +145,52 @@
 .composer-host textarea {
   box-sizing: content-box;
 }
+
+/* Visible hints mirror the accessible names on compact icon controls. */
+.icon-tooltip,
+.composer-host button[aria-label] {
+  position: relative;
+}
+
+.icon-tooltip::after,
+.composer-host button[aria-label]::after {
+  content: attr(aria-label);
+  position: absolute;
+  z-index: 50;
+  bottom: calc(100% + 7px);
+  left: 50%;
+  width: max-content;
+  max-width: 180px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: var(--ink);
+  color: var(--page);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.25;
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(-50%);
+}
+
+.icon-tooltip:hover::after,
+.icon-tooltip:focus-visible::after,
+.composer-host button[aria-label]:hover::after,
+.composer-host button[aria-label]:focus-visible::after {
+  opacity: 1;
+  visibility: visible;
+}
+
+.icon-tooltip[data-tooltip-side="bottom"]::after,
+.icon-tooltip[data-tooltip-side="bottom-end"]::after {
+  top: calc(100% + 7px);
+  bottom: auto;
+}
+
+.icon-tooltip[data-tooltip-side="bottom-end"]::after {
+  right: 0;
+  left: auto;
+  transform: none;
+}

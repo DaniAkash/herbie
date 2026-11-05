@@ -74,6 +74,10 @@ export function Conversation({ agent }: { agent: Agent }) {
             record={record}
             thread={thread}
             agentName={agent.name}
+            onFollowUp={(text) => {
+              void conversation.send(text)
+            }}
+            followUpsDisabled={working || conversation.isSending}
             onAnswer={conversation.answer}
             onDecide={conversation.decide}
           />
@@ -101,6 +105,7 @@ export function Conversation({ agent }: { agent: Agent }) {
         */}
         <PromptInput
           placeholder={`Message ${agent.name}`}
+          aria-label={`Message ${agent.name}`}
           value={draft}
           onValueChange={setDraft}
           models={[{ value: agent.acpAgent, label: runtimeName }]}
@@ -140,7 +145,7 @@ function faceState(phase: Phase, error: string | null, state: string) {
   if (phase === 'waiting') return 'input-needed'
   if (phase !== 'idle') return 'thinking'
   if (error) return 'error'
-  return state === 'stuck' ? 'input-needed' : 'idle'
+  return state === 'stuck' ? 'error' : 'idle'
 }
 
 /** The agent, its state, and the way into its panel. */
@@ -160,11 +165,14 @@ function Header({
   const working = phase !== 'idle'
   const expression = faceState(phase, error, agent.state)
   return (
-    <div className="flex items-center gap-2.5 px-[22px] py-2.5">
+    <div className="flex items-center gap-2.5 border-line border-b px-[22px] py-2.5">
       <AgentFace
         key={`${agentId}-${expression}`}
         color={agent.color}
         shape={agent.shape}
+        animate={
+          phase === 'thinking' || phase === 'working' || phase === 'waiting'
+        }
         size="xl"
         state={expression}
       />
@@ -181,8 +189,9 @@ function Header({
         params={{ agentId }}
         aria-label={panelOpen ? 'Hide agent settings' : 'Show agent settings'}
         aria-pressed={panelOpen}
+        data-tooltip-side="bottom-end"
         className={cn(
-          'inline-flex size-7 items-center justify-center rounded-control transition-colors',
+          'icon-tooltip inline-flex size-7 items-center justify-center rounded-control transition-colors',
           panelOpen
             ? 'bg-hover-2 text-ink'
             : 'text-ink-3 hover:bg-hover hover:text-ink',
