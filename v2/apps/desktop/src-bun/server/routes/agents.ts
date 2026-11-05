@@ -3,8 +3,14 @@ import {
   deleteAgent,
   plannedWorkspace,
 } from '@bun/modules/agents/agents'
-import { agentRules, agents, routines } from '@bun/modules/db/schema/schema'
+import {
+  agentRules,
+  agents,
+  routineRuns,
+  routines,
+} from '@bun/modules/db/schema/schema'
 import { toCron } from '@bun/modules/routines/cadence'
+import { nextRun } from '@bun/modules/routines/tools'
 import { moveAccess } from '@bun/modules/tools/access'
 import type { Deps } from '@bun/server/deps'
 import {
@@ -15,8 +21,50 @@ import {
   workspaceQuery,
 } from '@bun/shared/schemas'
 import { zValidator } from '@hono/zod-validator'
-import { asc, eq } from 'drizzle-orm'
+import { and, asc, desc, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
+
+/**
+ * What the ledger says about a routine, for the panel to show.
+ *
+ * Read from the run rows rather than from the loop, so the panel is right
+ * after a restart and does not need the loop wired into the server. A
+ * routine is failing when its most recent attempts all failed in a row:
+ * that is the same signal the breaker acts on, derived rather than shared.
+ */
+function runState(
+  db: Deps['db'],
+  routineId: string,
+): { running: boolean; failingSince: string | null } {
+  const recent = db
+    .select()
+    .from(routineRuns)
+    .where(eq(routineRuns.routineId, routineId))
+    .orderBy(desc(routineRuns.dueAt))
+    .limit(3)
+    .all()
+
+  const running =
+    db
+      .select()
+      .from(routineRuns)
+      .where(
+        and(
+          eq(routineRuns.routineId, routineId),
+          eq(routineRuns.state, 'running'),
+        ),
+      )
+      .get() !== undefined
+
+  const judged = recent.filter((row) => row.state !== 'skipped')
+  const failing =
+    judged.length >= 3 && judged.every((row) => row.state === 'failed')
+
+  return {
+    running,
+    failingSince: failing ? (judged.at(-1)?.dueAt ?? null) : null,
+  }
+}
 
 /**
  * Agents, their conversations, their routines and their rules.
@@ -105,7 +153,18 @@ export function agentsRoute(deps: Deps) {
           .where(eq(routines.agentId, c.req.param('id')))
           .orderBy(asc(routines.createdAt))
           .all()
-        return c.json({ routines: rows })
+
+        // The panel shows state, not just configuration, now that something
+        // actually runs these. All of it is derived from the ledger rather
+        // than from the loop's memory, so a restart does not blank it.
+        const now = Date.now()
+        return c.json({
+          routines: rows.map((row) => ({
+            ...row,
+            nextRunAt: row.enabled ? nextRun(row.cron, now) : null,
+            ...runState(deps.db, row.id),
+          })),
+        })
       })
       .post('/:id/routines', zValidator('json', createRoutineBody), (c) => {
         const body = c.req.valid('json')

@@ -117,11 +117,17 @@
       },
       {
         "from": "ui-components",
-        "allow": ["ui-components", "ui-modules", "ui-lib"]
+        "allow": ["ui-components", "ui-modules", "ui-lib", "bun-contract"]
       },
       {
         "from": "ui-screens",
-        "allow": ["ui-screens", "ui-components", "ui-modules", "ui-lib"]
+        "allow": [
+          "ui-screens",
+          "ui-components",
+          "ui-modules",
+          "ui-lib",
+          "bun-contract"
+        ]
       },
       {
         "from": "ui-routes",
@@ -153,7 +159,18 @@
       "apps/desktop/src/lib/command-search.ts"
     ],
     "maxUnitSize": 120,
-    "maxCrap": 240
+    "maxCrap": 240,
+    "thresholdOverrides": [
+      {
+        "files": [
+          "apps/desktop/src/screens/conversation/conversation.reducer.ts",
+          "apps/desktop/src/screens/conversation/blocks/Block.tsx"
+        ],
+        "maxCyclomatic": 30,
+        "maxCrap": 400,
+        "reason": "One exhaustive switch over the transcript record union. Every branch is a single return and the compiler proves the switch total, so the count tracks how many kinds of block an agent can report rather than how hard either function is to follow. Splitting them would hide that exhaustiveness behind a lookup and lose the check that catches a new kind with no renderer. The CRAP ceiling is raised for the same reason and for one more: with no coverage file wired up it is estimated from export references, so it is reading the complexity twice rather than measuring risk. Drop both ceilings once a coverage report is fed to fallow."
+      }
+    ]
   },
   "duplicates": {
     "ignore": [

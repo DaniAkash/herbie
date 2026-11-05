@@ -5,7 +5,7 @@ import {
 } from '@/components/agents/message-bubble'
 import { MessageSideContext } from '@/components/agents/message-context'
 
-type Said = Extract<TranscriptRecord, { kind: 'say' }>
+export type Said = Extract<TranscriptRecord, { kind: 'say' }>
 
 /**
  * A `say` block: plain text, shown whole.

@@ -12,7 +12,7 @@
  * the awaiting side resolves cleanly instead of timing out.
  */
 
-interface Waiting<T> {
+export interface Waiting<T> {
   readonly resolve: (value: T) => void
   /** What to resolve with when the turn is cancelled underneath it. */
   readonly onCancel: () => T
