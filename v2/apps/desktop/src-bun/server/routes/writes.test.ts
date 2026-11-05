@@ -52,10 +52,23 @@ afterEach(() => {
 })
 
 describe('creating an agent', () => {
+  test('persists a selected shape', async () => {
+    const response = await post('/api/agents', {
+      ...DRAFT,
+      shape: 'rounded-arch',
+    })
+    const { agent } = await response.json()
+    expect(agent.shape).toBe('rounded-arch')
+    expect(
+      (await (await app.request('/api/agents')).json()).agents[0].shape,
+    ).toBe('rounded-arch')
+  })
+
   test('gives it a readable id and the folder to go with it', async () => {
     const response = await post('/api/agents', DRAFT)
     expect(response.status).toBe(201)
     const { agent } = await response.json()
+    expect(agent.shape).toBe('squircle')
     expect(agent.id).toBe('reader')
     expect(agent.workspaceDir).toBe(join(dir, 'agents', 'reader'))
     expect(existsSync(agent.workspaceDir)).toBe(true)

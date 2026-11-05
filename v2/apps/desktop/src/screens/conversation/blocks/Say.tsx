@@ -4,6 +4,7 @@ import {
   MessageBubbleContent,
 } from '@/components/agents/message-bubble'
 import { MessageSideContext } from '@/components/agents/message-context'
+import { MessageMetadata } from '@/screens/conversation/blocks/MessageMetadata'
 
 export type Said = Extract<TranscriptRecord, { kind: 'say' }>
 
@@ -21,15 +22,22 @@ export type Said = Extract<TranscriptRecord, { kind: 'say' }>
  *
  * `explain` is the surface for an answer that earns the chrome.
  */
-export function Say({ record }: { record: Said }) {
+export function Say({
+  record,
+  startedAt,
+}: {
+  record: Said
+  startedAt?: number
+}) {
   return (
     <MessageSideContext.Provider value="start">
-      <div className="grid gap-1.5">
+      <div className="group grid gap-1.5">
         <MessageBubble variant="soft">
           <MessageBubbleContent className="max-w-[560px] whitespace-pre-wrap">
             {record.text}
           </MessageBubbleContent>
         </MessageBubble>
+        <MessageMetadata at={record.at} startedAt={startedAt} />
         {record.fallback ? <FallbackSeam /> : null}
       </div>
     </MessageSideContext.Provider>
