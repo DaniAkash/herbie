@@ -10,6 +10,7 @@ import { Code } from '@/screens/conversation/blocks/Code'
 import { Context } from '@/screens/conversation/blocks/Context'
 import { Explain } from '@/screens/conversation/blocks/Explain'
 import { Insight } from '@/screens/conversation/blocks/Insight'
+import { MessageMetadata } from '@/screens/conversation/blocks/MessageMetadata'
 import { Permission } from '@/screens/conversation/blocks/Permission'
 import { Recommendation } from '@/screens/conversation/blocks/Recommendation'
 import { Say } from '@/screens/conversation/blocks/Say'
@@ -39,7 +40,33 @@ export interface BlockProps {
   ) => void
 }
 
-export function Block({
+export function Block(props: BlockProps) {
+  const content = renderBlock(props)
+  if (!content) return null
+  return (
+    <section
+      // biome-ignore lint/a11y/noNoninteractiveTabindex: Messages need focus to reveal timestamps without a mouse.
+      tabIndex={0}
+      className="group rounded-control focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+      aria-label={
+        props.record.kind === 'user' ? 'Your message' : 'Agent response'
+      }
+    >
+      {content}
+      <MessageMetadata
+        at={props.record.at}
+        startedAt={
+          props.record.kind === 'user'
+            ? undefined
+            : props.thread.turnStarts[props.record.turn]
+        }
+        mine={props.record.kind === 'user'}
+      />
+    </section>
+  )
+}
+
+function renderBlock({
   record,
   thread,
   agentName,
@@ -48,10 +75,10 @@ export function Block({
 }: BlockProps) {
   switch (record.kind) {
     case 'user':
-      return <Bubble who="You" mine text={record.text} />
+      return <Bubble who="You" mine record={record} />
 
     case 'error':
-      return <Bubble who={agentName} variant="danger" text={record.text} />
+      return <Bubble who={agentName} variant="danger" record={record} />
 
     case 'say':
       return <Say record={record} />
@@ -113,12 +140,12 @@ function never(_unreachable: never): null {
 
 function Bubble({
   who,
-  text,
+  record,
   mine = false,
   variant = 'soft',
 }: {
   who: string
-  text: string
+  record: Extract<TranscriptRecord, { kind: 'user' | 'error' }>
   mine?: boolean
   variant?: 'soft' | 'tint' | 'danger'
 }) {
@@ -129,8 +156,13 @@ function Bubble({
           {who}
         </div>
         <MessageBubble variant={mine ? 'tint' : variant}>
-          <MessageBubbleContent className="max-w-[560px]">
-            {text}
+          <MessageBubbleContent
+            className={cn(
+              'max-w-[560px]',
+              mine && 'dark:text-[#28241f] dark:[--muted:#f3f0e9]',
+            )}
+          >
+            {record.text}
           </MessageBubbleContent>
         </MessageBubble>
       </div>

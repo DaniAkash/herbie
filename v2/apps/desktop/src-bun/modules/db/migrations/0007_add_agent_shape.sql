@@ -1,0 +1,1 @@
+ALTER TABLE `agents` ADD `shape` text DEFAULT 'squircle' NOT NULL;

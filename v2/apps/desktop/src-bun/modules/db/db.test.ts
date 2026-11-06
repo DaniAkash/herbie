@@ -36,6 +36,30 @@ describe('opening the database', () => {
     expect(new Set(appliedMigrations(sqlite)).size).toBe(MIGRATIONS.length)
   })
 
+  test('upgrades a development database that already has agent shapes', () => {
+    const path = join(dir, 'herbie.sqlite')
+    const { sqlite, db } = openDb(path)
+    db.insert(agents)
+      .values({
+        id: 'a1',
+        name: 'Scout',
+        acpAgent: 'claude',
+        workspaceDir: '/tmp/scout',
+        shape: 'circle',
+      })
+      .run()
+    // Simulate the earlier branch migration before upstream added routine runs.
+    sqlite.exec('DROP TABLE routine_runs')
+    sqlite
+      .query('DELETE FROM __herbie_migrations WHERE name = ?')
+      .run('0006_add_routine_runs')
+    sqlite.close()
+    const reopened = openDb(path)
+    expect(reopened.db.select().from(agents).get()?.shape).toBe('circle')
+    expect(pendingMigrations(reopened.sqlite)).toHaveLength(0)
+    reopened.sqlite.close()
+  })
+
   test('writes and reads back through drizzle', () => {
     const { db } = openDb(join(dir, 'herbie.sqlite'))
     db.insert(agents)

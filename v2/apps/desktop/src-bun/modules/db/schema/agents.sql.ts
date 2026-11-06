@@ -21,6 +21,7 @@ export const agents = sqliteTable('agents', {
 
   /** One of the six face colours. Identity only, never an accent. */
   color: text('color').notNull().default('ops'),
+  shape: text('shape').notNull().default('squircle'),
   /** The standing brief, prepended to every turn. */
   brief: text('brief').notNull().default(''),
   /** idle | working | stuck | off. Owned by the loop, read by the rail. */
