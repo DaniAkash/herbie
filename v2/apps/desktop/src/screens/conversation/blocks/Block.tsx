@@ -28,6 +28,8 @@ export interface BlockProps {
   readonly record: TranscriptRecord
   readonly thread: ThreadState
   readonly agentName: string
+  readonly onFollowUp: (text: string) => void
+  readonly followUpsDisabled: boolean
   readonly onAnswer: (
     recordId: string,
     answers: Record<string, number[]>,
@@ -43,6 +45,8 @@ export function Block({
   record,
   thread,
   agentName,
+  onFollowUp,
+  followUpsDisabled,
   onAnswer,
   onDecide,
 }: BlockProps) {
@@ -56,7 +60,13 @@ export function Block({
     case 'say':
       return <Say record={record} />
     case 'explain':
-      return <Explain record={record} />
+      return (
+        <Explain
+          record={record}
+          onFollowUp={onFollowUp}
+          followUpsDisabled={followUpsDisabled}
+        />
+      )
     case 'show_work':
       return <Work record={record} />
     case 'show_tasks':

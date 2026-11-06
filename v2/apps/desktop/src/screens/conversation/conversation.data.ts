@@ -1,5 +1,5 @@
 import type { TranscriptRecord } from '@bun/shared/transcript'
-import { useEffect, useReducer, useRef, useState } from 'react'
+import { useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { useAgents } from '@/modules/api/agents.hooks'
 import {
   useAnswer,
@@ -14,6 +14,7 @@ import {
   type ThreadState,
   threadReducer,
 } from '@/screens/conversation/conversation.reducer'
+import { createTurnGate } from '@/screens/conversation/turn-gate'
 
 /**
  * Everything the conversation screen needs, as one hook.
@@ -58,6 +59,10 @@ const RECONNECT_MS = 1500
 export function useConversation(agentId: string): ConversationData {
   const [thread, dispatch] = useReducer(threadReducer, EMPTY)
   const [connection, setConnection] = useState<Connection>('connecting')
+  const [lockedAgent, setLockedAgent] = useState<string | null>(null)
+  const gate = useMemo(() => ({ agentId, ...createTurnGate() }), [agentId])
+  const activeGate = useRef(gate)
+  activeGate.current = gate
   const send = useSendTurn()
   const cancel = useCancelTurn()
   const answer = useAnswer()
@@ -74,12 +79,26 @@ export function useConversation(agentId: string): ConversationData {
   // closes the old stream rather than leaving two open.
   useEffect(() => {
     dispatch({ type: 'reset' })
+    setLockedAgent(null)
     cursor.current = -1
     setConnection('connecting')
 
     let closed = false
     let close = () => {}
     let retry: ReturnType<typeof setTimeout> | undefined
+
+    const onRecord = (data: string) => {
+      const record: TranscriptRecord = JSON.parse(data)
+      if (
+        record.kind === 'turn.end' &&
+        gate.end(record.turn) &&
+        activeGate.current === gate
+      )
+        setLockedAgent(null)
+      dispatch({ type: 'record', record })
+      if (updatesAgent(record))
+        queryClient.invalidateQueries({ queryKey: useAgents.getKey() })
+    }
 
     const connect = () => {
       close = openStream(
@@ -88,21 +107,7 @@ export function useConversation(agentId: string): ConversationData {
           onEvent: (event, data) => {
             setConnection('open')
             if (event === 'record') {
-              const record: TranscriptRecord = JSON.parse(data)
-              dispatch({ type: 'record', record })
-              // The rail reads the agent row's own state and activity
-              // columns, which the runtime moves as the turn does. Nothing
-              // else would tell the list to re-read them, so a finished turn
-              // would sit there saying "Thinking" until something unrelated
-              // refetched. Activity is included because that label is what
-              // the rail shows while a long turn is running.
-              if (
-                record.kind === 'turn.start' ||
-                record.kind === 'turn.end' ||
-                record.kind === 'activity'
-              ) {
-                queryClient.invalidateQueries({ queryKey: useAgents.getKey() })
-              }
+              onRecord(data)
               return
             }
             if (event === 'turn') {
@@ -124,17 +129,23 @@ export function useConversation(agentId: string): ConversationData {
       clearTimeout(retry)
       close()
     }
-  }, [agentId])
+  }, [agentId, gate])
 
   return {
     thread,
     connection,
-    isSending: send.isPending || cancel.isPending,
+    isSending: send.isPending || cancel.isPending || lockedAgent === agentId,
     send: async (text) => {
+      if (!gate.begin()) return false
+      setLockedAgent(agentId)
       try {
-        await send.mutateAsync({ agentId, text })
+        const result = await send.mutateAsync({ agentId, text })
+        if (!gate.accept(result.turnId) && activeGate.current === gate)
+          setLockedAgent(null)
         return true
       } catch {
+        gate.fail()
+        if (activeGate.current === gate) setLockedAgent(null)
         // Reported through sendError rather than thrown on: the composer is
         // the only caller and it needs the answer, not an exception.
         return false
@@ -160,5 +171,13 @@ function sendFailure(cause: unknown): string {
   if (text.includes('409')) {
     return 'Still working on the last message. Wait for it to finish, or stop it first.'
   }
-  return 'Could not send that. Your message is still in the box.'
+  return 'Could not send that. Please try again.'
+}
+
+function updatesAgent(record: TranscriptRecord): boolean {
+  return (
+    record.kind === 'turn.start' ||
+    record.kind === 'turn.end' ||
+    record.kind === 'activity'
+  )
 }

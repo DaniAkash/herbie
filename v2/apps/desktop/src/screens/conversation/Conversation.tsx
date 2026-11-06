@@ -73,6 +73,10 @@ export function Conversation({ agent }: { agent: Agent }) {
             record={record}
             thread={thread}
             agentName={agent.name}
+            onFollowUp={(text) => {
+              void conversation.send(text)
+            }}
+            followUpsDisabled={working || conversation.isSending}
             onAnswer={conversation.answer}
             onDecide={conversation.decide}
           />
