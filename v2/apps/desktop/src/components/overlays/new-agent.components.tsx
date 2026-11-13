@@ -1,5 +1,5 @@
+import { AnimateIcon } from '@animate-ui/react/icons'
 import { Radio as RadioPrimitive } from '@animate-ui/react/primitives/base-ui/radio'
-import { Check, ChevronLeft } from 'lucide-react'
 import {
   arc,
   LayoutGroup,
@@ -8,6 +8,8 @@ import {
   useReducedMotion,
 } from 'motion/react'
 import { useId } from 'react'
+import { Check } from '@/components/animate-ui/icons/check'
+import { ChevronLeft } from '@/components/animate-ui/icons/chevron-left'
 import { RadioGroup } from '@/components/ui/radio-group'
 import { SPRING_LAYOUT, SPRING_PRESS } from '@/lib/ease'
 import { cn } from '@/lib/utils'
@@ -149,13 +151,15 @@ function Step({
 
 export function BackButton({ onClick }: { onClick: () => void }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label="Back"
-      className="-ml-1 inline-flex size-7 shrink-0 items-center justify-center rounded-control text-ink-3 hover:bg-hover hover:text-ink"
-    >
-      <ChevronLeft size={16} />
-    </button>
+    <AnimateIcon animateOnHover asChild>
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label="Back"
+        className="-ml-1 inline-flex size-7 shrink-0 items-center justify-center rounded-control text-ink-3 hover:bg-hover hover:text-ink"
+      >
+        <ChevronLeft size={16} />
+      </button>
+    </AnimateIcon>
   )
 }

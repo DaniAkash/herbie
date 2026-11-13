@@ -1,5 +1,8 @@
+import { AnimateIcon } from '@animate-ui/react/icons'
 import { Link } from '@tanstack/react-router'
-import { FolderOpen, Pencil, Plus } from 'lucide-react'
+import { FolderOpen } from '@/components/animate-ui/icons/folder-open'
+import { Pencil } from '@/components/animate-ui/icons/pencil'
+import { Plus } from '@/components/animate-ui/icons/plus'
 import { Overlay } from '@/components/shell/Overlay'
 import { PanelRow, PanelSection } from '@/components/shell/Rows'
 import { Button } from '@/components/ui/button'
@@ -51,24 +54,28 @@ export function ToolsOverlay() {
                 <span className="inline-flex items-center rounded-full bg-field px-2 py-0.5 font-medium text-[12px] text-ink-2 shadow-hairline">
                   {server.status === 'failed' ? 'failed' : server.kind}
                 </span>
-                <Link
-                  to="."
-                  search={openOverlay('server', server.id)}
-                  aria-label={`Edit ${server.name}`}
-                  className="inline-flex size-7 items-center justify-center rounded-control text-ink-3 hover:bg-hover hover:text-ink"
-                >
-                  <Pencil size={15} />
-                </Link>
+                <AnimateIcon animateOnHover asChild>
+                  <Link
+                    to="."
+                    search={openOverlay('server', server.id)}
+                    aria-label={`Edit ${server.name}`}
+                    className="inline-flex size-7 items-center justify-center rounded-control text-ink-3 hover:bg-hover hover:text-ink"
+                  >
+                    <Pencil size={15} />
+                  </Link>
+                </AnimateIcon>
               </PanelRow>
             ))}
           </PanelSection>
 
           <div className="-mt-4 mb-6 flex justify-end">
             <Link to="." search={openOverlay('server', 'new')}>
-              <Button size="xs" variant="ghost">
-                <Plus size={14} />
-                Add server
-              </Button>
+              <AnimateIcon animateOnHover asChild>
+                <Button size="xs" variant="ghost">
+                  <Plus size={14} />
+                  Add server
+                </Button>
+              </AnimateIcon>
             </Link>
           </div>
 
@@ -82,10 +89,12 @@ export function ToolsOverlay() {
           </PanelSection>
 
           <div className="-mt-4 flex justify-end">
-            <Button size="xs" variant="ghost">
-              <FolderOpen size={14} />
-              Open folder
-            </Button>
+            <AnimateIcon animateOnHover asChild>
+              <Button size="xs" variant="ghost">
+                <FolderOpen size={14} />
+                Open folder
+              </Button>
+            </AnimateIcon>
           </div>
         </>
       ) : null}

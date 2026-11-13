@@ -1,6 +1,8 @@
-import { CheckCircle2, Info, Loader2 } from 'lucide-react'
 import { useState } from 'react'
 import { Controller } from 'react-hook-form'
+import { CircleCheckBig } from '@/components/animate-ui/icons/circle-check-big'
+import { Info } from '@/components/animate-ui/icons/info'
+import { LoaderCircle } from '@/components/animate-ui/icons/loader-circle'
 import { TextField } from '@/components/form/TextField'
 import { Button } from '@/components/ui/button'
 import { shortenHome } from '@/lib/paths'
@@ -35,7 +37,7 @@ export function ProbeLine({
 }) {
   if (pending) {
     return (
-      <Note icon={<Loader2 size={14} className="animate-spin" />}>
+      <Note icon={<LoaderCircle size={14} animate loop />}>
         Asking it what it can do...
       </Note>
     )
@@ -65,7 +67,7 @@ export function ProbeLine({
     )
   }
   return (
-    <Note icon={<CheckCircle2 size={14} className="text-accent" />}>
+    <Note icon={<CircleCheckBig size={14} className="text-accent" />}>
       {runtime.displayName} answered:{' '}
       {count(runtime.modelValues.length, 'model')}
       {runtime.efforts.length > 0

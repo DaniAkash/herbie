@@ -1,4 +1,7 @@
-import { Bell, Clock, Trash2 } from 'lucide-react'
+import { AnimateIcon } from '@animate-ui/react/icons'
+import { Bell } from '@/components/animate-ui/icons/bell'
+import { Clock } from '@/components/animate-ui/icons/clock'
+import { Trash2 } from '@/components/animate-ui/icons/trash-2'
 import { SwitchField } from '@/components/form/SwitchField'
 import { PanelRow, PanelSection } from '@/components/shell/Rows'
 import {
@@ -123,14 +126,16 @@ function RoutineRow({
       k={<span className="text-[13.5px]">{routine.name}</span>}
       v={<Status routine={routine} silent={silent} />}
     >
-      <button
-        type="button"
-        aria-label={`Delete ${routine.name}`}
-        onClick={() => remove.mutate({ id: routine.id, agentId })}
-        className="inline-flex size-7 items-center justify-center rounded-control text-ink-3 hover:bg-hover hover:text-red"
-      >
-        <Trash2 size={14} />
-      </button>
+      <AnimateIcon animateOnHover asChild>
+        <button
+          type="button"
+          aria-label={`Delete ${routine.name}`}
+          onClick={() => remove.mutate({ id: routine.id, agentId })}
+          className="inline-flex size-7 items-center justify-center rounded-control text-ink-3 hover:bg-hover hover:text-red"
+        >
+          <Trash2 size={14} />
+        </button>
+      </AnimateIcon>
       <SwitchField
         checked={routine.enabled}
         disabled={silent}

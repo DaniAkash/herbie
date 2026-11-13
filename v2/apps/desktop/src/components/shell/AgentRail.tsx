@@ -1,6 +1,10 @@
+import { AnimateIcon } from '@animate-ui/react/icons'
 import { Link, useParams } from '@tanstack/react-router'
-import { Plug, Plus, Search, Settings } from 'lucide-react'
+import { Plug } from 'lucide-react'
 import { AgentFace } from '@/components/agent/AgentFace'
+import { Plus } from '@/components/animate-ui/icons/plus'
+import { Search } from '@/components/animate-ui/icons/search'
+import { Settings } from '@/components/animate-ui/icons/settings'
 import { AgentStateDot } from '@/components/shell/AgentStateDot'
 import { cn } from '@/lib/utils'
 import type { Agent } from '@/modules/api/agents.hooks'
@@ -123,13 +127,15 @@ function RailIcon({
   children: React.ReactNode
 }) {
   return (
-    <Link
-      to="."
-      search={openOverlay(to)}
-      aria-label={label}
-      className="inline-flex size-7 items-center justify-center rounded-control text-ink-3 transition-[background-color,color,transform] duration-150 ease-out hover:bg-hover hover:text-ink active:scale-[0.96]"
-    >
-      {children}
-    </Link>
+    <AnimateIcon animateOnHover asChild>
+      <Link
+        to="."
+        search={openOverlay(to)}
+        aria-label={label}
+        className="inline-flex size-7 items-center justify-center rounded-control text-ink-3 transition-[background-color,color,transform] duration-150 ease-out hover:bg-hover hover:text-ink active:scale-[0.96]"
+      >
+        {children}
+      </Link>
+    </AnimateIcon>
   )
 }

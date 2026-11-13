@@ -1,8 +1,8 @@
 import { skipToken } from '@tanstack/react-query'
-import { Info } from 'lucide-react'
 import { useEffect } from 'react'
 import { Controller } from 'react-hook-form'
 import { EffortControl } from '@/components/agent/EffortControl'
+import { Info } from '@/components/animate-ui/icons/info'
 
 import {
   FolderSection,

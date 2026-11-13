@@ -1,5 +1,8 @@
-import { ArrowUp, Plus, Square } from 'lucide-react'
+import { AnimateIcon } from '@animate-ui/react/icons'
+import { Square } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
+import { ArrowUp } from '@/components/animate-ui/icons/arrow-up'
+import { Plus } from '@/components/animate-ui/icons/plus'
 import { Button } from '@/components/ui/button'
 import {
   Popover,
@@ -166,30 +169,32 @@ export function PromptSendButton({
   const reduce = useReducedMotion() ?? false
 
   return (
-    <Button
-      type={loading ? 'button' : 'submit'}
-      size="icon"
-      disabled={loading ? !onStop : !canSubmit}
-      aria-label={loading ? 'Stop generating' : 'Send prompt'}
-      onClick={loading ? onStop : undefined}
-      className="ml-auto size-8 rounded-full"
-    >
-      <AnimatePresence initial={false} mode="popLayout">
-        <motion.span
-          key={loading ? 'stop' : 'send'}
-          initial={reduce ? { opacity: 1 } : { opacity: 0, y: 3, scale: 0.8 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={reduce ? { opacity: 0 } : { opacity: 0, y: -3, scale: 0.8 }}
-          transition={reduce ? { duration: 0 } : SPRING_SWAP}
-          className="grid place-items-center"
-        >
-          {loading ? (
-            <Square className="size-3 fill-current" />
-          ) : (
-            <ArrowUp className="size-4" />
-          )}
-        </motion.span>
-      </AnimatePresence>
-    </Button>
+    <AnimateIcon animateOnHover asChild>
+      <Button
+        type={loading ? 'button' : 'submit'}
+        size="icon"
+        disabled={loading ? !onStop : !canSubmit}
+        aria-label={loading ? 'Stop generating' : 'Send prompt'}
+        onClick={loading ? onStop : undefined}
+        className="ml-auto size-8 rounded-full"
+      >
+        <AnimatePresence initial={false} mode="popLayout">
+          <motion.span
+            key={loading ? 'stop' : 'send'}
+            initial={reduce ? { opacity: 1 } : { opacity: 0, y: 3, scale: 0.8 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={reduce ? { opacity: 0 } : { opacity: 0, y: -3, scale: 0.8 }}
+            transition={reduce ? { duration: 0 } : SPRING_SWAP}
+            className="grid place-items-center"
+          >
+            {loading ? (
+              <Square className="size-3 fill-current" />
+            ) : (
+              <ArrowUp className="size-4" />
+            )}
+          </motion.span>
+        </AnimatePresence>
+      </Button>
+    </AnimateIcon>
   )
 }

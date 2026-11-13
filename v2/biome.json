@@ -19,6 +19,7 @@
       "!apps/desktop/src/components/motion",
       "!apps/desktop/src/components/ui",
       "!apps/desktop/src/components/agents",
+      "!apps/desktop/src/components/animate-ui/icons/**",
       "!apps/desktop/src/styles/beautifui",
       "!apps/desktop/src/lib/hooks",
       "!apps/desktop/src/lib/touch.ts",

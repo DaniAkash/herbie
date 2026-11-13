@@ -1,6 +1,8 @@
+import { AnimateIcon } from '@animate-ui/react/icons'
 import { Link } from '@tanstack/react-router'
-import { Check, ChevronRight } from 'lucide-react'
 import { AgentFace } from '@/components/agent/AgentFace'
+import { Check } from '@/components/animate-ui/icons/check'
+import { ChevronRight } from '@/components/animate-ui/icons/chevron-right'
 import { shortenHome } from '@/lib/paths'
 import { cn } from '@/lib/utils'
 import { type Agent, useRoutines } from '@/modules/api/agents.hooks'
@@ -91,34 +93,36 @@ function Todo({
   v: string
 }) {
   return (
-    <Link
-      to={`/agents/$agentId/${to}`}
-      params={{ agentId }}
-      className="flex items-center gap-2.5 bg-page px-3 py-2.5 text-left hover:bg-hover"
-    >
-      <span
-        aria-hidden="true"
-        className={cn(
-          'grid size-[17px] shrink-0 place-items-center rounded-[5px]',
-          done
-            ? 'bg-accent text-accent-foreground'
-            : 'shadow-[inset_0_0_0_1.5px_var(--line-strong)]',
-        )}
+    <AnimateIcon animateOnHover asChild>
+      <Link
+        to={`/agents/$agentId/${to}`}
+        params={{ agentId }}
+        className="flex items-center gap-2.5 bg-page px-3 py-2.5 text-left hover:bg-hover"
       >
-        {done ? <Check size={11} strokeWidth={3} /> : null}
-      </span>
-      <span className="min-w-0 flex-1">
         <span
+          aria-hidden="true"
           className={cn(
-            'block font-medium text-[13.5px]',
-            done && 'text-ink-3 line-through',
+            'grid size-[17px] shrink-0 place-items-center rounded-[5px]',
+            done
+              ? 'bg-accent text-accent-foreground'
+              : 'shadow-[inset_0_0_0_1.5px_var(--line-strong)]',
           )}
         >
-          {k}
+          {done ? <Check size={11} strokeWidth={3} /> : null}
         </span>
-        <span className="block truncate text-[12.5px] text-ink-2">{v}</span>
-      </span>
-      <ChevronRight size={15} className="shrink-0 text-ink-3" />
-    </Link>
+        <span className="min-w-0 flex-1">
+          <span
+            className={cn(
+              'block font-medium text-[13.5px]',
+              done && 'text-ink-3 line-through',
+            )}
+          >
+            {k}
+          </span>
+          <span className="block truncate text-[12.5px] text-ink-2">{v}</span>
+        </span>
+        <ChevronRight size={15} className="shrink-0 text-ink-3" />
+      </Link>
+    </AnimateIcon>
   )
 }

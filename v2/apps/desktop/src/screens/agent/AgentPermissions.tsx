@@ -1,5 +1,7 @@
-import { Plus, X } from 'lucide-react'
+import { AnimateIcon } from '@animate-ui/react/icons'
 import { useState } from 'react'
+import { Plus } from '@/components/animate-ui/icons/plus'
+import { X } from '@/components/animate-ui/icons/x'
 import { SwitchField } from '@/components/form/SwitchField'
 import { TextField } from '@/components/form/TextField'
 import { PanelRow, PanelSection } from '@/components/shell/Rows'
@@ -198,14 +200,16 @@ function Rules({
             className="inline-flex items-center gap-1.5 rounded-full bg-field py-[3px] pr-[5px] pl-2.5 font-medium text-[12.5px] shadow-hairline"
           >
             {rule.phrase}
-            <button
-              type="button"
-              aria-label={`Remove ${rule.phrase}`}
-              onClick={() => remove.mutate({ id: rule.id, agentId })}
-              className="text-ink-3 hover:text-red"
-            >
-              <X size={12} />
-            </button>
+            <AnimateIcon animateOnHover asChild>
+              <button
+                type="button"
+                aria-label={`Remove ${rule.phrase}`}
+                onClick={() => remove.mutate({ id: rule.id, agentId })}
+                className="text-ink-3 hover:text-red"
+              >
+                <X size={12} />
+              </button>
+            </AnimateIcon>
           </span>
         ))}
         {adding ? (
@@ -254,10 +258,12 @@ function Rules({
             </Button>
           </form>
         ) : (
-          <Button size="xs" variant="ghost" onClick={() => setAdding(true)}>
-            <Plus size={13} />
-            Add
-          </Button>
+          <AnimateIcon animateOnHover asChild>
+            <Button size="xs" variant="ghost" onClick={() => setAdding(true)}>
+              <Plus size={13} />
+              Add
+            </Button>
+          </AnimateIcon>
         )}
       </div>
     </section>

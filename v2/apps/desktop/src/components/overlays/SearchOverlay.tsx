@@ -1,5 +1,6 @@
+import { AnimateIcon } from '@animate-ui/react/icons'
 import { useNavigate } from '@tanstack/react-router'
-import { Bot } from 'lucide-react'
+import { Bot } from '@/components/animate-ui/icons/bot'
 import {
   CommandDialog,
   CommandEmpty,
@@ -37,26 +38,27 @@ export function SearchOverlay() {
         <CommandEmpty>No agent by that name.</CommandEmpty>
         <CommandGroup heading="Agents">
           {agents.map((agent) => (
-            <CommandItem
-              key={agent.id}
-              value={agent.name}
-              keywords={[agent.acpAgent, agent.state]}
-              onSelect={() => {
-                navigate({
-                  to: '/agents/$agentId',
-                  params: { agentId: agent.id },
-                  search: closeOverlay,
-                })
-              }}
-            >
-              <Bot className="text-ink-3" />
-              <span className="min-w-0 truncate">{agent.name}</span>
-              {agent.activity ? (
-                <CommandShortcut className="min-w-0 truncate tracking-normal">
-                  {agent.activity}
-                </CommandShortcut>
-              ) : null}
-            </CommandItem>
+            <AnimateIcon key={agent.id} animateOnHover asChild>
+              <CommandItem
+                value={agent.name}
+                keywords={[agent.acpAgent, agent.state]}
+                onSelect={() => {
+                  navigate({
+                    to: '/agents/$agentId',
+                    params: { agentId: agent.id },
+                    search: closeOverlay,
+                  })
+                }}
+              >
+                <Bot className="text-ink-3" />
+                <span className="min-w-0 truncate">{agent.name}</span>
+                {agent.activity ? (
+                  <CommandShortcut className="min-w-0 truncate tracking-normal">
+                    {agent.activity}
+                  </CommandShortcut>
+                ) : null}
+              </CommandItem>
+            </AnimateIcon>
           ))}
         </CommandGroup>
       </CommandList>

@@ -35,6 +35,7 @@
         "apps/desktop/src/components/primitives/**",
         "apps/desktop/src/components/motion/**",
         "apps/desktop/src/components/agents/**",
+        "apps/desktop/src/components/animate-ui/icons/**",
         "apps/desktop/src/components/ui/**",
         "apps/desktop/src/lib/**",
         "apps/desktop/src/routeTree.gen.ts",
@@ -172,8 +173,15 @@
       }
     ]
   },
+  "ignoreExports": [
+    {
+      "file": "apps/desktop/src/components/animate-ui/icons/**",
+      "exports": ["*"]
+    }
+  ],
   "duplicates": {
     "ignore": [
+      "apps/desktop/src/components/animate-ui/icons/**",
       "apps/desktop/src/components/atoms/**",
       "apps/desktop/src/components/primitives/**",
       "apps/desktop/src/components/motion/**",

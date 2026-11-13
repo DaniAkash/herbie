@@ -1,6 +1,7 @@
+import { AnimateIcon } from '@animate-ui/react/icons'
 import { Link } from '@tanstack/react-router'
-import { ChevronLeft } from 'lucide-react'
 import { useState } from 'react'
+import { ChevronLeft } from '@/components/animate-ui/icons/chevron-left'
 import { TextField } from '@/components/form/TextField'
 import { Overlay } from '@/components/shell/Overlay'
 import { Button } from '@/components/ui/button'
@@ -33,14 +34,16 @@ function ServerForm({ existing }: { existing?: Server }) {
       narrow
       title={existing ? existing.name : 'New server'}
       lead={
-        <Link
-          to="."
-          search={openOverlay('tools')}
-          aria-label="Back"
-          className="inline-flex size-7 items-center justify-center rounded-control text-ink-3 hover:bg-hover hover:text-ink"
-        >
-          <ChevronLeft size={16} />
-        </Link>
+        <AnimateIcon animateOnHover asChild>
+          <Link
+            to="."
+            search={openOverlay('tools')}
+            aria-label="Back"
+            className="inline-flex size-7 items-center justify-center rounded-control text-ink-3 hover:bg-hover hover:text-ink"
+          >
+            <ChevronLeft size={16} />
+          </Link>
+        </AnimateIcon>
       }
       footer={
         <>
