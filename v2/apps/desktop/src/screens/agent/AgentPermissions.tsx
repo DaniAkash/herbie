@@ -1,8 +1,8 @@
 import { Plus, X } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/atoms/Button'
+import { SwitchField } from '@/components/form/SwitchField'
 import { TextField } from '@/components/form/TextField'
-import { Switch } from '@/components/motion/switch'
 import { PanelRow, PanelSection } from '@/components/shell/Rows'
 import {
   type Agent,
@@ -53,7 +53,7 @@ export function AgentPermissions({ agent }: { agent: Agent }) {
           k="Let it act on its own"
           v="Otherwise every step waits for you"
         >
-          <Switch
+          <SwitchField
             checked={agent.autonomy === 'auto'}
             onCheckedChange={(on) =>
               patch.mutate({ id: agentId, autonomy: on ? 'auto' : 'ask' })
@@ -69,7 +69,7 @@ export function AgentPermissions({ agent }: { agent: Agent }) {
               : 'Needs its bot connected first'
           }
         >
-          <Switch
+          <SwitchField
             checked={agent.askOnTelegram}
             disabled={!agent.telegramBot}
             onCheckedChange={(askOnTelegram) =>
@@ -92,7 +92,7 @@ export function AgentPermissions({ agent }: { agent: Agent }) {
                 k={<span className="font-mono text-[13px]">{server.name}</span>}
                 v={serverCaption(notes[`server:${server.id}`], server.status)}
               >
-                <Switch
+                <SwitchField
                   checked={allowed('server', server.id)}
                   onCheckedChange={(enabled) =>
                     setAccess.mutate({
@@ -121,7 +121,7 @@ export function AgentPermissions({ agent }: { agent: Agent }) {
                 k={skill.name}
                 v={problem(notes[`skill:${skill.id}`])}
               >
-                <Switch
+                <SwitchField
                   checked={allowed('skill', skill.id)}
                   onCheckedChange={(enabled) =>
                     setAccess.mutate({

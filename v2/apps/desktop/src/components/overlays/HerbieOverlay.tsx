@@ -1,7 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
 import { Button } from '@/components/atoms/Button'
-import { Switch } from '@/components/motion/switch'
+import { SwitchField } from '@/components/form/SwitchField'
 import { Overlay } from '@/components/shell/Overlay'
 import { PanelRow, PanelSection } from '@/components/shell/Rows'
 import { useAgents } from '@/modules/api/agents.hooks'
@@ -63,7 +63,7 @@ export function HerbieOverlay() {
 
       <PanelSection label="General">
         <PanelRow k="Keep going when closed" v="Herbie waits in the menu bar">
-          <Switch
+          <SwitchField
             checked={background}
             onCheckedChange={setBackground}
             ariaLabel="Keep going when closed"
@@ -73,7 +73,7 @@ export function HerbieOverlay() {
           k="Start when you log in"
           v="So the agents are up before you are"
         >
-          <Switch
+          <SwitchField
             checked={atLogin}
             onCheckedChange={setAtLogin}
             ariaLabel="Start when you log in"

@@ -1,6 +1,6 @@
 import { RefreshCw } from 'lucide-react'
 import { EffortControl } from '@/components/agent/EffortControl'
-import { Switch } from '@/components/motion/switch'
+import { SwitchField } from '@/components/form/SwitchField'
 import { PanelRow, PanelSection } from '@/components/shell/Rows'
 import {
   Select,
@@ -166,7 +166,7 @@ export function TelegramSection({
         k="Send its work here too"
         v="Routine results arrive in Telegram as well"
       >
-        <Switch
+        <SwitchField
           checked={agent.telegramResults}
           disabled={!agent.telegramBot}
           onCheckedChange={onResults}

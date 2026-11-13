@@ -1,5 +1,5 @@
 import { Bell, Clock, Trash2 } from 'lucide-react'
-import { Switch } from '@/components/motion/switch'
+import { SwitchField } from '@/components/form/SwitchField'
 import { PanelRow, PanelSection } from '@/components/shell/Rows'
 import {
   type Routine,
@@ -131,7 +131,7 @@ function RoutineRow({
       >
         <Trash2 size={14} />
       </button>
-      <Switch
+      <SwitchField
         checked={routine.enabled}
         disabled={silent}
         onCheckedChange={(enabled) =>
