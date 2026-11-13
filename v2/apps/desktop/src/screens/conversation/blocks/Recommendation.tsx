@@ -1,7 +1,8 @@
 import type { RecommendOption, TranscriptRecord } from '@bun/shared/transcript'
-import RecommendationCard, {
+import {
+  RecommendationCard,
   type RecommendationOption,
-} from '@/components/primitives/RecommendationCard'
+} from '@/screens/conversation/blocks/RecommendationCard'
 
 export type Recommend = Extract<TranscriptRecord, { kind: 'recommend' }>
 
