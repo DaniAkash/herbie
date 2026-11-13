@@ -1,7 +1,7 @@
 import { useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
-import { Button } from '@/components/atoms/Button'
 import { PanelRow, PanelSection } from '@/components/shell/Rows'
+import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import {
   type Agent,
@@ -85,7 +85,7 @@ export function AgentOverview({ agent }: { agent: Agent }) {
         >
           <Button
             size="xs"
-            variant="quiet"
+            variant="ghost"
             className="text-red"
             onClick={() => setConfirming(true)}
           >

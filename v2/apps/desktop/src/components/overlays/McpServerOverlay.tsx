@@ -1,9 +1,9 @@
 import { Link } from '@tanstack/react-router'
 import { ChevronLeft } from 'lucide-react'
 import { useState } from 'react'
-import { Button } from '@/components/atoms/Button'
 import { TextField } from '@/components/form/TextField'
 import { Overlay } from '@/components/shell/Overlay'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { type ToolsResponse, useTools } from '@/modules/api/tools.hooks'
 import { closeOverlay, openOverlay } from '@/modules/navigation/overlay'
@@ -45,12 +45,12 @@ function ServerForm({ existing }: { existing?: Server }) {
       footer={
         <>
           {existing ? (
-            <Button size="sm" variant="quiet" className="mr-auto text-red">
+            <Button size="sm" variant="ghost" className="mr-auto text-red">
               Remove
             </Button>
           ) : null}
           <Link to="." search={openOverlay('tools')}>
-            <Button size="sm" variant="quiet">
+            <Button size="sm" variant="ghost">
               Cancel
             </Button>
           </Link>

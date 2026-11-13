@@ -1,8 +1,8 @@
 import { Link } from '@tanstack/react-router'
 import { FolderOpen, Pencil, Plus } from 'lucide-react'
-import { Button } from '@/components/atoms/Button'
 import { Overlay } from '@/components/shell/Overlay'
 import { PanelRow, PanelSection } from '@/components/shell/Rows'
+import { Button } from '@/components/ui/button'
 import { useTools } from '@/modules/api/tools.hooks'
 import { closeOverlay, openOverlay } from '@/modules/navigation/overlay'
 
@@ -21,7 +21,9 @@ export function ToolsOverlay() {
       title="Tools"
       footer={
         <Link to="." search={closeOverlay}>
-          <Button size="sm">Done</Button>
+          <Button size="sm" variant="secondary">
+            Done
+          </Button>
         </Link>
       }
     >
@@ -63,7 +65,7 @@ export function ToolsOverlay() {
 
           <div className="-mt-4 mb-6 flex justify-end">
             <Link to="." search={openOverlay('server', 'new')}>
-              <Button size="xs" variant="quiet">
+              <Button size="xs" variant="ghost">
                 <Plus size={14} />
                 Add server
               </Button>
@@ -80,7 +82,7 @@ export function ToolsOverlay() {
           </PanelSection>
 
           <div className="-mt-4 flex justify-end">
-            <Button size="xs" variant="quiet">
+            <Button size="xs" variant="ghost">
               <FolderOpen size={14} />
               Open folder
             </Button>

@@ -1,9 +1,9 @@
 import { Plus, X } from 'lucide-react'
 import { useState } from 'react'
-import { Button } from '@/components/atoms/Button'
 import { SwitchField } from '@/components/form/SwitchField'
 import { TextField } from '@/components/form/TextField'
 import { PanelRow, PanelSection } from '@/components/shell/Rows'
+import { Button } from '@/components/ui/button'
 import {
   type Agent,
   useCreateRule,
@@ -243,7 +243,7 @@ function Rules({
             </Button>
             <Button
               size="xs"
-              variant="quiet"
+              variant="ghost"
               type="button"
               onClick={() => {
                 setPhrase('')
@@ -254,7 +254,7 @@ function Rules({
             </Button>
           </form>
         ) : (
-          <Button size="xs" variant="quiet" onClick={() => setAdding(true)}>
+          <Button size="xs" variant="ghost" onClick={() => setAdding(true)}>
             <Plus size={13} />
             Add
           </Button>

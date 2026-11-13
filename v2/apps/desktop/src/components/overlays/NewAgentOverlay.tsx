@@ -2,7 +2,6 @@ import { useIsMutating } from '@tanstack/react-query'
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import { Controller } from 'react-hook-form'
 import { AgentFace } from '@/components/agent/AgentFace'
-import { Button } from '@/components/atoms/Button'
 import { TextField } from '@/components/form/TextField'
 import {
   BackButton,
@@ -11,6 +10,7 @@ import {
 } from '@/components/overlays/new-agent.components'
 import { RunsOnStep } from '@/components/overlays/RunsOnStep'
 import { Overlay } from '@/components/shell/Overlay'
+import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { useCreateAgent } from '@/modules/api/agents.hooks'
 import {
@@ -80,7 +80,7 @@ export function NewAgentOverlay() {
           <>
             <Button
               size="sm"
-              variant="quiet"
+              variant="ghost"
               type="button"
               onClick={() => navigate({ to: '.', search: atStep('who') })}
             >
@@ -100,7 +100,7 @@ export function NewAgentOverlay() {
           <>
             <Button
               size="sm"
-              variant="quiet"
+              variant="ghost"
               type="button"
               onClick={() => navigate({ to: '.', search: closeOverlay })}
             >
