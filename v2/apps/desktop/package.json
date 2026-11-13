@@ -14,7 +14,6 @@
     "typecheck": "tsr generate && tsc -b",
     "test": "bun test src-bun src",
     "tauri": "tauri",
-    "ui:add": "bun scripts/ui-add.ts",
     "db:generate": "drizzle-kit generate",
     "check:rust": "bun run build:sidecar && cd src-tauri && cargo clippy --all-targets",
     "fix:rust": "cd src-tauri && cargo clippy --all-targets --fix --allow-dirty --allow-staged",
@@ -66,7 +65,6 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
     "drizzle-kit": "^0.31.10",
-    "shadcn": "^4.5.0",
     "typescript": "^7.0.2",
     "vite": "^8.0.3"
   }

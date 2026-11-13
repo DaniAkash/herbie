@@ -4,7 +4,6 @@
     "apps/desktop/src-bun/index.ts",
     "apps/desktop/src/main.tsx",
     "apps/desktop/scripts/build-sidecar.ts",
-    "apps/desktop/scripts/ui-add.ts",
     "apps/desktop/src-bun/**/*.test.ts"
   ],
   "ignorePatterns": [
@@ -31,15 +30,9 @@
     },
     {
       "files": [
-        "apps/desktop/src/components/atoms/**",
-        "apps/desktop/src/components/primitives/**",
-        "apps/desktop/src/components/motion/**",
-        "apps/desktop/src/components/agents/**",
         "apps/desktop/src/components/animate-ui/icons/**",
         "apps/desktop/src/components/ui/**",
-        "apps/desktop/src/lib/**",
-        "apps/desktop/src/routeTree.gen.ts",
-        "apps/desktop/src/styles/beautifui/**"
+        "apps/desktop/src/routeTree.gen.ts"
       ],
       "rules": {
         "unused-exports": "off",
@@ -148,16 +141,9 @@
     "ignore": [
       "**/dist/**",
       "**/target/**",
-      "apps/desktop/src/components/atoms/**",
-      "apps/desktop/src/components/primitives/**",
-      "apps/desktop/src/components/motion/**",
-      "apps/desktop/src/components/agents/**",
+      "apps/desktop/src/components/animate-ui/icons/**",
       "apps/desktop/src/components/ui/**",
-      "apps/desktop/src/routeTree.gen.ts",
-      "apps/desktop/src/lib/hooks/**",
-      "apps/desktop/src/lib/touch.ts",
-      "apps/desktop/src/lib/focusable.ts",
-      "apps/desktop/src/lib/command-search.ts"
+      "apps/desktop/src/routeTree.gen.ts"
     ],
     "maxUnitSize": 120,
     "maxCrap": 240,
@@ -182,16 +168,8 @@
   "duplicates": {
     "ignore": [
       "apps/desktop/src/components/animate-ui/icons/**",
-      "apps/desktop/src/components/atoms/**",
-      "apps/desktop/src/components/primitives/**",
-      "apps/desktop/src/components/motion/**",
-      "apps/desktop/src/components/agents/**",
       "apps/desktop/src/components/ui/**"
     ]
   },
-  "ignoreDependencies": [
-    "@fontsource-variable/outfit",
-    "shadow-plugin",
-    "shadcn"
-  ]
+  "ignoreDependencies": ["@fontsource-variable/outfit", "shadow-plugin"]
 }
