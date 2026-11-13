@@ -78,8 +78,11 @@ function CommandInput({
    * out when the field goes away, so the whole app is left scaled. */
   const canTouch = useTouchCapable()
   return (
-    <div data-slot="command-input-wrapper" className="p-1 pb-0">
-      <InputGroup className="h-8! rounded-lg! border-input/30 bg-input/30 shadow-none! *:data-[slot=input-group-addon]:pl-2!">
+    <div
+      data-slot="command-input-wrapper"
+      className="border-b border-border p-2"
+    >
+      <InputGroup className="h-9! rounded-lg! border-border bg-input shadow-none! *:data-[slot=input-group-addon]:pl-2! dark:bg-input">
         <CommandPrimitive.Input
           data-slot="command-input"
           className={cn(
@@ -91,6 +94,11 @@ function CommandInput({
         />
         <InputGroupAddon>
           <SearchIcon className="size-4 shrink-0 opacity-50" />
+        </InputGroupAddon>
+        <InputGroupAddon align="inline-end">
+          <kbd className="border border-border bg-popover px-1.5 py-0.5 text-[10px] leading-none text-muted-foreground">
+            ESC
+          </kbd>
         </InputGroupAddon>
       </InputGroup>
     </div>
@@ -134,7 +142,7 @@ function CommandGroup({
     <CommandPrimitive.Group
       data-slot="command-group"
       className={cn(
-        "overflow-hidden p-1 text-foreground **:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-1.5 **:[[cmdk-group-heading]]:text-xs **:[[cmdk-group-heading]]:font-medium **:[[cmdk-group-heading]]:text-muted-foreground",
+        "overflow-hidden p-2 text-foreground **:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-1.5 **:[[cmdk-group-heading]]:text-xs **:[[cmdk-group-heading]]:font-medium **:[[cmdk-group-heading]]:text-muted-foreground",
         className
       )}
       {...props}
@@ -161,10 +169,13 @@ function CommandItem({
   ...props
 }: React.ComponentProps<typeof CommandPrimitive.Item>) {
   return (
+    /* cmdk writes data-selected on every row, "false" included, so the bare
+     * `data-selected:` attribute-presence variant fills the whole list and the
+     * highlight disappears. The value has to be tested. */
     <CommandPrimitive.Item
       data-slot="command-item"
       className={cn(
-        "group/command-item relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none in-data-[slot=dialog-content]:rounded-lg! data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-selected:bg-muted data-selected:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 data-selected:*:[svg]:text-foreground",
+        "group/command-item relative flex cursor-default items-center gap-2 rounded-sm px-2 py-2 text-ink-2 text-sm outline-hidden select-none in-data-[slot=dialog-content]:rounded-lg! data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-[selected=true]:bg-hover-2 data-[selected=true]:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 data-[selected=true]:*:[svg]:text-foreground",
         className
       )}
       {...props}
@@ -183,7 +194,7 @@ function CommandShortcut({
     <span
       data-slot="command-shortcut"
       className={cn(
-        "ml-auto text-xs tracking-widest text-muted-foreground group-data-selected/command-item:text-foreground",
+        "ml-auto text-xs tracking-widest text-muted-foreground group-data-[selected=true]/command-item:text-foreground",
         className
       )}
       {...props}
