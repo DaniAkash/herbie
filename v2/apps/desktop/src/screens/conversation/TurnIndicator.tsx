@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import LoadingState from '@/components/primitives/LoadingState'
 import type { Phase } from '@/screens/conversation/conversation.reducer'
+import { LoadingState } from '@/screens/conversation/LoadingState'
 
 /**
  * What the agent is doing, while it is doing it.
@@ -42,11 +42,6 @@ export function TurnIndicator({
   const label = activity || (phase === 'working' ? 'Working' : 'Thinking')
   return (
     <div className="grid gap-1">
-      {/*
-        videoSrc is left alone: the component's own default is the clip this
-        variant exists for, and overriding it with a local placeholder turned
-        the card into a drifting gradient nobody asked for.
-      */}
       <LoadingState variant={variant} label={label} />
       {steps > 0 ? (
         <span className="pl-[18px] text-[11.5px] text-ink-3 tabular-nums">
