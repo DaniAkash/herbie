@@ -2,8 +2,8 @@ import type { TranscriptRecord } from '@bun/shared/transcript'
 import {
   MessageBubble,
   MessageBubbleContent,
-} from '@/components/agents/message-bubble'
-import { MessageSideContext } from '@/components/agents/message-context'
+  MessageSideContext,
+} from '@/components/agent/MessageBubble'
 import { cn } from '@/lib/utils'
 import { Ask } from '@/screens/conversation/blocks/Ask'
 import { Code } from '@/screens/conversation/blocks/Code'

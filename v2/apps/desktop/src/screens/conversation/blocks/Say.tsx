@@ -2,8 +2,8 @@ import type { TranscriptRecord } from '@bun/shared/transcript'
 import {
   MessageBubble,
   MessageBubbleContent,
-} from '@/components/agents/message-bubble'
-import { MessageSideContext } from '@/components/agents/message-context'
+  MessageSideContext,
+} from '@/components/agent/MessageBubble'
 
 export type Said = Extract<TranscriptRecord, { kind: 'say' }>
 
