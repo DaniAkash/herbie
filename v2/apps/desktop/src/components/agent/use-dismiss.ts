@@ -1,11 +1,4 @@
-// @ts-nocheck
-/* Vendored from a component registry. Checking is off because upstream is
- * not written against this project's strict settings, and any fix here is
- * lost the next time `bun run ui:add` installs it. Do not edit; reinstall.
- */
-"use client";
-
-import { type RefObject, useEffect } from "react";
+import { type RefObject, useEffect } from 'react'
 
 /**
  * What the dismissing gesture does to the control it landed on.
@@ -13,18 +6,18 @@ import { type RefObject, useEffect } from "react";
  * `"pass-through"` is the platform norm (native popover light-dismiss): the
  * tap closes the overlay *and* activates whatever was under it. Use
  * `"consume"` where the open overlay sits over or beside controls that would
- * be costly to trigger by accident — the dismissal then swallows the
+ * be costly to trigger by accident: the dismissal then swallows the
  * activation too, so the gesture only closes.
  */
-export type DismissBehavior = "pass-through" | "consume";
+export type DismissBehavior = 'pass-through' | 'consume'
 
 export interface DismissOptions {
   /** Default `"pass-through"`. */
-  behavior?: DismissBehavior;
+  behavior?: DismissBehavior
   /** Dismiss on Escape as well. Default true. */
-  escape?: boolean;
+  escape?: boolean
   /** Return true for an outside target that should *not* dismiss. Must be stable. */
-  ignore?: (target: Element) => boolean;
+  ignore?: (target: Element) => boolean
 }
 
 /**
@@ -33,21 +26,21 @@ export interface DismissOptions {
  * overlay in front of it: overlays have no shared z-order to consult, but the
  * one the gesture landed in has said as much by registering it.
  */
-const openScopes = new Set<(target: Element) => boolean>();
+const openScopes = new Set<(target: Element) => boolean>()
 
 function claimedByAnotherScope(
   self: (target: Element) => boolean,
   target: Element,
 ) {
   for (const scope of openScopes) {
-    if (scope !== self && scope(target)) return true;
+    if (scope !== self && scope(target)) return true
   }
-  return false;
+  return false
 }
 
 // preventDefault on pointerdown does not suppress the click that follows, so
 // consuming a gesture means swallowing that click itself. The swallower
-// deliberately outlives the effect that installed it — the dismissal it
+// deliberately outlives the effect that installed it, because the dismissal it
 // belongs to has already unmounted or re-rendered by the time the click lands.
 // It releases on that click, or on the next gesture if the pointer is dragged
 // away and no click ever arrives, so it can never eat a later one. A keydown
@@ -56,23 +49,23 @@ function claimedByAnotherScope(
 // control is not the one this dismissal was owed.
 function consumeActivation(source: Event) {
   const swallow = (event: MouseEvent) => {
-    event.preventDefault();
-    event.stopPropagation();
-    release();
-  };
+    event.preventDefault()
+    event.stopPropagation()
+    release()
+  }
   const restart = (event: Event) => {
-    if (event !== source) release();
-  };
+    if (event !== source) release()
+  }
   const release = () => {
-    window.removeEventListener("click", swallow, true);
-    window.removeEventListener("pointerdown", restart, true);
-    window.removeEventListener("pointercancel", restart, true);
-    window.removeEventListener("keydown", release, true);
-  };
-  window.addEventListener("click", swallow, true);
-  window.addEventListener("pointerdown", restart, true);
-  window.addEventListener("pointercancel", restart, true);
-  window.addEventListener("keydown", release, true);
+    window.removeEventListener('click', swallow, true)
+    window.removeEventListener('pointerdown', restart, true)
+    window.removeEventListener('pointercancel', restart, true)
+    window.removeEventListener('keydown', release, true)
+  }
+  window.addEventListener('click', swallow, true)
+  window.addEventListener('pointerdown', restart, true)
+  window.addEventListener('pointercancel', restart, true)
+  window.addEventListener('keydown', release, true)
 }
 
 /**
@@ -90,36 +83,36 @@ export function useDismiss(
   onDismiss: () => void,
   ref: RefObject<HTMLElement | SVGElement | null> | null,
   {
-    behavior = "pass-through",
+    behavior = 'pass-through',
     escape: dismissOnEscape = true,
     ignore,
   }: DismissOptions = {},
 ) {
   useEffect(() => {
-    if (!open) return;
+    if (!open) return
     const inside = (target: Element) =>
-      Boolean(ref?.current?.contains(target)) || Boolean(ignore?.(target));
+      Boolean(ref?.current?.contains(target)) || Boolean(ignore?.(target))
     const onKey = (event: KeyboardEvent) => {
-      if (dismissOnEscape && event.key === "Escape") onDismiss();
-    };
+      if (dismissOnEscape && event.key === 'Escape') onDismiss()
+    }
     const onPointer = (event: PointerEvent) => {
-      const target = event.target as Element | null;
-      if (!target || inside(target)) return;
+      const target = event.target as Element | null
+      if (!target || inside(target)) return
       // Outside this overlay, but inside one that is also open: the gesture is
       // that overlay's to answer, and swallowing its click from behind would
       // cost the user the control they actually aimed at.
-      if (behavior === "consume" && !claimedByAnotherScope(inside, target)) {
-        consumeActivation(event);
+      if (behavior === 'consume' && !claimedByAnotherScope(inside, target)) {
+        consumeActivation(event)
       }
-      onDismiss();
-    };
-    openScopes.add(inside);
-    window.addEventListener("keydown", onKey);
-    window.addEventListener("pointerdown", onPointer, true);
+      onDismiss()
+    }
+    openScopes.add(inside)
+    window.addEventListener('keydown', onKey)
+    window.addEventListener('pointerdown', onPointer, true)
     return () => {
-      openScopes.delete(inside);
-      window.removeEventListener("keydown", onKey);
-      window.removeEventListener("pointerdown", onPointer, true);
-    };
-  }, [open, onDismiss, ref, behavior, dismissOnEscape, ignore]);
+      openScopes.delete(inside)
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('pointerdown', onPointer, true)
+    }
+  }, [open, onDismiss, ref, behavior, dismissOnEscape, ignore])
 }
