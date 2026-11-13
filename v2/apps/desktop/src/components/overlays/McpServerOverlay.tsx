@@ -1,9 +1,10 @@
+import { AnimateIcon } from '@animate-ui/react/icons'
 import { Link } from '@tanstack/react-router'
-import { ChevronLeft } from 'lucide-react'
 import { useState } from 'react'
-import { Button } from '@/components/atoms/Button'
-import { Input } from '@/components/motion/input'
+import { ChevronLeft } from '@/components/animate-ui/icons/chevron-left'
+import { TextField } from '@/components/form/TextField'
 import { Overlay } from '@/components/shell/Overlay'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { type ToolsResponse, useTools } from '@/modules/api/tools.hooks'
 import { closeOverlay, openOverlay } from '@/modules/navigation/overlay'
@@ -33,24 +34,26 @@ function ServerForm({ existing }: { existing?: Server }) {
       narrow
       title={existing ? existing.name : 'New server'}
       lead={
-        <Link
-          to="."
-          search={openOverlay('tools')}
-          aria-label="Back"
-          className="inline-flex size-7 items-center justify-center rounded-control text-ink-3 hover:bg-hover hover:text-ink"
-        >
-          <ChevronLeft size={16} />
-        </Link>
+        <AnimateIcon animateOnHover asChild>
+          <Link
+            to="."
+            search={openOverlay('tools')}
+            aria-label="Back"
+            className="inline-flex size-7 items-center justify-center rounded-control text-ink-3 hover:bg-hover hover:text-ink"
+          >
+            <ChevronLeft size={16} />
+          </Link>
+        </AnimateIcon>
       }
       footer={
         <>
           {existing ? (
-            <Button size="sm" variant="quiet" className="mr-auto text-red">
+            <Button size="sm" variant="ghost" className="mr-auto text-red">
               Remove
             </Button>
           ) : null}
           <Link to="." search={openOverlay('tools')}>
-            <Button size="sm" variant="quiet">
+            <Button size="sm" variant="ghost">
               Cancel
             </Button>
           </Link>
@@ -63,7 +66,7 @@ function ServerForm({ existing }: { existing?: Server }) {
       }
     >
       <div className="grid gap-3.5">
-        <Input label="Name" defaultValue={existing?.name ?? ''} />
+        <TextField label="Name" defaultValue={existing?.name ?? ''} />
 
         <div>
           <span className="mb-1.5 block font-medium text-[12.5px] text-ink-2">
@@ -91,11 +94,11 @@ function ServerForm({ existing }: { existing?: Server }) {
 
         {kind === 'stdio' ? (
           <>
-            <Input label="Command" defaultValue={existing?.target ?? ''} />
-            <Input label="Arguments" defaultValue={existing?.args ?? ''} />
+            <TextField label="Command" defaultValue={existing?.target ?? ''} />
+            <TextField label="Arguments" defaultValue={existing?.args ?? ''} />
           </>
         ) : (
-          <Input label="URL" defaultValue={existing?.target ?? ''} />
+          <TextField label="URL" defaultValue={existing?.target ?? ''} />
         )}
       </div>
     </Overlay>

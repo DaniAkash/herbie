@@ -1,9 +1,11 @@
+import { AnimateIcon } from '@animate-ui/react/icons'
 import { Link, useLocation, useParams } from '@tanstack/react-router'
-import { PanelRight, Repeat } from 'lucide-react'
 import { useState } from 'react'
 import { AgentFace } from '@/components/agent/AgentFace'
-import { MessageScroller } from '@/components/agents/message-scroller'
-import { PromptInput } from '@/components/agents/prompt-input'
+import { MessageScroller } from '@/components/agent/MessageScroller'
+import { PromptInput } from '@/components/agent/PromptInput'
+import { PanelRight } from '@/components/animate-ui/icons/panel-right'
+import { Repeat } from '@/components/animate-ui/icons/repeat'
 import { AgentStateDot } from '@/components/shell/AgentStateDot'
 import { cn } from '@/lib/utils'
 import type { Agent } from '@/modules/api/agents.hooks'
@@ -159,20 +161,22 @@ function Header({
         </span>
       ) : null}
       <span className="flex-1" />
-      <Link
-        to={panelOpen ? '/agents/$agentId' : '/agents/$agentId/overview'}
-        params={{ agentId }}
-        aria-label={panelOpen ? 'Hide agent settings' : 'Show agent settings'}
-        aria-pressed={panelOpen}
-        className={cn(
-          'inline-flex size-7 items-center justify-center rounded-control transition-colors',
-          panelOpen
-            ? 'bg-hover-2 text-ink'
-            : 'text-ink-3 hover:bg-hover hover:text-ink',
-        )}
-      >
-        <PanelRight size={16} />
-      </Link>
+      <AnimateIcon animateOnHover asChild>
+        <Link
+          to={panelOpen ? '/agents/$agentId' : '/agents/$agentId/overview'}
+          params={{ agentId }}
+          aria-label={panelOpen ? 'Hide agent settings' : 'Show agent settings'}
+          aria-pressed={panelOpen}
+          className={cn(
+            'inline-flex size-7 items-center justify-center rounded-control transition-colors',
+            panelOpen
+              ? 'bg-hover-2 text-ink'
+              : 'text-ink-3 hover:bg-hover hover:text-ink',
+          )}
+        >
+          <PanelRight size={16} />
+        </Link>
+      </AnimateIcon>
     </div>
   )
 }

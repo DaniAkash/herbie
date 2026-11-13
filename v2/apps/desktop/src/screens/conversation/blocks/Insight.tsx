@@ -1,5 +1,5 @@
 import type { InsightBoard, TranscriptRecord } from '@bun/shared/transcript'
-import InsightCards from '@/components/primitives/InsightCards'
+import { InsightCards } from '@/screens/conversation/blocks/InsightCards'
 import {
   AllocationChart,
   AnomalyChart,
@@ -11,11 +11,10 @@ type Insight = Extract<TranscriptRecord, { kind: 'show_insight' }>
 /**
  * A `show_insight` block: numbers, with a sentence of reading.
  *
- * The card shell, its carousel and its pagination come from beautifui. The
- * plots do not, and cannot: `pages[].Card` is a `React.ComponentType`, so a
- * page's chart is code rather than data and an agent cannot send one. Each
- * page's `kind` picks one of three plots Herbie owns, which is why the tool's
- * schema closes that set rather than promising any chart.
+ * `pages[].Card` is a component, so a page's chart is code rather than data
+ * and an agent cannot send one. Each page's `kind` picks one of three plots
+ * Herbie owns, which is why the tool's schema closes that set rather than
+ * promising any chart.
  */
 const PLOTS = {
   compare: CompareChart,
@@ -32,7 +31,7 @@ const PILLS: Record<InsightBoard['kind'], string> = {
 export function Insight({ record }: { record: Insight }) {
   return (
     <InsightCards
-      labels={{ title: record.title }}
+      title={record.title}
       pages={record.pages.map((page, at) => {
         const Plot = PLOTS[page.kind]
         return {

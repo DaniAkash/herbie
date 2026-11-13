@@ -1,47 +1,12 @@
 /*
- * Herbie's own tokens, layered over beautifui rather than patched into it.
+ * Herbie's own layer, on top of the token ramps in tokens.css.
  *
- * Two deliberate departures from what foundation.css ships, both kept here so
- * a future `ui:add @beautifui/foundation` cannot silently revert them.
- *
- * 1. The accent is Herbie green. foundation ships a blue; the brand is
- *    #006239 with a #72E3AD mint variant for dark surfaces, and v1's UI was
- *    already green.
- *
- * 2. The light ramp is softer. Dark reads calm because its whole surface ramp
- *    sits in a narrow band near the bottom. Light spanned a near-white page up
- *    to a pure white surface, so large fields glared and the hairlines washed
- *    out against them. This drops the set, stops short of pure white, and
- *    darkens the lines so edges are carried by contrast rather than brightness.
- *    --ink-2 is darkened with it so secondary copy still clears AA.
+ * The surface, ink and accent ramps used to be re-declared here as an override
+ * of the vendored foundation. They now live in tokens.css, declared once, so
+ * that `:root` and `.dark` cannot collide at equal specificity.
  */
 
 :root {
-  --page: oklch(0.938 0.004 258);
-  --canvas: oklch(0.915 0.005 258);
-  --surface: oklch(0.966 0.003 258);
-  --inset: oklch(0.926 0.005 258);
-  --hover: oklch(0.918 0.005 258);
-  --hover-2: oklch(0.888 0.006 258);
-
-  --ink: oklch(0.295 0.01 262);
-  --ink-2: oklch(0.45 0.013 264);
-  --ink-3: oklch(0.59 0.012 264);
-
-  --line: oklch(0.872 0.006 258);
-  --line-strong: oklch(0.832 0.007 258);
-  --line-soft: oklch(0.902 0.005 258);
-  --field: oklch(0.92 0.005 258);
-  --stripe: oklch(0.42 0 0 / 0.045);
-  --stripe-bg: oklch(0.902 0.003 258);
-
-  --accent: oklch(0.44 0.105 161);
-  --accent-ink: oklch(0.4 0.1 161);
-  --accent-tint: oklch(0.905 0.04 161);
-
-  --red: oklch(0.565 0.18 23);
-  --red-tint: oklch(0.907 0.027 17);
-
   /* Agent face colours. Identity only, never an interactive accent. */
   --f-ops: oklch(0.575 0.115 162);
   --f-scout: oklch(0.645 0.125 55);
@@ -54,10 +19,6 @@
 }
 
 .dark {
-  --accent: oklch(0.845 0.115 162);
-  --accent-ink: oklch(0.875 0.1 162);
-  --accent-tint: oklch(0.845 0.115 162 / 0.16);
-
   --f-ops: oklch(0.76 0.13 162);
   --f-scout: oklch(0.79 0.13 55);
   --f-post: oklch(0.74 0.13 300);
@@ -105,8 +66,7 @@
  *
  * A scrollbar that appears only once content overflows takes width from the
  * content when it arrives, so the panel reflows as you move between tabs with
- * different heights. foundation.css already does this for its own nav; this
- * is the same treatment as a utility the app can apply anywhere.
+ * different heights.
  */
 .quiet-scroll {
   scrollbar-width: none;
@@ -118,10 +78,7 @@
 }
 
 /*
- * `scrollbar-hide` is a utility beui's components reach for and this project
- * never defined, so the composer's textarea showed a scrollbar the component
- * believed it had already hidden. Defining it here rather than editing the
- * vendored file, which ui:add rewrites.
+ * The same treatment under the name the composer's textarea asks for.
  */
 .scrollbar-hide {
   scrollbar-width: none;
@@ -133,14 +90,14 @@
 }
 
 /*
- * beui's PromptInput sizes its textarea to `minRows * 24` and writes that to
+ * The composer sizes its textarea to `minRows * 24` and writes that to
  * style.height. Tailwind makes every box border-box, so at minRows=1 those
- * 24px have to cover the 24px line AND the component's own 6px of top
- * padding, leaving the line 18px. The field then scrolls by exactly that 6px
- * and clips the descenders of its own placeholder.
+ * 24px have to cover the 24px line AND the field's own 6px of top padding,
+ * leaving the line 18px. The field then scrolls by exactly that 6px and clips
+ * the descenders of its own placeholder.
  *
- * Switching the field to content-box makes the height the component computed
- * mean what it meant it to mean, and the padding sits outside it.
+ * Switching the field to content-box makes the computed height mean what it
+ * was meant to mean, and the padding sits outside it.
  */
 .composer-host textarea {
   box-sizing: content-box;

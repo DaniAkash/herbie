@@ -2,16 +2,15 @@ import { useIsMutating } from '@tanstack/react-query'
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import { Controller } from 'react-hook-form'
 import { AgentFace } from '@/components/agent/AgentFace'
-import { Button } from '@/components/atoms/Button'
+import { TextField } from '@/components/form/TextField'
 import {
-  ColorSelector,
-  ColorSelectorItem,
-  ColorSelectorList,
-} from '@/components/motion/color-selector'
-import { Input } from '@/components/motion/input'
-import { BackButton, Steps } from '@/components/overlays/new-agent.components'
+  BackButton,
+  ColorSwatches,
+  Steps,
+} from '@/components/overlays/new-agent.components'
 import { RunsOnStep } from '@/components/overlays/RunsOnStep'
 import { Overlay } from '@/components/shell/Overlay'
+import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { useCreateAgent } from '@/modules/api/agents.hooks'
 import {
@@ -81,7 +80,7 @@ export function NewAgentOverlay() {
           <>
             <Button
               size="sm"
-              variant="quiet"
+              variant="ghost"
               type="button"
               onClick={() => navigate({ to: '.', search: atStep('who') })}
             >
@@ -101,7 +100,7 @@ export function NewAgentOverlay() {
           <>
             <Button
               size="sm"
-              variant="quiet"
+              variant="ghost"
               type="button"
               onClick={() => navigate({ to: '.', search: closeOverlay })}
             >
@@ -125,7 +124,7 @@ export function NewAgentOverlay() {
         )
       }
     >
-      <Steps name={onRuns ? name : undefined} />
+      <Steps current={onRuns ? 2 : 1} name={name} />
       {onRuns ? <RunsOnStep form={form} /> : <WhoItIsStep form={form} />}
       {create.isError ? (
         <p className="mt-3 text-[12.5px] text-red">
@@ -149,7 +148,7 @@ function WhoItIsStep({ form }: { form: AgentForm }) {
         control={form.control}
         name="name"
         render={({ field, fieldState }) => (
-          <Input
+          <TextField
             value={field.value}
             onChange={field.onChange}
             onBlur={field.onBlur}
@@ -163,22 +162,16 @@ function WhoItIsStep({ form }: { form: AgentForm }) {
         control={form.control}
         name="color"
         render={({ field }) => (
-          <ColorSelector
+          <ColorSwatches
+            label="Colour"
             value={field.value}
             onValueChange={field.onChange}
-            aria-label="Colour"
-          >
-            <ColorSelectorList>
-              {SWATCHES.map((c) => (
-                <ColorSelectorItem
-                  key={c}
-                  value={c}
-                  color={`var(--f-${c})`}
-                  label={c}
-                />
-              ))}
-            </ColorSelectorList>
-          </ColorSelector>
+            swatches={SWATCHES.map((c) => ({
+              value: c,
+              color: `var(--f-${c})`,
+              label: c,
+            }))}
+          />
         )}
       />
       <Controller

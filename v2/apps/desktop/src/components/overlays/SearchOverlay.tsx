@@ -1,45 +1,67 @@
+import { AnimateIcon } from '@animate-ui/react/icons'
 import { useNavigate } from '@tanstack/react-router'
-import { Bot } from 'lucide-react'
-import { CommandPalette } from '@/components/motion/command-palette'
+import { Bot } from '@/components/animate-ui/icons/bot'
+import {
+  CommandDialog,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandShortcut,
+} from '@/components/ui/command'
 import { useAgents } from '@/modules/api/agents.hooks'
 import { closeOverlay } from '@/modules/navigation/overlay'
 
 /**
  * A switcher, not a command runner.
  *
- * beui rather than beautifui's SearchList: that one takes a bare string list
- * with no select handler, so it can filter but cannot navigate. This is
- * controlled by the overlay search param, so the url opens and closes it.
+ * Controlled by the overlay search param, so the url opens and closes it.
  */
 export function SearchOverlay() {
   const { data } = useAgents()
   const navigate = useNavigate()
-
-  const items = (data?.agents ?? []).map((agent) => ({
-    id: agent.id,
-    label: agent.name,
-    group: 'Agents',
-    hint: agent.activity ?? undefined,
-    keywords: [agent.acpAgent, agent.state],
-    icon: Bot,
-    onSelect: () => {
-      navigate({
-        to: '/agents/$agentId',
-        params: { agentId: agent.id },
-        search: closeOverlay,
-      })
-    },
-  }))
+  const agents = data?.agents ?? []
 
   return (
-    <CommandPalette
+    <CommandDialog
       open
-      items={items}
-      placeholder="Go to an agent"
-      emptyMessage="No agent by that name."
+      title="Go to an agent"
+      description="Search your agents by name."
+      className="top-[18vh] sm:max-w-xl"
       onOpenChange={(next) => {
         if (!next) navigate({ to: '.', search: closeOverlay })
       }}
-    />
+    >
+      <CommandInput placeholder="Go to an agent" />
+      <CommandList>
+        <CommandEmpty>No agent by that name.</CommandEmpty>
+        <CommandGroup heading="Agents">
+          {agents.map((agent) => (
+            <AnimateIcon key={agent.id} animateOnHover asChild>
+              <CommandItem
+                value={agent.name}
+                keywords={[agent.acpAgent, agent.state]}
+                onSelect={() => {
+                  navigate({
+                    to: '/agents/$agentId',
+                    params: { agentId: agent.id },
+                    search: closeOverlay,
+                  })
+                }}
+              >
+                <Bot className="text-ink-3" />
+                <span className="min-w-0 truncate">{agent.name}</span>
+                {agent.activity ? (
+                  <CommandShortcut className="min-w-0 truncate tracking-normal">
+                    {agent.activity}
+                  </CommandShortcut>
+                ) : null}
+              </CommandItem>
+            </AnimateIcon>
+          ))}
+        </CommandGroup>
+      </CommandList>
+    </CommandDialog>
   )
 }

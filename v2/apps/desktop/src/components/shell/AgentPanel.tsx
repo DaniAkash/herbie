@@ -1,7 +1,7 @@
 import { useLocation, useNavigate, useParams } from '@tanstack/react-router'
 import { motion, useReducedMotion } from 'motion/react'
 import { AgentFace } from '@/components/agent/AgentFace'
-import { Tabs, TabsList, TabsTrigger } from '@/components/motion/tabs'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAgents } from '@/modules/api/agents.hooks'
 
 const TABS = [
@@ -69,12 +69,11 @@ export function AgentPanel({ children }: { children: React.ReactNode }) {
         </div>
         <Tabs
           value={tab}
-          variant="pill"
           onValueChange={(next) =>
             navigate({ to: `/agents/$agentId/${next}`, params: { agentId } })
           }
         >
-          <TabsList>
+          <TabsList variant="pill">
             {TABS.map((t) => (
               <TabsTrigger key={t.to} value={t.to}>
                 {t.label}

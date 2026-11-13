@@ -1,9 +1,9 @@
 import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
-import { Button } from '@/components/atoms/Button'
-import { Switch } from '@/components/motion/switch'
+import { SwitchField } from '@/components/form/SwitchField'
 import { Overlay } from '@/components/shell/Overlay'
 import { PanelRow, PanelSection } from '@/components/shell/Rows'
+import { Button } from '@/components/ui/button'
 import { useAgents } from '@/modules/api/agents.hooks'
 import { closeOverlay } from '@/modules/navigation/overlay'
 
@@ -33,7 +33,9 @@ export function HerbieOverlay() {
       title="Herbie"
       footer={
         <Link to="." search={closeOverlay}>
-          <Button size="sm">Done</Button>
+          <Button size="sm" variant="secondary">
+            Done
+          </Button>
         </Link>
       }
     >
@@ -53,7 +55,7 @@ export function HerbieOverlay() {
                   : 'Needs a sign in before an agent can use it'
               }
             >
-              <Button size="xs" variant={count > 0 ? 'quiet' : 'secondary'}>
+              <Button size="xs" variant={count > 0 ? 'ghost' : 'secondary'}>
                 {count > 0 ? 'Sign out' : 'Sign in'}
               </Button>
             </PanelRow>
@@ -63,7 +65,7 @@ export function HerbieOverlay() {
 
       <PanelSection label="General">
         <PanelRow k="Keep going when closed" v="Herbie waits in the menu bar">
-          <Switch
+          <SwitchField
             checked={background}
             onCheckedChange={setBackground}
             ariaLabel="Keep going when closed"
@@ -73,7 +75,7 @@ export function HerbieOverlay() {
           k="Start when you log in"
           v="So the agents are up before you are"
         >
-          <Switch
+          <SwitchField
             checked={atLogin}
             onCheckedChange={setAtLogin}
             ariaLabel="Start when you log in"

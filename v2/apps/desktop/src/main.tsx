@@ -3,6 +3,7 @@ import { createRouter, RouterProvider } from '@tanstack/react-router'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { queryClient } from '@/modules/api/queryClient'
+import { startTheme } from '@/modules/theme/theme'
 import { routeTree } from './routeTree.gen'
 import './index.css'
 
@@ -16,6 +17,9 @@ declare module '@tanstack/react-router' {
 
 const root = document.getElementById('root')
 if (!root) throw new Error('no #root element')
+
+// Before the first render, so the window never paints light and then flips.
+startTheme()
 
 createRoot(root).render(
   <StrictMode>

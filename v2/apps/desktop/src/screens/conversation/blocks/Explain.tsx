@@ -2,7 +2,7 @@ import type { SaySource, TranscriptRecord } from '@bun/shared/transcript'
 import {
   type AnswerSource,
   AnswerText,
-} from '@/components/primitives/AnswerText'
+} from '@/screens/conversation/blocks/AnswerText'
 
 type Explain = Extract<TranscriptRecord, { kind: 'explain' }>
 

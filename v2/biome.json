@@ -14,17 +14,8 @@
       "!**/src-tauri/target",
       "!**/src-tauri/gen",
       "!apps/desktop/public",
-      "!apps/desktop/src/components/atoms",
-      "!apps/desktop/src/components/primitives",
-      "!apps/desktop/src/components/motion",
-      "!apps/desktop/src/components/ui",
-      "!apps/desktop/src/components/agents",
-      "!apps/desktop/src/styles/beautifui",
-      "!apps/desktop/src/lib/hooks",
-      "!apps/desktop/src/lib/touch.ts",
-      "!apps/desktop/src/lib/focusable.ts",
-      "!apps/desktop/src/lib/command-search.ts",
-      "!apps/desktop/src/lib/ease.ts"
+      "!apps/desktop/src/components/animate-ui/icons",
+      "!apps/desktop/src/components/ui"
     ]
   },
   "formatter": {

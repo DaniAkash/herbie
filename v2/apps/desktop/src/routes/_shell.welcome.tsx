@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { AgentFace } from '@/components/agent/AgentFace'
-import { Button } from '@/components/atoms/Button'
+import { Button } from '@/components/ui/button'
 import { openOverlay } from '@/modules/navigation/overlay'
 
 export const Route = createFileRoute('/_shell/welcome')({
@@ -17,7 +17,9 @@ function Welcome() {
         do, and it keeps working whether this window is open or not.
       </p>
       <Link to="." search={openOverlay('new')}>
-        <Button variant="primary">Create your first agent</Button>
+        <Button variant="primary" size="md">
+          Create your first agent
+        </Button>
       </Link>
     </section>
   )

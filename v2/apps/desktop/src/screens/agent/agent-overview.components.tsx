@@ -1,6 +1,7 @@
-import { RefreshCw } from 'lucide-react'
+import { AnimateIcon } from '@animate-ui/react/icons'
 import { EffortControl } from '@/components/agent/EffortControl'
-import { Switch } from '@/components/motion/switch'
+import { RefreshCw } from '@/components/animate-ui/icons/refresh-cw'
+import { SwitchField } from '@/components/form/SwitchField'
 import { PanelRow, PanelSection } from '@/components/shell/Rows'
 import {
   Select,
@@ -110,18 +111,20 @@ export function RuntimeSection({
             : 'It has not been asked what it can do'
         }
       >
-        <button
-          type="button"
-          aria-label="Ask the runtime again"
-          disabled={probing}
-          onClick={onReprobe}
-          className="inline-flex size-7 items-center justify-center rounded-control text-ink-3 hover:bg-hover hover:text-ink disabled:opacity-50"
-        >
-          <RefreshCw
-            size={14}
-            className={probing ? 'animate-spin' : undefined}
-          />
-        </button>
+        <AnimateIcon animateOnHover asChild>
+          <button
+            type="button"
+            aria-label="Ask the runtime again"
+            disabled={probing}
+            onClick={onReprobe}
+            className="inline-flex size-7 items-center justify-center rounded-control text-ink-3 hover:bg-hover hover:text-ink disabled:opacity-50"
+          >
+            <RefreshCw
+              size={14}
+              className={probing ? 'animate-spin' : undefined}
+            />
+          </button>
+        </AnimateIcon>
       </PanelRow>
 
       <PanelRow
@@ -166,7 +169,7 @@ export function TelegramSection({
         k="Send its work here too"
         v="Routine results arrive in Telegram as well"
       >
-        <Switch
+        <SwitchField
           checked={agent.telegramResults}
           disabled={!agent.telegramBot}
           onCheckedChange={onResults}
