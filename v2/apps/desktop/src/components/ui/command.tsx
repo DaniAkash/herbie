@@ -96,7 +96,7 @@ function CommandInput({
           <SearchIcon className="size-4 shrink-0 opacity-50" />
         </InputGroupAddon>
         <InputGroupAddon align="inline-end">
-          <kbd className="border border-border bg-popover px-1.5 py-0.5 text-[10px] leading-none text-muted-foreground">
+          <kbd className="rounded-chip border border-border bg-popover px-1.5 py-0.5 text-[10px] text-ink-2 leading-none">
             ESC
           </kbd>
         </InputGroupAddon>
