@@ -4,6 +4,8 @@ import { useDismiss } from './use-dismiss'
 import { useHoverGesture } from './use-hover-gesture'
 import { useTapGesture } from './use-tap-gesture'
 
+export type RailHighlight = ReturnType<typeof useRailHighlight>
+
 export interface RailHighlightOptions {
   items: PreviewRailItem[]
   activeId?: string

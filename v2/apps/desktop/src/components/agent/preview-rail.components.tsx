@@ -2,10 +2,8 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import type { CSSProperties, MouseEvent, PointerEvent, ReactNode } from 'react'
 import { EASE_OUT, SPRING_LAYOUT } from '@/lib/ease'
 import { cn } from '@/lib/utils'
-import type { useRailHighlight } from './preview-rail.hooks'
+import type { RailHighlight } from './preview-rail.hooks'
 import type { PreviewRailItem } from './preview-rail.types'
-
-type RailHighlight = ReturnType<typeof useRailHighlight>
 
 function DefaultPreview({ item }: { item: PreviewRailItem }) {
   return (
