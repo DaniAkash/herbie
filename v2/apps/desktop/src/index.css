@@ -4,12 +4,18 @@
  *
  * tokens.css imports tailwindcss itself, so nothing here does it again.
  * The rest of the order is load bearing: tokens owns the palette and the
- * @theme exports, the vendored foundation supplies base rules on top of them,
- * and anything app specific comes after.
+ * @theme exports, base and animations own the element rules, the shared
+ * utility classes and the keyframes on top of them, and anything specific to
+ * one surface comes after.
+ *
+ * What is left of the vendored foundation no longer declares any of those, so
+ * it follows them and can be dropped without a repaint.
  */
 @import "@fontsource-variable/outfit";
 @import "./styles/tokens.css";
 @import "./styles/beautifui/foundation.css";
+@import "./styles/base.css";
+@import "./styles/animations.css";
 @import "./styles/herbie.css";
 
 /*

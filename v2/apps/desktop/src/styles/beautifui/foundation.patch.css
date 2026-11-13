@@ -1,62 +1,12 @@
-/* GENERIC FOUNDATION base rules, interface hygiene, the primitive-*
- * spacing utilities, and shared keyframes. Blocks tagged COMPONENT-SPECIFIC
- * further down belong to one primitive each.
+/* GENERIC FOUNDATION what is left of it. Blocks tagged COMPONENT-SPECIFIC
+ * belong to one primitive each.
  *
  * The token head this file shipped with (the Tailwind entry point, the shadow
  * plugin, the dark variant, both ramps and the @theme inline exports) now
- * lives in src/styles/tokens.css, which is loaded first.
+ * lives in src/styles/tokens.css, which is loaded first. The base element
+ * rules, the shared card utilities and every keyframe the app names are now in
+ * src/styles/base.css and src/styles/animations.css, which the app owns.
  */
-
-/* ── base ─────────────────────────────────────────────── */
-
-html {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
-}
-
-body {
-  background-color: var(--stripe-bg);
-  background-image: repeating-linear-gradient(
-    -45deg,
-    transparent 0,
-    transparent 7px,
-    var(--stripe) 7px,
-    var(--stripe) 8px
-  );
-  /* Pin the stripe pattern to the viewport so it stays put on scroll. */
-  background-attachment: fixed;
-  color: var(--ink);
-  font-feature-settings: "cv11", "ss01";
-  font-size: 14px;
-  letter-spacing: -0.01em;
-  line-height: 1.5;
-}
-
-::selection {
-  background: var(--accent-tint);
-  color: var(--ink);
-}
-
-/* ── interface hygiene (interfaces.dev cheat sheet) ────── */
-
-/* headings balance; descriptions avoid orphans (skip long-form — we have none) */
-h1,
-h2,
-h3,
-h4 {
-  text-wrap: balance;
-}
-
-p {
-  text-wrap: pretty;
-}
-
-/* underlines clear descenders */
-a {
-  text-underline-position: from-font;
-  text-decoration-skip-ink: auto;
-}
 
 /* theme switches swap every token at once — freeze transitions so the flip
  * is one clean repaint instead of hundreds of mismatched color fades */
@@ -141,116 +91,19 @@ a {
   }
 }
 
-/* Tailwind v4 resets buttons to cursor:default — anything
- * clickable must invite the click */
-button:not(:disabled),
-[role="button"]:not([aria-disabled="true"]),
-label:has(input),
-a {
-  cursor: pointer;
-}
-
-
-:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-  border-radius: 4px;
-}
-
-input:focus-visible,
-textarea:focus-visible,
-select:focus-visible,
-[contenteditable]:focus-visible {
-  outline: none;
-}
-
-.animated-underline {
-  position: relative;
-  display: inline-block;
-}
-
-.animated-underline::after {
-  position: absolute;
-  right: 0;
-  bottom: -1px;
-  left: 0;
-  height: 1px;
-  content: "";
-  background: currentColor;
-  transform: scaleX(0);
-  transform-origin: left center;
-  transition: transform 280ms var(--ease-link);
-}
-
-a:hover .animated-underline::after,
-a:focus-visible .animated-underline::after {
-  transform: scaleX(1);
-}
-
 /* ══════════════════════════════════════════════════════════
  * COMPONENT-SPECIFIC — StreamingText / ContextCards
  * Favicon source avatars.
  * Copy this block only alongside StreamingText / ContextCards; it is not part of the
  * generic foundation above.
  * ══════════════════════════════════════════════════════════ */
-.source-avatar {
-  box-shadow: 0 0 0 1px oklch(0.21 0.034 263.436 / 0.1);
-}
-
-.dark .source-avatar {
-  box-shadow: 0 0 0 1px oklch(1 0 0 / 0.08);
-}
-
 /* ── primitive spacing system ─────────────────────────────
  * Shared optical offsets for small demo cards. Use these
  * instead of hand-tuning 10/12/14px per component.
  */
 
-.primitive-card-pad {
-  padding: 12px;
-}
-
-.primitive-card-bar {
-  padding: 10px 12px;
-}
-
-.primitive-card-footer {
-  padding: 10px;
-}
-
 .primitive-table-cell {
   padding: 10px 12px;
-}
-
-.primitive-icon-button {
-  display: inline-flex;
-  width: 28px;
-  height: 28px;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-control);
-}
-
-/* ── shared keyframes ─────────────────────────────────── */
-
-@keyframes shimmer-text {
-  from {
-    background-position: 150% center;
-  }
-  to {
-    background-position: -50% center;
-  }
-}
-
-@keyframes fade-up {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 .home-reveal {
@@ -377,15 +230,6 @@ a:focus-visible .animated-underline::after {
   border-color: color-mix(in srgb, var(--tag-base) 34%, var(--surface));
 }
 
-@keyframes fade-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
 @keyframes eq-bounce {
   0%,
   100% {
@@ -450,42 +294,3 @@ a:focus-visible .animated-underline::after {
   }
 }
 
-@keyframes pop-in {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* pixel-grid loader — brighten plateau, staggered per cell */
-@keyframes pixel-on {
-  0%, 100% {
-    opacity: 0.15;
-  }
-  18%, 42% {
-    opacity: 1;
-  }
-  62% {
-    opacity: 0.15;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-}

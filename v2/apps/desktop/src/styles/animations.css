@@ -1,0 +1,85 @@
+/*
+ * The keyframes the app's own surfaces name inside inline `animation`
+ * shorthands. They were declared in vendored registry output, so the names are
+ * carried over unchanged and every call site keeps working.
+ *
+ * `spin` overlaps Tailwind's own, which Tailwind emits only for as long as
+ * something still uses the `animate-spin` utility. The task rows name it in a
+ * style attribute instead, so it is declared here rather than left resting on
+ * that coincidence.
+ */
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes shimmer-text {
+  from {
+    background-position: 150% center;
+  }
+  to {
+    background-position: -50% center;
+  }
+}
+
+/* The pixel grid loader: a brightened plateau, staggered per cell. */
+@keyframes pixel-on {
+  0%,
+  100% {
+    opacity: 0.15;
+  }
+  18%,
+  42% {
+    opacity: 1;
+  }
+  62% {
+    opacity: 0.15;
+  }
+}
+
+/* One switch over every animation above and every transition in the app. The
+ * surfaces that use these keyframes set `animation` in a style attribute, and
+ * an inline declaration outranks any stylesheet, so !important is the only
+ * thing that can reach them. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
