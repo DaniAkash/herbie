@@ -61,7 +61,10 @@ function CommandDialog({
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
-        {children}
+        {/* cmdk keeps its state on a store the parts read through context, so
+         * every part has to sit inside a Command. The dialog already draws the
+         * surface, so this one only carries the state. */}
+        <Command className="bg-transparent p-0">{children}</Command>
       </DialogContent>
     </Dialog>
   )
