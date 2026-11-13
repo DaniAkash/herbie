@@ -1,10 +1,10 @@
-import { Card, CardContent } from '@/components/motion/card'
+import { Card, CardContent } from '@/components/ui/card'
 
 /**
  * A labelled group of rows.
  *
- * beui's Card in its outlined variant holds the group, so the panel and the
- * overlays share one surface rather than each inventing hairlines.
+ * One card holds the group, so the panel and the overlays share one surface
+ * rather than each inventing hairlines.
  */
 export function PanelSection({
   label,
@@ -21,14 +21,13 @@ export function PanelSection({
         <div className="mb-2 font-medium text-[13px] text-ink-3">{label}</div>
       ) : null}
       {/*
-        The card is the surface, not the spacing. Its own size adds 24px of
-        vertical padding and a 24px gap between children, which stacks on the
-        padding each row already carries and leaves the panel mostly air.
+        The card is the surface, not the spacing. Its own block padding and
+        child gap stack on the padding each row already carries and leave the
+        panel mostly air, so both are zeroed here.
       */}
       <Card
-        variant="outlined"
-        size="compact"
-        className="!gap-0 !py-0 overflow-hidden"
+        size="sm"
+        className="!gap-0 !py-0 overflow-hidden rounded-2xl border border-line bg-page ring-0"
       >
         <CardContent className="grid gap-0 p-0 [&>*+*]:border-line [&>*+*]:border-t">
           {children}
