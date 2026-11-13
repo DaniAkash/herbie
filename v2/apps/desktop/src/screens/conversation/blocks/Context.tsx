@@ -1,5 +1,5 @@
 import type { ContextPassage, TranscriptRecord } from '@bun/shared/transcript'
-import ContextCards from '@/components/primitives/ContextCards'
+import { ContextCards } from '@/screens/conversation/blocks/ContextCards'
 
 type Context = Extract<TranscriptRecord, { kind: 'show_context' }>
 
@@ -17,10 +17,8 @@ const TONES = ['bg-green', 'bg-blue', 'bg-orange', 'bg-red'] as const
 export function Context({ record }: { record: Context }) {
   return (
     <ContextCards
-      labels={{
-        header: record.header,
-        count: String(record.chunks.length),
-      }}
+      header={record.header}
+      count={String(record.chunks.length)}
       chunks={record.chunks.map((chunk, at) => ({
         title: chunk.source,
         chars: `${chunk.text.length.toLocaleString()} characters`,
