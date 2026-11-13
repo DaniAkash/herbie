@@ -23,8 +23,6 @@
   "dependencies": {
     "@animate-ui/react": "^2.4.1",
     "@base-ui/react": "^1.9.0",
-    "@central-icons-react/round-outlined-radius-2-stroke-2": "^1.2.22",
-    "@floating-ui/dom": "^1.8.0",
     "@fontsource-variable/outfit": "^5.2.8",
     "@hono/zod-validator": "0.9.1",
     "@hookform/resolvers": "^6.0.2",
@@ -43,7 +41,6 @@
     "clsx": "^2.1.1",
     "cn": "^0.5.1",
     "drizzle-orm": "^0.45.2",
-    "glimm": "^0.3.1",
     "hono": "^4.12.16",
     "liveline": "^0.0.7",
     "lucide-react": "^1.64.0",

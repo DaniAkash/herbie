@@ -19,7 +19,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Button } from "@/components/motion/button";
+import { Button } from "@/components/motion/button/base";
 import {
   MorphPopover,
   MorphPopoverContent,
