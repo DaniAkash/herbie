@@ -1,5 +1,5 @@
 import type { TranscriptRecord } from '@bun/shared/transcript'
-import ApprovalCard from '@/components/primitives/ApprovalCard'
+import { ApprovalCard } from '@/screens/conversation/blocks/ApprovalCard'
 
 type Permission = Extract<TranscriptRecord, { kind: 'permission' }>
 
@@ -27,7 +27,6 @@ export function Permission({
   }
   return (
     <ApprovalCard
-      resettable={false}
       questions={[
         {
           q: `${record.toolName} needs your say-so.`,

@@ -1,16 +1,14 @@
 import type { TranscriptRecord } from '@bun/shared/transcript'
-import ApprovalCard from '@/components/primitives/ApprovalCard'
+import { ApprovalCard } from '@/screens/conversation/blocks/ApprovalCard'
 
 type Ask = Extract<TranscriptRecord, { kind: 'ask' }>
 
 /**
  * An `ask` block, which is the one block the agent is stopped on.
  *
- * `resettable` is off: the agent is waiting on this answer and has already
- * been given it, so a reset affordance would offer to change something that
- * has gone. When the answers are in, the card renders them read-only rather
- * than disappearing, because the question and its answer are both part of
- * the thread.
+ * When the answers are in, the card renders them read-only rather than
+ * disappearing, because the question and its answer are both part of the
+ * thread.
  */
 export function Ask({
   record,
@@ -28,7 +26,6 @@ export function Ask({
   }
   return (
     <ApprovalCard
-      resettable={false}
       questions={record.questions.map((question) => ({
         q: question.q,
         type: question.type,
