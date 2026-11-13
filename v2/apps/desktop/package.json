@@ -21,7 +21,7 @@
     "seed:dev": "HERBIE_DEV=1 bun src-bun/seed-dev.ts"
   },
   "dependencies": {
-    "@animate-ui/react": "^2.4.1",
+    "@animate-ui/react": "^2.4.3",
     "@base-ui/react": "^1.9.0",
     "@fontsource-variable/outfit": "^5.2.8",
     "@hono/zod-validator": "0.9.1",
