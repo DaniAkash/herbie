@@ -1,4 +1,3 @@
-import { Tabs, TabsList, TabsTrigger } from '@/components/motion/tabs'
 import {
   Select,
   SelectContent,
@@ -6,6 +5,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 /**
  * Effort, as however many levels the runtime actually reports.
@@ -26,8 +26,8 @@ export function EffortControl({
 }) {
   if (values.length <= 3) {
     return (
-      <Tabs value={value} variant="segment" onValueChange={onChange}>
-        <TabsList>
+      <Tabs value={value} onValueChange={onChange}>
+        <TabsList variant="segment">
           {values.map((e) => (
             <TabsTrigger key={e} value={e}>
               {e}
