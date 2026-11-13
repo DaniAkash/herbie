@@ -93,13 +93,19 @@ export function ColorSwatches({
   )
 }
 
-/** Which of the two steps you are on, and what the first one decided. */
-export function Steps({ name }: { name?: string }) {
-  const onSecond = Boolean(name)
+/**
+ * Which of the two steps you are on, and what the first one decided.
+ *
+ * `current` is the step, not a guess at it. Reading it off the name meant the
+ * header stayed on step one whenever the second step was reached with the
+ * name still empty, which is what a url pointing straight at it does.
+ */
+export function Steps({ current, name }: { current: 1 | 2; name?: string }) {
+  const onSecond = current === 2
   return (
     <div className="mb-4 flex items-center gap-2 text-[12.5px]">
       <Step n="1" current={!onSecond} done={onSecond}>
-        {name || 'Who it is'}
+        {name?.trim() || 'Who it is'}
       </Step>
       <span className="h-px flex-1 bg-line" />
       <Step n="2" current={onSecond}>

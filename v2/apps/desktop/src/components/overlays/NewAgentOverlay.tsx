@@ -124,7 +124,7 @@ export function NewAgentOverlay() {
         )
       }
     >
-      <Steps name={onRuns ? name : undefined} />
+      <Steps current={onRuns ? 2 : 1} name={name} />
       {onRuns ? <RunsOnStep form={form} /> : <WhoItIsStep form={form} />}
       {create.isError ? (
         <p className="mt-3 text-[12.5px] text-red">
