@@ -2,7 +2,7 @@ import { CheckCircle2, Info, Loader2 } from 'lucide-react'
 import { useState } from 'react'
 import { Controller } from 'react-hook-form'
 import { Button } from '@/components/atoms/Button'
-import { Input } from '@/components/motion/input'
+import { TextField } from '@/components/form/TextField'
 import { shortenHome } from '@/lib/paths'
 import type { AgentForm } from '@/modules/api/forms'
 import { needsSignIn } from '@/modules/api/runtimes.helpers'
@@ -151,7 +151,7 @@ function FolderField({
 
   if (!isDesktop()) {
     return (
-      <Input
+      <TextField
         value={value ?? ''}
         onChange={(next) => onChange(next || null)}
         placeholder={

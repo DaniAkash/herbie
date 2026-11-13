@@ -3,7 +3,7 @@ import { useNavigate, useSearch } from '@tanstack/react-router'
 import { Controller } from 'react-hook-form'
 import { AgentFace } from '@/components/agent/AgentFace'
 import { Button } from '@/components/atoms/Button'
-import { Input } from '@/components/motion/input'
+import { TextField } from '@/components/form/TextField'
 import {
   BackButton,
   ColorSwatches,
@@ -148,7 +148,7 @@ function WhoItIsStep({ form }: { form: AgentForm }) {
         control={form.control}
         name="name"
         render={({ field, fieldState }) => (
-          <Input
+          <TextField
             value={field.value}
             onChange={field.onChange}
             onBlur={field.onBlur}

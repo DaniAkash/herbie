@@ -15,7 +15,7 @@ import {
 import { SPRING_SWAP } from '@/lib/ease'
 import type { PromptAction, PromptModel } from './prompt-input.types'
 
-interface PromptActionsMenuProps {
+export interface PromptActionsMenuProps {
   actions: PromptAction[]
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -92,7 +92,7 @@ export function PromptActionsMenu({
   )
 }
 
-interface PromptModelSelectProps {
+export interface PromptModelSelectProps {
   models: PromptModel[]
   value?: string
   onValueChange: (value: string) => void
@@ -152,7 +152,7 @@ export function PromptModelSelect({
   )
 }
 
-interface PromptSendButtonProps {
+export interface PromptSendButtonProps {
   loading: boolean
   canSubmit: boolean
   onStop?: () => void

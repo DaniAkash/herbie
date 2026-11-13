@@ -2,7 +2,7 @@ import { type RefObject, useCallback, useEffect, useLayoutEffect } from 'react'
 
 const LINE_HEIGHT = 24
 
-interface AutoGrowOptions {
+export interface AutoGrowOptions {
   textareaRef: RefObject<HTMLTextAreaElement | null>
   measurementRef: RefObject<HTMLDivElement | null>
   value: string

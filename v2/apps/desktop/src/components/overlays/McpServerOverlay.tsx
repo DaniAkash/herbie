@@ -2,7 +2,7 @@ import { Link } from '@tanstack/react-router'
 import { ChevronLeft } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/atoms/Button'
-import { Input } from '@/components/motion/input'
+import { TextField } from '@/components/form/TextField'
 import { Overlay } from '@/components/shell/Overlay'
 import { cn } from '@/lib/utils'
 import { type ToolsResponse, useTools } from '@/modules/api/tools.hooks'
@@ -63,7 +63,7 @@ function ServerForm({ existing }: { existing?: Server }) {
       }
     >
       <div className="grid gap-3.5">
-        <Input label="Name" defaultValue={existing?.name ?? ''} />
+        <TextField label="Name" defaultValue={existing?.name ?? ''} />
 
         <div>
           <span className="mb-1.5 block font-medium text-[12.5px] text-ink-2">
@@ -91,11 +91,11 @@ function ServerForm({ existing }: { existing?: Server }) {
 
         {kind === 'stdio' ? (
           <>
-            <Input label="Command" defaultValue={existing?.target ?? ''} />
-            <Input label="Arguments" defaultValue={existing?.args ?? ''} />
+            <TextField label="Command" defaultValue={existing?.target ?? ''} />
+            <TextField label="Arguments" defaultValue={existing?.args ?? ''} />
           </>
         ) : (
-          <Input label="URL" defaultValue={existing?.target ?? ''} />
+          <TextField label="URL" defaultValue={existing?.target ?? ''} />
         )}
       </div>
     </Overlay>

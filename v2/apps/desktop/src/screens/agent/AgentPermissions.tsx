@@ -1,7 +1,7 @@
 import { Plus, X } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/atoms/Button'
-import { Input } from '@/components/motion/input'
+import { TextField } from '@/components/form/TextField'
 import { Switch } from '@/components/motion/switch'
 import { PanelRow, PanelSection } from '@/components/shell/Rows'
 import {
@@ -219,7 +219,7 @@ function Rules({
               setAdding(false)
             }}
           >
-            <Input
+            <TextField
               autoFocus
               value={phrase}
               onChange={setPhrase}
