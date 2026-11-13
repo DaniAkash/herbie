@@ -3,13 +3,12 @@ import { useNavigate, useSearch } from '@tanstack/react-router'
 import { Controller } from 'react-hook-form'
 import { AgentFace } from '@/components/agent/AgentFace'
 import { Button } from '@/components/atoms/Button'
-import {
-  ColorSelector,
-  ColorSelectorItem,
-  ColorSelectorList,
-} from '@/components/motion/color-selector'
 import { Input } from '@/components/motion/input'
-import { BackButton, Steps } from '@/components/overlays/new-agent.components'
+import {
+  BackButton,
+  ColorSwatches,
+  Steps,
+} from '@/components/overlays/new-agent.components'
 import { RunsOnStep } from '@/components/overlays/RunsOnStep'
 import { Overlay } from '@/components/shell/Overlay'
 import { Textarea } from '@/components/ui/textarea'
@@ -163,22 +162,16 @@ function WhoItIsStep({ form }: { form: AgentForm }) {
         control={form.control}
         name="color"
         render={({ field }) => (
-          <ColorSelector
+          <ColorSwatches
+            label="Colour"
             value={field.value}
             onValueChange={field.onChange}
-            aria-label="Colour"
-          >
-            <ColorSelectorList>
-              {SWATCHES.map((c) => (
-                <ColorSelectorItem
-                  key={c}
-                  value={c}
-                  color={`var(--f-${c})`}
-                  label={c}
-                />
-              ))}
-            </ColorSelectorList>
-          </ColorSelector>
+            swatches={SWATCHES.map((c) => ({
+              value: c,
+              color: `var(--f-${c})`,
+              label: c,
+            }))}
+          />
         )}
       />
       <Controller
