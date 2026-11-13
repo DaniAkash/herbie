@@ -151,7 +151,7 @@
   --line-soft: oklch(0.305 0.006 258);
   --stripe: oklch(1 0 0 / 0.055);
   --stripe-bg: oklch(0.222 0.005 264);
-  --accent-ink: oklch(0.875 0.1 162);
+  --accent-ink: oklch(0.885 0.1 162);
   --accent-tint: oklch(0.845 0.115 162 / 0.16);
 
   --green: oklch(0.705 0.154 153.814);

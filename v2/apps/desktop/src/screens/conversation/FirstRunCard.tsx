@@ -101,7 +101,7 @@ function Todo({
         className={cn(
           'grid size-[17px] shrink-0 place-items-center rounded-[5px]',
           done
-            ? 'bg-accent text-white'
+            ? 'bg-accent text-accent-foreground'
             : 'shadow-[inset_0_0_0_1.5px_var(--line-strong)]',
         )}
       >

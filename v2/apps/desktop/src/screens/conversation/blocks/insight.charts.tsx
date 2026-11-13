@@ -1,6 +1,6 @@
 import type { InsightBoard } from '@bun/shared/transcript'
 import { Liveline, type LivelinePoint, type LivelineSeries } from 'liveline'
-import { useDark } from '@/screens/conversation/blocks/insight.hooks'
+import { useIsDark } from '@/modules/theme/theme.hooks'
 
 /**
  * The three plots an `show_insight` block can draw.
@@ -79,7 +79,7 @@ export function CompareChart({ series }: { series: Series }) {
  * wrong is worse than one it cannot.
  */
 export function AnomalyChart({ series }: { series: Series }) {
-  const dark = useDark()
+  const dark = useIsDark()
   const peak = series.reduce(
     (worst, point) => (point.value > worst.value ? point : worst),
     series[0] ?? { label: '', value: 0 },
