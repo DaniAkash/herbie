@@ -1,0 +1,264 @@
+/*
+ * Herbie's token layer. It owns the Tailwind entry point, the shadow plugin,
+ * the light and dark ramps, and the `@theme inline` exports that turn them
+ * into utilities.
+ *
+ * The shadcn contract is the source of truth and every beautifui name that has
+ * a shadcn counterpart is an alias of it. That is the inverse of the bridge
+ * this replaces. shadcn and animate-ui components reach for --background,
+ * --primary and --border; the app's own screens reach for --page, --accent and
+ * --line. One set has to be derived from the other or the two drift, and the
+ * derived half should be the one with no outside contract to honour.
+ *
+ * `:root` is declared once and `.dark` once, in that order, in this file. The
+ * ramps used to sit in two files and the later one re-declared the earlier
+ * one's `:root`, which beats `.dark` at equal specificity and made the dark
+ * ramp unreachable.
+ *
+ * Two deliberate departures from the generic beautifui palette are carried
+ * forward here, where the values now live.
+ *
+ * 1. The accent is Herbie green. The generic set ships a blue; the brand is
+ *    #006239, with a #72E3AD mint for dark surfaces.
+ *
+ * 2. The light ramp is softer. It used to span a near-white page up to a pure
+ *    white surface, so large fields glared and the hairlines washed out against
+ *    them. It drops the set, stops short of pure white, and darkens the lines
+ *    so edges are carried by contrast rather than brightness. --ink-2 is
+ *    darkened with it so secondary copy still clears AA.
+ *
+ * The dark ramp is re-derived in the same spirit: lifted off near-black so it
+ * reads calm rather than inky, lines raised so edges are carried by contrast,
+ * and the ink ramp lifted until every tier reads at least as well on dark
+ * surfaces as its light counterpart does on light ones.
+ */
+@import "tailwindcss";
+/* shadow-plugin (flornkm): smooth, layered shadow stacks. The unprefixed entry
+ * maps them onto Tailwind's --shadow-xs to 2xl scale, which the semantic
+ * shadow tokens below build on. */
+@import "shadow-plugin/unprefixed";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  /* The shadcn contract. Literal values; everything else derives from these. */
+  --background: oklch(0.938 0.004 258);
+  --foreground: oklch(0.295 0.01 262);
+  --card: oklch(0.966 0.003 258);
+  --card-foreground: var(--foreground);
+  --popover: var(--card);
+  --popover-foreground: var(--foreground);
+  --primary: oklch(0.44 0.105 161);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.915 0.005 258);
+  --secondary-foreground: var(--foreground);
+  --muted: var(--secondary);
+  --muted-foreground: oklch(0.59 0.012 264);
+  --accent: var(--primary);
+  --accent-foreground: var(--primary-foreground);
+  --destructive: oklch(0.565 0.18 23);
+  --destructive-foreground: oklch(0.985 0.002 258);
+  --border: oklch(0.872 0.006 258);
+  --input: oklch(0.92 0.005 258);
+  --ring: var(--primary);
+  --radius: 10px;
+
+  /* Categorical series, in the order a stacked chart consumes them. */
+  --chart-1: var(--primary);
+  --chart-2: var(--blue);
+  --chart-3: var(--orange);
+  --chart-4: oklch(0.595 0.125 300);
+  --chart-5: var(--destructive);
+
+  --sidebar: var(--secondary);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--hover);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+
+  /* beautifui names that have a counterpart above. */
+  --page: var(--background);
+  --canvas: var(--secondary);
+  --surface: var(--card);
+  --ink: var(--foreground);
+  --ink-3: var(--muted-foreground);
+  --line: var(--border);
+  --field: var(--input);
+  --red: var(--destructive);
+
+  /* beautifui names with no counterpart. */
+  --inset: oklch(0.926 0.005 258);
+  --hover: oklch(0.918 0.005 258);
+  --hover-2: oklch(0.888 0.006 258);
+  --ink-2: oklch(0.45 0.013 264);
+  --line-strong: oklch(0.832 0.007 258);
+  --line-soft: oklch(0.902 0.005 258);
+  --grid-line: color-mix(in srgb, var(--line) 78%, transparent);
+  --stripe: oklch(0.42 0 0 / 0.045);
+  --stripe-bg: oklch(0.902 0.003 258);
+  --accent-ink: oklch(0.4 0.1 161);
+  --accent-tint: oklch(0.905 0.04 161);
+
+  /* Semantic colour, used sparingly as a condiment. */
+  --green: oklch(0.603 0.155 150.883);
+  --green-tint: oklch(0.958 0.017 159.118);
+  --orange: oklch(0.689 0.179 49.902);
+  --orange-tint: oklch(0.964 0.021 67.581);
+  --red-tint: oklch(0.907 0.027 17);
+  --blue: oklch(0.56 0.14 255);
+
+  /* Chart overlays. Neutral, with enough contrast on either theme. */
+  --tooltip-bg: oklch(0.272 0.008 264.435);
+  --tooltip-fg: oklch(0.976 0.002 247.839);
+  --tooltip-muted: oklch(0.731 0.008 260.731);
+  --tooltip-border: oklch(0.356 0.007 264.474);
+
+  /* A solid hairline ring plus shadow-plugin's layered stacks. */
+  --shadow-hairline: 0 0 0 1px var(--line);
+  --shadow-btn: 0 0 0 1px var(--line-strong), var(--shadow-xs);
+  --shadow-card: 0 0 0 1px var(--line), var(--shadow-sm);
+  --shadow-raised: 0 0 0 1px var(--line), var(--shadow-md);
+  --shadow-overlay: 0 0 0 1px var(--line), var(--shadow-lg);
+  --shadow-inset-field: inset 0 1px 2px oklch(0 0 0 / 0.12);
+
+  --font-inter: "Outfit Variable";
+}
+
+.dark {
+  --background: oklch(0.205 0.005 264);
+  --foreground: oklch(0.962 0.002 248);
+  --card: oklch(0.262 0.006 266);
+  /* Mint on a dark surface is a light fill, so its text has to be dark. White
+   * on it reads at 1.5:1. */
+  --primary: oklch(0.845 0.115 162);
+  --primary-foreground: oklch(0.205 0.005 264);
+  --secondary: oklch(0.228 0.005 264);
+  --muted-foreground: oklch(0.615 0.01 264);
+  --destructive: oklch(0.666 0.18 21.433);
+  --border: oklch(0.352 0.007 260);
+  --input: oklch(0.288 0.006 271);
+
+  --chart-4: oklch(0.74 0.13 300);
+
+  --inset: oklch(0.242 0.005 264);
+  --hover: oklch(0.292 0.006 268);
+  --hover-2: oklch(0.325 0.007 272);
+  --ink-2: oklch(0.762 0.008 260);
+  --line-strong: oklch(0.412 0.008 264);
+  --line-soft: oklch(0.305 0.006 258);
+  --stripe: oklch(1 0 0 / 0.055);
+  --stripe-bg: oklch(0.222 0.005 264);
+  --accent-ink: oklch(0.875 0.1 162);
+  --accent-tint: oklch(0.845 0.115 162 / 0.16);
+
+  --green: oklch(0.705 0.154 153.814);
+  --green-tint: oklch(0.705 0.154 153.814 / 0.14);
+  --orange: oklch(0.746 0.156 55.642);
+  --orange-tint: oklch(0.746 0.156 55.642 / 0.14);
+  --red-tint: oklch(0.666 0.18 21.433 / 0.14);
+  --blue: oklch(0.72 0.13 255);
+
+  --tooltip-bg: oklch(0.182 0.004 264.459);
+  --tooltip-fg: oklch(0.964 0.002 247.839);
+  --tooltip-muted: oklch(0.731 0.008 260.731);
+  --tooltip-border: oklch(0.308 0.006 258.354);
+
+  --shadow-hairline: 0 0 0 1px var(--line);
+  /* Elevation rings go to a subtle light hairline on dark: the ring paints over
+   * the surface behind the element, so a low-alpha white edge dissolves into
+   * the shadow as one continuous stroke, graduated by how far the surface
+   * floats. */
+  --shadow-btn: 0 0 0 1px oklch(1 0 0 / 0.1), 0 1px 2px oklch(0 0 0 / 0.3);
+  --shadow-card:
+    0 0 0 1px oklch(1 0 0 / 0.11), 0 1px 2px oklch(0 0 0 / 0.2),
+    0 2px 6px oklch(0 0 0 / 0.2);
+  --shadow-raised:
+    0 0 0 1px oklch(1 0 0 / 0.13), 0 2px 10px oklch(0 0 0 / 0.22);
+  --shadow-overlay:
+    0 0 0 1px oklch(1 0 0 / 0.15), 0 8px 28px oklch(0 0 0 / 0.34);
+  --shadow-inset-field: inset 0 1px 2px oklch(0 0 0 / 0.4);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --color-page: var(--page);
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-inset: var(--inset);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-hover: var(--hover);
+  --color-hover-2: var(--hover-2);
+  --color-field: var(--field);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-tint: var(--accent-tint);
+  --color-green: var(--green);
+  --color-green-tint: var(--green-tint);
+  --color-orange: var(--orange);
+  --color-orange-tint: var(--orange-tint);
+  --color-red: var(--red);
+  --color-red-tint: var(--red-tint);
+  --color-blue: var(--blue);
+
+  --shadow-hairline: var(--shadow-hairline);
+  --shadow-btn: var(--shadow-btn);
+  --shadow-inset-field: var(--shadow-inset-field);
+  --shadow-card: var(--shadow-card);
+  --shadow-raised: var(--shadow-raised);
+  --shadow-overlay: var(--shadow-overlay);
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-mono-face), ui-monospace, "SF Mono", monospace;
+
+  /* Named rather than derived from --radius: Tailwind's own --radius-sm to xl
+   * already carry every `rounded-md` and `rounded-lg` in the app, and
+   * redefining those would resize controls this layer has no opinion about. */
+  --radius-chip: 6px;
+  --radius-control: 8px;
+  --radius-card: 10px;
+  --radius-window: 14px;
+
+  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out-strong: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-link: cubic-bezier(0.16, 1, 0.3, 1);
+}
