@@ -2,6 +2,7 @@ import { useReducedMotion } from 'motion/react'
 import { useEffect, useState } from 'react'
 import { AgentFace } from '@/components/agent/AgentFace'
 import type { Agent } from '@/modules/api/agents.hooks'
+import type { AttentionFace } from '@/modules/notifications/attention'
 
 // The supplied directional gestures each take 4.8 seconds to settle.
 const GESTURES = [
@@ -19,10 +20,13 @@ export function ConversationFace({
   agent,
   selected,
   hovered,
+  attention = null,
 }: {
   agent: Agent
   selected: boolean
   hovered: boolean
+  /** What the inbox says, which outranks the agent's own state column. */
+  attention?: AttentionFace | null
 }) {
   const reduce = useReducedMotion()
   const [step, setStep] = useState(0)
@@ -37,7 +41,7 @@ export function ConversationFace({
     return () => window.clearInterval(timer)
   }, [playing])
 
-  const state = faceState(agent.state, hovered, playing, step)
+  const state = attention ?? faceState(agent.state, hovered, playing, step)
 
   return (
     <AgentFace
