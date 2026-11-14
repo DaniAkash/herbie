@@ -6,6 +6,8 @@
   "permissions": [
     "core:default",
     "core:window:allow-start-dragging",
+    "notification:default",
+    "core:window:allow-set-badge-count",
     "dialog:allow-open",
     {
       "identifier": "http:default",

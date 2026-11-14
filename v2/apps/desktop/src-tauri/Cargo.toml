@@ -32,3 +32,11 @@ tauri-plugin-shell = "2"
 tauri-plugin-single-instance = "2"
 tauri-plugin-http = "2"
 tauri-plugin-dialog = "2"
+tauri-plugin-notification = "2"
+resvg = "0.50"
+
+# Only macOS reaches UNUserNotificationCenter, and only a release build can:
+# the framework refuses to run outside a signed, bundled app registered with
+# Launch Services. Dev falls back to the plugin, which is why both are here.
+[target.'cfg(target_os = "macos")'.dependencies]
+user-notify = "0.4"
