@@ -14,6 +14,8 @@ import routineRuns from './0006_add_routine_runs.sql' with { type: 'text' }
 
 import agentShape from './0007_add_agent_shape.sql' with { type: 'text' }
 
+import notifications from './0008_add_notifications.sql' with { type: 'text' }
+
 export interface Migration {
   readonly name: string
   readonly sql: string
@@ -37,4 +39,5 @@ export const MIGRATIONS: readonly Migration[] = [
   { name: '0006_add_routine_runs', sql: routineRuns },
   // Preserve the original ledger name for development installs of this branch.
   { name: '0006_add_agent_shape', sql: agentShape },
+  { name: '0008_add_notifications', sql: notifications },
 ]

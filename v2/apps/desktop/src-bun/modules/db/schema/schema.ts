@@ -1,4 +1,5 @@
 export { agents } from '@bun/modules/db/schema/agents.sql'
+export { notifications } from '@bun/modules/db/schema/notifications.sql'
 export { routineRuns } from '@bun/modules/db/schema/routine-runs.sql'
 export { routines } from '@bun/modules/db/schema/routines.sql'
 export { agentRules } from '@bun/modules/db/schema/rules.sql'

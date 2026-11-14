@@ -57,6 +57,13 @@
       "when": 1793877592997,
       "tag": "0007_add_agent_shape",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1794646462542,
+      "tag": "0008_add_notifications",
+      "breakpoints": true
     }
   ]
 }
