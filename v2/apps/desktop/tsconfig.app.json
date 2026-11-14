@@ -19,5 +19,5 @@
   // Adding "bun" to this project's types instead would replace the DOM
   // Response with bun's, and the webview's fetch handling is written against
   // the DOM one.
-  "exclude": ["src/**/*.test.ts"]
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"]
 }

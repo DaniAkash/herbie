@@ -1,11 +1,14 @@
 import { AnimateIcon } from '@animate-ui/react/icons'
 import { Link, useParams } from '@tanstack/react-router'
 import { Plug } from 'lucide-react'
+import { useState } from 'react'
 import { AgentFace } from '@/components/agent/AgentFace'
+import { ConversationFace } from '@/components/agent/ConversationFace'
 import { Plus } from '@/components/animate-ui/icons/plus'
 import { Search } from '@/components/animate-ui/icons/search'
 import { Settings } from '@/components/animate-ui/icons/settings'
 import { AgentStateDot } from '@/components/shell/AgentStateDot'
+import { SidebarProfile } from '@/components/shell/SidebarProfile'
 import { cn } from '@/lib/utils'
 import type { Agent } from '@/modules/api/agents.hooks'
 import { openOverlay } from '@/modules/navigation/overlay'
@@ -20,6 +23,7 @@ import { openOverlay } from '@/modules/navigation/overlay'
 export function AgentRail({ agents }: { agents: readonly Agent[] }) {
   const params = useParams({ strict: false }) as { agentId?: string }
   const active = params.agentId
+  const [hovered, setHovered] = useState<string | null>(null)
 
   return (
     <aside className="grid min-h-0 grid-rows-[auto_auto_auto_1fr_auto] bg-canvas">
@@ -44,6 +48,10 @@ export function AgentRail({ agents }: { agents: readonly Agent[] }) {
             to="/agents/$agentId"
             params={{ agentId: agent.id }}
             aria-current={agent.id === active ? 'true' : undefined}
+            onMouseEnter={() => setHovered(agent.id)}
+            onMouseLeave={() => setHovered(null)}
+            onFocus={() => setHovered(agent.id)}
+            onBlur={() => setHovered(null)}
             className={cn(
               'grid justify-items-center gap-1.5 rounded-card px-0.5 pt-2 pb-[7px]',
               'transition-[background-color,transform] duration-150 ease-out active:scale-[0.96]',
@@ -52,7 +60,22 @@ export function AgentRail({ agents }: { agents: readonly Agent[] }) {
           >
             <AgentFace
               color={agent.color}
-              working={agent.state === 'working'}
+              shape={agent.shape}
+              animate={
+                agent.state === 'working' ||
+                agent.state === 'stuck' ||
+                agent.id === active ||
+                agent.id === hovered
+              }
+              state={
+                agent.state === 'working'
+                  ? 'thinking'
+                  : agent.state === 'stuck'
+                    ? 'error'
+                    : agent.id === hovered && agent.state !== 'off'
+                      ? 'delighted'
+                      : 'idle'
+              }
               off={agent.state === 'off'}
             />
             <span
@@ -79,15 +102,19 @@ export function AgentRail({ agents }: { agents: readonly Agent[] }) {
             to="/agents/$agentId"
             params={{ agentId: agent.id }}
             aria-current={agent.id === active ? 'true' : undefined}
+            onMouseEnter={() => setHovered(agent.id)}
+            onMouseLeave={() => setHovered(null)}
+            onFocus={() => setHovered(agent.id)}
+            onBlur={() => setHovered(null)}
             className={cn(
               'grid w-full grid-cols-[auto_1fr_auto] items-center gap-2.5 rounded-control p-2 text-left',
               'transition-colors duration-150 ease-out hover:bg-hover aria-[current]:bg-hover-2',
             )}
           >
-            <AgentFace
-              color={agent.color}
-              size="sm"
-              off={agent.state === 'off'}
+            <ConversationFace
+              agent={agent}
+              selected={agent.id === active}
+              hovered={agent.id === hovered}
             />
             <span className="min-w-0">
               <span className="block font-medium text-[13.5px] leading-tight">
@@ -103,8 +130,7 @@ export function AgentRail({ agents }: { agents: readonly Agent[] }) {
       </div>
 
       <div className="flex items-center gap-2 px-2.5 pt-[7px] pb-2.5">
-        <div className="size-[23px] shrink-0 rounded-full bg-hover-2" />
-        <span className="font-medium text-[13.5px]">Dani</span>
+        <SidebarProfile />
         <span className="flex-1" />
         <RailIcon to="tools" label="Tools">
           <Plug size={16} />
@@ -132,7 +158,10 @@ function RailIcon({
         to="."
         search={openOverlay(to)}
         aria-label={label}
-        className="inline-flex size-7 items-center justify-center rounded-control text-ink-3 transition-[background-color,color,transform] duration-150 ease-out hover:bg-hover hover:text-ink active:scale-[0.96]"
+        data-tooltip-side={
+          to === 'search' || to === 'new' ? 'bottom' : undefined
+        }
+        className="icon-tooltip inline-flex size-7 items-center justify-center rounded-control text-ink-3 transition-[background-color,color,transform] duration-150 ease-out hover:bg-hover hover:text-ink active:scale-[0.96]"
       >
         {children}
       </Link>

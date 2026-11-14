@@ -54,6 +54,7 @@ export function Conversation({ agent }: { agent: Agent }) {
         agentId={agentId}
         panelOpen={panelOpen}
         phase={thread.phase}
+        error={thread.error}
       />
 
       <MessageScroller
@@ -102,6 +103,7 @@ export function Conversation({ agent }: { agent: Agent }) {
         */}
         <PromptInput
           placeholder={`Message ${agent.name}`}
+          aria-label={`Message ${agent.name}`}
           value={draft}
           onValueChange={setDraft}
           models={[{ value: agent.acpAgent, label: runtimeName }]}
@@ -137,22 +139,41 @@ export function Conversation({ agent }: { agent: Agent }) {
   )
 }
 
+function faceState(phase: Phase, error: string | null, state: string) {
+  if (phase === 'waiting') return 'input-needed'
+  if (phase !== 'idle') return 'thinking'
+  if (error) return 'error'
+  return state === 'stuck' ? 'error' : 'idle'
+}
+
 /** The agent, its state, and the way into its panel. */
 function Header({
   agent,
   agentId,
   panelOpen,
   phase,
+  error,
 }: {
   agent: Agent
   agentId: string
   panelOpen: boolean
   phase: Phase
+  error: string | null
 }) {
   const working = phase !== 'idle'
+  const expression = faceState(phase, error, agent.state)
   return (
-    <div className="flex items-center gap-2.5 px-[22px] py-2.5">
-      <AgentFace color={agent.color} size="sm" />
+    <div className="flex items-center gap-2.5 border-line border-b px-[22px] py-2.5">
+      <AgentFace
+        key={`${agentId}-${expression}`}
+        color={agent.color}
+        shape={agent.shape}
+        animate={
+          phase === 'thinking' || phase === 'working' || phase === 'waiting'
+        }
+        size="xl"
+        state={expression}
+      />
       <span className="font-semibold text-[15px]">{agent.name}</span>
       {working || agent.state === 'stuck' ? (
         <span className="flex items-center gap-1.5 text-[13px] text-ink-2">
@@ -167,8 +188,9 @@ function Header({
           params={{ agentId }}
           aria-label={panelOpen ? 'Hide agent settings' : 'Show agent settings'}
           aria-pressed={panelOpen}
+          data-tooltip-side="bottom-end"
           className={cn(
-            'inline-flex size-7 items-center justify-center rounded-control transition-colors',
+            'icon-tooltip inline-flex size-7 items-center justify-center rounded-control transition-colors',
             panelOpen
               ? 'bg-hover-2 text-ink'
               : 'text-ink-3 hover:bg-hover hover:text-ink',

@@ -1,4 +1,6 @@
 import { Link } from '@tanstack/react-router'
+import { MonitorCogIcon, MoonStarIcon, SunIcon } from 'lucide-react'
+import { motion, useReducedMotion } from 'motion/react'
 import { useState } from 'react'
 import { SwitchField } from '@/components/form/SwitchField'
 import { Overlay } from '@/components/shell/Overlay'
@@ -6,6 +8,13 @@ import { PanelRow, PanelSection } from '@/components/shell/Rows'
 import { Button } from '@/components/ui/button'
 import { useAgents } from '@/modules/api/agents.hooks'
 import { closeOverlay } from '@/modules/navigation/overlay'
+import { setTheme, useTheme } from '@/modules/theme/theme'
+
+const THEME_OPTIONS = [
+  { icon: MonitorCogIcon, value: 'system' },
+  { icon: SunIcon, value: 'light' },
+  { icon: MoonStarIcon, value: 'dark' },
+] as const
 
 const RUNTIMES = [
   { id: 'claude', name: 'Claude Code' },
@@ -63,6 +72,12 @@ export function HerbieOverlay() {
         })}
       </PanelSection>
 
+      <PanelSection label="Appearance">
+        <PanelRow k="Theme">
+          <ThemeToggle />
+        </PanelRow>
+      </PanelSection>
+
       <PanelSection label="General">
         <PanelRow k="Keep going when closed" v="Herbie waits in the menu bar">
           <SwitchField
@@ -83,5 +98,46 @@ export function HerbieOverlay() {
         </PanelRow>
       </PanelSection>
     </Overlay>
+  )
+}
+
+/** Native radios provide keyboard navigation while the outline follows selection. */
+function ThemeToggle() {
+  const theme = useTheme()
+  const reduce = useReducedMotion()
+  return (
+    <fieldset
+      aria-label="Theme"
+      className="inline-flex items-center overflow-hidden rounded-control border border-line bg-inset p-0.5"
+    >
+      {THEME_OPTIONS.map(({ icon: Icon, value }) => (
+        <label
+          key={value}
+          className="relative grid size-7 cursor-pointer place-items-center rounded-control text-ink-3 transition-colors hover:text-ink has-[:checked]:text-ink has-[:focus-visible]:outline has-[:focus-visible]:outline-2"
+        >
+          <input
+            className="sr-only"
+            type="radio"
+            name="theme"
+            value={value}
+            checked={theme === value}
+            onChange={() => setTheme(value)}
+            aria-label={`Switch to ${value} theme`}
+          />
+          {theme === value && (
+            <motion.span
+              layoutId="theme-option"
+              transition={
+                reduce
+                  ? { duration: 0 }
+                  : { type: 'spring', bounce: 0.1, duration: 0.75 }
+              }
+              className="pointer-events-none absolute inset-0 rounded-control border border-line-strong"
+            />
+          )}
+          <Icon aria-hidden="true" className="size-3.5" />
+        </label>
+      ))}
+    </fieldset>
   )
 }

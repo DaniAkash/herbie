@@ -32,7 +32,7 @@ export function FirstRunCard({ agent }: { agent: Agent }) {
   return (
     <div className="grid gap-3.5 rounded-card bg-surface p-4 shadow-hairline">
       <div className="flex items-center gap-3">
-        <AgentFace color={agent.color} size="lg" />
+        <AgentFace color={agent.color} shape={agent.shape} size="lg" />
         <div className="min-w-0">
           <h3 className="font-semibold text-[15px]">{agent.name} is ready</h3>
           <div className="truncate text-[12.5px] text-ink-2">

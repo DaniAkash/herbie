@@ -1,6 +1,9 @@
+import { useReducedMotion } from 'motion/react'
+import { useId } from 'react'
+import fallback from '@/assets/herbie-motion/static/squircle/idle.svg?raw'
+import { steadyFace } from '@/components/agent/steady-face'
 import { cn } from '@/lib/utils'
 
-/** The six face colours, keyed the way the agents table stores them. */
 const HUE: Record<string, string> = {
   ops: 'var(--f-ops)',
   scout: 'var(--f-scout)',
@@ -9,62 +12,100 @@ const HUE: Record<string, string> = {
   house: 'var(--f-house)',
   watch: 'var(--f-watch)',
 }
+const SIZE = { sm: 20, md: 28, lg: 54, xl: 40, preview: 96 } as const
+const assets = import.meta.glob<string>(
+  '../../assets/herbie-motion/{motion,static}/*/*.svg',
+  { eager: true, query: '?raw', import: 'default' },
+)
+const shapes = new Set([
+  'squircle',
+  'circle',
+  'soft-hexagon',
+  'pill',
+  'rounded-diamond',
+  'soft-trapezoid',
+  'rounded-arch',
+])
+type FaceState =
+  | 'idle'
+  | 'blink'
+  | 'thinking'
+  | 'input-needed'
+  | 'error'
+  | 'scheduled'
+  | 'delighted'
+  | 'surprised'
+  | 'gentle-nod'
+  | 'look-up'
+  | 'look-down'
+  | 'look-left'
+  | 'look-right'
 
-const SIZE = { sm: 20, md: 28, lg: 54, xl: 40 } as const
-
-/**
- * The Herbie mascot, drawn bare in an agent's colour.
- *
- * No tile and no border: the shape itself is the agent, which is what makes a
- * row of them read as characters rather than as icons. The eyes are a dark
- * constant so they hold on any hue in either theme.
- *
- * `working` bobs. It is the only looping animation in the app, and it carries
- * real state rather than decorating.
- */
+/** Locally bundled SVGs render as vectors, with IDs isolated per instance. */
 export function AgentFace({
   color,
+  shape = 'squircle',
   size = 'xl',
-  working = false,
+  state = 'idle',
+  animate = false,
   off = false,
   className,
 }: {
   color: string
+  shape?: string
   size?: keyof typeof SIZE
-  working?: boolean
+  state?: FaceState
+  animate?: boolean
   off?: boolean
   className?: string
 }) {
+  const id = useId().replaceAll(':', '')
+  const reduce = useReducedMotion()
+  const silhouette = shapes.has(shape) ? shape : 'squircle'
+  const kind = animate && !reduce ? 'motion' : 'static'
+  const expression =
+    reduce &&
+    (state === 'blink' ||
+      state === 'delighted' ||
+      state === 'surprised' ||
+      state === 'gentle-nod' ||
+      state.startsWith('look-'))
+      ? 'idle'
+      : state
+  const source =
+    assets[
+      `../../assets/herbie-motion/${kind}/${silhouette}/${expression}.svg`
+    ] ?? fallback
+  // The bundled assets are trusted; IDs must be unique across faces.
+  const svg = steadyFace(source)
+    .replaceAll('id="face"', `id="face-${id}"`)
+    .replaceAll('url(#face)', `url(#face-${id})`)
+    .replaceAll('id="title"', `id="title-${id}"`)
+    .replaceAll('id="desc"', `id="desc-${id}"`)
+    .replace(
+      'aria-labelledby="title desc"',
+      `aria-labelledby="title-${id} desc-${id}"`,
+    )
+    .replaceAll('fill="#006239"', 'fill="currentColor"')
+    // The pack's blink waits several seconds; a hover should respond promptly.
+    .replaceAll(
+      'keyTimes="0;0.67;0.70;0.73;0.78;0.81;0.84;1"',
+      expression === 'blink'
+        ? 'keyTimes="0;0.03;0.06;0.09;0.78;0.81;0.84;1"'
+        : 'keyTimes="0;0.67;0.70;0.73;0.78;0.81;0.84;1"',
+    )
   const px = SIZE[size]
   return (
-    <svg
-      viewBox="55 56 402 350"
-      width={px}
-      height={px}
+    <span
       aria-hidden="true"
       className={cn(
-        'block shrink-0',
-        working && 'motion-safe:animate-[herbie-bob_2.4s_ease-in-out_infinite]',
+        'block shrink-0 [&>svg]:block [&>svg]:h-full [&>svg]:w-full',
         off && 'opacity-40 grayscale',
         className,
       )}
-      style={{ color: HUE[color] ?? HUE.ops }}
-    >
-      <g fill="currentColor">
-        <path
-          d="M256 144 L273.8 91.1"
-          stroke="currentColor"
-          strokeWidth="22"
-          strokeLinecap="round"
-          fill="none"
-        />
-        <circle cx="277.7" cy="80.4" r="19" />
-        <rect x="67.3" y="225" width="26" height="86" rx="13" />
-        <rect x="418.7" y="225" width="26" height="86" rx="13" />
-        <rect x="92" y="140" width="328" height="256" rx="100" />
-      </g>
-      <circle cx="186" cy="282" r="48" fill="var(--eye)" />
-      <circle cx="326" cy="282" r="48" fill="var(--eye)" />
-    </svg>
+      style={{ width: px, height: px, color: HUE[color] ?? HUE.ops }}
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: trusted bundled SVG with isolated IDs
+      dangerouslySetInnerHTML={{ __html: svg }}
+    />
   )
 }
