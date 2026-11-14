@@ -50,6 +50,7 @@ export function plannedWorkspace(
 
 export interface AgentDraft {
   readonly name: string
+  readonly shape?: string
   readonly color: string
   readonly brief: string
   readonly acpAgent: string
@@ -75,6 +76,7 @@ export function createAgent(db: Db, agentsRoot: string, draft: AgentDraft) {
       id,
       name: draft.name,
       color: draft.color,
+      shape: draft.shape ?? 'squircle',
       brief: draft.brief,
       acpAgent: draft.acpAgent,
       model: draft.model ?? null,

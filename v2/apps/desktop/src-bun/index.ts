@@ -5,6 +5,7 @@ import { openDb } from '@bun/modules/db/db'
 import { ensureInstalledAt } from '@bun/modules/db/install'
 import { appliedMigrations } from '@bun/modules/db/migrate'
 import { startLoop } from '@bun/modules/loop/loop'
+import { startNotifications } from '@bun/modules/notifications/notify'
 import { createApp } from '@bun/server/app'
 import { startApi, stopServer } from '@bun/server/serve'
 
@@ -31,14 +32,19 @@ function main(): void {
   const { db, sqlite, path } = openDb()
   ensureInstalledAt(db)
 
+  // Watching starts before the loop, so a routine the first tick starts has
+  // somebody subscribed to its agent already.
+  const notifications = startNotifications(db)
+
   // Built before the routes so they can reach it, and safe to build here:
   // the first tick is a full interval away, so nothing runs before the API
   // is listening to publish it to.
-  const loop = startLoop(db)
+  const loop = startLoop(db, { onPark: (id) => notifications.parked(id) })
 
   const app = createApp({
     db,
     revive: (agentId) => loop.revive(agentId),
+    notifyRefresh: () => notifications.refresh(),
     databasePath: path,
     agentsRoot: agentsDir(),
     skillsWorkspace: skillsDir(),
@@ -71,6 +77,7 @@ function main(): void {
       // Best effort. The ledger is the durability guarantee, not this path:
       // a run claimed and never settled is requeued on the next boot.
       loop.stop()
+      notifications.stop()
       stopServer()
       sqlite.close()
       process.exit(0)

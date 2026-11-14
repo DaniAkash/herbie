@@ -75,6 +75,8 @@ export function startLoop(
     readonly clock?: Clock
     /** Called on every pass, so a test can count them. */
     readonly onPass?: (tick: Tick) => void
+    /** Told when an agent is given up on, which reaches no bus of its own. */
+    readonly onPark?: (agentId: string) => void
   } = {},
 ): Loop {
   const breakers = new Map<string, BreakerState>()
@@ -143,6 +145,7 @@ export function startLoop(
     breakers.set(agentId, next)
     if (next.phase === 'parked') {
       log.warn('agent parked after repeated failures', { agent: agentId })
+      options.onPark?.(agentId)
     }
   }
 

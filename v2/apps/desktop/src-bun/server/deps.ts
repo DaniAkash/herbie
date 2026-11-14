@@ -23,6 +23,14 @@ export interface Deps {
    * the cause, so that is where this is called from.
    */
   readonly revive?: (agentId: string) => void
+  /**
+   * Re-reads which agents are worth watching.
+   *
+   * The notification watch set is built from the enabled agents, so creating,
+   * switching or deleting one has to be followed by a rebuild. Optional for
+   * the same reason `revive` is: a test builds the tree without a loop.
+   */
+  readonly notifyRefresh?: () => void
   readonly appliedMigrations: readonly string[]
   readonly startedAt: number
 }

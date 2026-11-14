@@ -10,11 +10,22 @@ import { z } from 'zod'
  */
 
 /** The six face colours. Identity only, never an accent. */
+export const AGENT_SHAPES = [
+  'squircle',
+  'circle',
+  'soft-hexagon',
+  'pill',
+  'rounded-diamond',
+  'soft-trapezoid',
+  'rounded-arch',
+] as const
+
 const COLORS = ['ops', 'scout', 'post', 'mail', 'house', 'watch'] as const
 
 export const createAgentBody = z.object({
   name: z.string().trim().min(1).max(60),
   color: z.enum(COLORS),
+  shape: z.enum(AGENT_SHAPES).default('squircle'),
   brief: z.string().max(4000).default(''),
   acpAgent: z.string().trim().min(1),
   model: z.string().nullish(),
@@ -30,6 +41,7 @@ export const workspaceQuery = z.object({
 export const patchAgentBody = z.object({
   name: z.string().trim().min(1).max(60).optional(),
   color: z.enum(COLORS).optional(),
+  shape: z.enum(AGENT_SHAPES).optional(),
   brief: z.string().max(4000).optional(),
   acpAgent: z.string().trim().min(1).optional(),
   model: z.string().nullish(),
@@ -102,4 +114,15 @@ export const decisionBody = z.object({
 /** How far the reader has got. -1, or absent, means the whole thread. */
 export const afterQuery = z.object({
   after: z.coerce.number().int().optional(),
+})
+
+/** What the window is looking at, reported so the sidecar can stay quiet about it. */
+export const presenceBody = z.object({
+  focused: z.boolean(),
+  agentId: z.string().trim().min(1).nullish(),
+})
+
+/** One setting, written by key. Values are strings; the reader owns the shape. */
+export const settingBody = z.object({
+  value: z.string().max(2000),
 })

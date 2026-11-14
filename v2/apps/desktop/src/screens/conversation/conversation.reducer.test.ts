@@ -63,6 +63,18 @@ describe('what the thread renders', () => {
   })
 })
 
+describe('turn timing', () => {
+  test('retains the start after a turn ends for replayed replies', () => {
+    const start = record({ kind: 'turn.start' })
+    const reply = record({ kind: 'say', text: 'Done.' })
+    const end = record({ kind: 'turn.end', reason: 'stop' })
+    const state = fold(
+      [start, reply, end].map((entry) => ({ type: 'record', record: entry })),
+    )
+    expect(state.turnStarts[reply.turn]).toBe(Date.parse(start.at))
+  })
+})
+
 describe('the live indicator', () => {
   test('starts thinking, moves to working, then stops', () => {
     const started = fold(records({ kind: 'turn.start' }))

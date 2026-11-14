@@ -1,6 +1,7 @@
 import { HerbieOverlay } from '@/components/overlays/HerbieOverlay'
 import { McpServerOverlay } from '@/components/overlays/McpServerOverlay'
 import { NewAgentOverlay } from '@/components/overlays/NewAgentOverlay'
+import { NotificationsOverlay } from '@/components/overlays/NotificationsOverlay'
 import { SearchOverlay } from '@/components/overlays/SearchOverlay'
 import { ToolsOverlay } from '@/components/overlays/ToolsOverlay'
 import type { OverlaySearch } from '@/modules/navigation/overlay'
@@ -24,6 +25,7 @@ export function OverlayHost({ search }: { search: OverlaySearch }) {
       {search.overlay === 'server' && <McpServerOverlay id={search.server} />}
       {search.overlay === 'new' && <NewAgentOverlay />}
       {search.overlay === 'herbie' && <HerbieOverlay />}
+      {search.overlay === 'notifications' && <NotificationsOverlay />}
     </>
   )
 }

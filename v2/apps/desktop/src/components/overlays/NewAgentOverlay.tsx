@@ -1,5 +1,7 @@
+import { AGENT_SHAPES } from '@bun/shared/schemas'
 import { useIsMutating } from '@tanstack/react-query'
 import { useNavigate, useSearch } from '@tanstack/react-router'
+import { useState } from 'react'
 import { Controller } from 'react-hook-form'
 import { AgentFace } from '@/components/agent/AgentFace'
 import { TextField } from '@/components/form/TextField'
@@ -67,7 +69,8 @@ export function NewAgentOverlay() {
   return (
     <Overlay
       title="New agent"
-      narrow
+      className="h-[min(620px,82dvh)] max-h-[82dvh] w-[min(620px,calc(100vw-32px))]"
+      footerClassName="pt-3"
       lead={
         onRuns ? (
           <BackButton
@@ -140,10 +143,45 @@ export function NewAgentOverlay() {
 /** A face, a name, a colour, and what it should do. */
 function WhoItIsStep({ form }: { form: AgentForm }) {
   const color = form.watch('color')
+  const shape = form.watch('shape') ?? 'squircle'
+  const [hoveredShape, setHoveredShape] = useState<string | null>(null)
 
   return (
-    <div className="grid justify-items-center gap-4">
-      <AgentFace color={color} size="lg" />
+    <div className="grid justify-items-center gap-5">
+      <AgentFace color={color} shape={shape} size="preview" animate />
+      <fieldset className="w-full">
+        <legend className="mb-3 font-medium text-ink-2 text-sm">
+          Choose a shape
+        </legend>
+        <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
+          {AGENT_SHAPES.map((option) => (
+            <label
+              key={option}
+              onMouseEnter={() => setHoveredShape(option)}
+              onMouseLeave={() => setHoveredShape(null)}
+              className="grid cursor-pointer place-items-center rounded-control py-2.5 transition-colors hover:bg-hover has-[:checked]:bg-hover-2 has-[:focus-visible]:outline has-[:focus-visible]:outline-2"
+            >
+              <input
+                type="radio"
+                value={option}
+                aria-label={option.replaceAll('-', ' ')}
+                className="sr-only"
+                {...form.register('shape', {
+                  onBlur: () => setHoveredShape(null),
+                })}
+                onFocus={() => setHoveredShape(option)}
+              />
+              <AgentFace
+                color={color}
+                shape={option}
+                size="lg"
+                animate={option === shape || option === hoveredShape}
+                state={option === hoveredShape ? 'delighted' : 'idle'}
+              />
+            </label>
+          ))}
+        </div>
+      </fieldset>
       <Controller
         control={form.control}
         name="name"

@@ -2,12 +2,18 @@ import {
   createFileRoute,
   Outlet,
   retainSearchParams,
+  useParams,
 } from '@tanstack/react-router'
 import { AgentRail } from '@/components/shell/AgentRail'
 import { OverlayHost } from '@/components/shell/OverlayHost'
 import { Titlebar } from '@/components/shell/Titlebar'
 import { useAgents } from '@/modules/api/agents.hooks'
 import { overlaySchema } from '@/modules/navigation/overlay'
+import {
+  useNotificationBridge,
+  useNotificationClicks,
+} from '@/modules/notifications/bridge'
+import { usePresence } from '@/modules/notifications/presence'
 
 /**
  * The layout that never unmounts.
@@ -31,6 +37,14 @@ function ShellLayout() {
   const search = Route.useSearch()
   const { data } = useAgents()
   const agents = data?.agents ?? []
+  const params = useParams({ strict: false }) as { agentId?: string }
+
+  // The three live here because they must outlast every navigation: the
+  // stream carries news about agents nobody is looking at, and presence is
+  // the window telling the sidecar which one that is.
+  usePresence(params.agentId ?? null)
+  useNotificationBridge()
+  useNotificationClicks()
 
   return (
     <div className="relative grid h-dvh grid-rows-[auto_1fr] overflow-hidden bg-page">

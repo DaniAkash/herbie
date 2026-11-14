@@ -1,14 +1,23 @@
 import { AnimateIcon } from '@animate-ui/react/icons'
 import { Link, useParams } from '@tanstack/react-router'
 import { Plug } from 'lucide-react'
+import { useState } from 'react'
 import { AgentFace } from '@/components/agent/AgentFace'
+import { ConversationFace } from '@/components/agent/ConversationFace'
+import { Bell } from '@/components/animate-ui/icons/bell'
 import { Plus } from '@/components/animate-ui/icons/plus'
 import { Search } from '@/components/animate-ui/icons/search'
 import { Settings } from '@/components/animate-ui/icons/settings'
 import { AgentStateDot } from '@/components/shell/AgentStateDot'
+import { SidebarProfile } from '@/components/shell/SidebarProfile'
 import { cn } from '@/lib/utils'
 import type { Agent } from '@/modules/api/agents.hooks'
+import { useNotifications } from '@/modules/api/notifications.hooks'
 import { openOverlay } from '@/modules/navigation/overlay'
+import {
+  type AttentionFace,
+  attentionFor,
+} from '@/modules/notifications/attention'
 
 /**
  * The rail, and the only navigation the app has.
@@ -20,6 +29,10 @@ import { openOverlay } from '@/modules/navigation/overlay'
 export function AgentRail({ agents }: { agents: readonly Agent[] }) {
   const params = useParams({ strict: false }) as { agentId?: string }
   const active = params.agentId
+  const [hovered, setHovered] = useState<string | null>(null)
+  const { data: inbox } = useNotifications()
+  const notifications = inbox?.notifications ?? []
+  const waiting = inbox?.waiting.length ?? 0
 
   return (
     <aside className="grid min-h-0 grid-rows-[auto_auto_auto_1fr_auto] bg-canvas">
@@ -29,6 +42,17 @@ export function AgentRail({ agents }: { agents: readonly Agent[] }) {
           Herbie
         </span>
         <span className="flex-1" />
+        <RailIcon
+          to="notifications"
+          label={
+            waiting > 0 ? `Notifications, ${waiting} waiting` : 'Notifications'
+          }
+        >
+          <Bell size={16} />
+          {waiting > 0 ? (
+            <span className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-accent ring-2 ring-canvas" />
+          ) : null}
+        </RailIcon>
         <RailIcon to="search" label="Search">
           <Search size={16} />
         </RailIcon>
@@ -44,6 +68,10 @@ export function AgentRail({ agents }: { agents: readonly Agent[] }) {
             to="/agents/$agentId"
             params={{ agentId: agent.id }}
             aria-current={agent.id === active ? 'true' : undefined}
+            onMouseEnter={() => setHovered(agent.id)}
+            onMouseLeave={() => setHovered(null)}
+            onFocus={() => setHovered(agent.id)}
+            onBlur={() => setHovered(null)}
             className={cn(
               'grid justify-items-center gap-1.5 rounded-card px-0.5 pt-2 pb-[7px]',
               'transition-[background-color,transform] duration-150 ease-out active:scale-[0.96]',
@@ -52,7 +80,18 @@ export function AgentRail({ agents }: { agents: readonly Agent[] }) {
           >
             <AgentFace
               color={agent.color}
-              working={agent.state === 'working'}
+              shape={agent.shape}
+              animate={
+                agent.state === 'working' ||
+                agent.state === 'stuck' ||
+                agent.id === active ||
+                agent.id === hovered
+              }
+              state={tileFace(
+                agent,
+                attentionFor(notifications, agent.id),
+                agent.id === hovered,
+              )}
               off={agent.state === 'off'}
             />
             <span
@@ -79,15 +118,20 @@ export function AgentRail({ agents }: { agents: readonly Agent[] }) {
             to="/agents/$agentId"
             params={{ agentId: agent.id }}
             aria-current={agent.id === active ? 'true' : undefined}
+            onMouseEnter={() => setHovered(agent.id)}
+            onMouseLeave={() => setHovered(null)}
+            onFocus={() => setHovered(agent.id)}
+            onBlur={() => setHovered(null)}
             className={cn(
               'grid w-full grid-cols-[auto_1fr_auto] items-center gap-2.5 rounded-control p-2 text-left',
               'transition-colors duration-150 ease-out hover:bg-hover aria-[current]:bg-hover-2',
             )}
           >
-            <AgentFace
-              color={agent.color}
-              size="sm"
-              off={agent.state === 'off'}
+            <ConversationFace
+              agent={agent}
+              selected={agent.id === active}
+              hovered={agent.id === hovered}
+              attention={attentionFor(notifications, agent.id)}
             />
             <span className="min-w-0">
               <span className="block font-medium text-[13.5px] leading-tight">
@@ -103,8 +147,7 @@ export function AgentRail({ agents }: { agents: readonly Agent[] }) {
       </div>
 
       <div className="flex items-center gap-2 px-2.5 pt-[7px] pb-2.5">
-        <div className="size-[23px] shrink-0 rounded-full bg-hover-2" />
-        <span className="font-medium text-[13.5px]">Dani</span>
+        <SidebarProfile />
         <span className="flex-1" />
         <RailIcon to="tools" label="Tools">
           <Plug size={16} />
@@ -115,6 +158,26 @@ export function AgentRail({ agents }: { agents: readonly Agent[] }) {
       </div>
     </aside>
   )
+}
+
+/**
+ * What the tile wears.
+ *
+ * Attention outranks the agent's own column, because a turn blocked on a
+ * permission is still running: reading `working` there would draw the agent
+ * thinking while it sits waiting on an answer, which is the exact thing this
+ * is here to stop.
+ */
+function tileFace(
+  agent: Agent,
+  attention: AttentionFace | null,
+  hovered: boolean,
+) {
+  if (attention) return attention
+  if (agent.state === 'working') return 'thinking'
+  if (agent.state === 'stuck') return 'error'
+  if (hovered && agent.state !== 'off') return 'delighted'
+  return 'idle'
 }
 
 function RailIcon({
@@ -132,7 +195,10 @@ function RailIcon({
         to="."
         search={openOverlay(to)}
         aria-label={label}
-        className="inline-flex size-7 items-center justify-center rounded-control text-ink-3 transition-[background-color,color,transform] duration-150 ease-out hover:bg-hover hover:text-ink active:scale-[0.96]"
+        data-tooltip-side={
+          to === 'search' || to === 'new' ? 'bottom' : undefined
+        }
+        className="icon-tooltip relative inline-flex size-7 items-center justify-center rounded-control text-ink-3 transition-[background-color,color,transform] duration-150 ease-out hover:bg-hover hover:text-ink active:scale-[0.96]"
       >
         {children}
       </Link>
