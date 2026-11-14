@@ -13,12 +13,22 @@ import type { NotifyEvent } from '@bun/modules/notifications/events'
  *
  * Deduplicated when the two are the same string, which otherwise renders as
  * a name repeated twice and reads like a bug. agent-terminal hit exactly
- * this in production.
+ * this in production. The comparison folds case and separators because an
+ * agent called Ops working in `ops` is the case that actually occurs, and
+ * `Ops · ops` is the bug this exists to prevent.
  */
 export function titleFor(name: string, workspaceDir: string): string {
   const where = basename(workspaceDir)
-  if (!where || where === name) return name
+  if (!where || sameLabel(where, name)) return name
   return `${name} · ${where}`
+}
+
+function sameLabel(a: string, b: string): boolean {
+  return fold(a) === fold(b)
+}
+
+function fold(value: string): string {
+  return value.toLowerCase().replace(/[\s._-]+/g, '')
 }
 
 function fallbackFor(event: NotifyEvent): string {

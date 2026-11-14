@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router'
+import { open } from '@tauri-apps/plugin-shell'
 import { MonitorCogIcon, MoonStarIcon, SunIcon } from 'lucide-react'
 import { motion, useReducedMotion } from 'motion/react'
 import { useState } from 'react'
@@ -19,6 +20,7 @@ import {
   useSetSetting,
   useSettings,
 } from '@/modules/api/notifications.hooks'
+import { isDesktop } from '@/modules/host/host'
 import { closeOverlay } from '@/modules/navigation/overlay'
 import { setTheme, useTheme } from '@/modules/theme/theme'
 
@@ -130,6 +132,10 @@ function afterLabel(seconds: string): string {
  * desktop platform whatever System Settings says, so claiming "on" from it
  * would be the bug that makes the whole feature look broken.
  */
+/** The pane macOS opens on, since the app cannot read or set that switch. */
+const NOTIFICATION_SETTINGS_URL =
+  'x-apple.systempreferences:com.apple.preference.notifications'
+
 function NotificationSettings() {
   const { data, isPending, isError } = useSettings()
   const { data: delivered } = useDelivered()
@@ -170,11 +176,23 @@ function NotificationSettings() {
         label="Notifications"
         note={
           enabled && delivered === false
-            ? 'If nothing ever appears, turn Herbie on under System Settings, Notifications. The window cannot read that switch.'
+            ? 'No banner has appeared yet. If none ever does, Herbie is switched off under Notifications, which this window cannot read.'
             : undefined
         }
       >
-        <PanelRow k="Status" v={status} />
+        <PanelRow k="Status" v={status}>
+          {enabled && delivered === false && isDesktop() ? (
+            <Button
+              size="xs"
+              variant="secondary"
+              onClick={() => {
+                void open(NOTIFICATION_SETTINGS_URL)
+              }}
+            >
+              Open settings
+            </Button>
+          ) : null}
+        </PanelRow>
         <PanelRow
           k="Notify me"
           v="When an agent needs you and you are not looking"
