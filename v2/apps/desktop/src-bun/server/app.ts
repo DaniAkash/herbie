@@ -3,9 +3,14 @@ import { agentsRoute } from '@bun/server/routes/agents'
 import { cadenceRoute } from '@bun/server/routes/cadence'
 import { conversationRoute } from '@bun/server/routes/conversation'
 import { healthRoute } from '@bun/server/routes/health'
+import {
+  notificationsRoute,
+  presenceRoute,
+} from '@bun/server/routes/notifications'
 import { routinesRoute } from '@bun/server/routes/routines'
 import { rulesRoute } from '@bun/server/routes/rules'
 import { runtimesRoute } from '@bun/server/routes/runtimes'
+import { settingsRoute } from '@bun/server/routes/settings'
 import { statusRoute } from '@bun/server/routes/status'
 import { toolsRoute } from '@bun/server/routes/tools'
 import { Hono } from 'hono'
@@ -33,6 +38,9 @@ export function createApp(deps: Deps) {
       .route('/routines', routinesRoute(deps))
       .route('/rules', rulesRoute(deps))
       .route('/cadence', cadenceRoute)
+      .route('/notifications', notificationsRoute(deps))
+      .route('/presence', presenceRoute())
+      .route('/settings', settingsRoute(deps))
   )
 }
 

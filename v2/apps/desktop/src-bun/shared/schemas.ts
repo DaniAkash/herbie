@@ -115,3 +115,14 @@ export const decisionBody = z.object({
 export const afterQuery = z.object({
   after: z.coerce.number().int().optional(),
 })
+
+/** What the window is looking at, reported so the sidecar can stay quiet about it. */
+export const presenceBody = z.object({
+  focused: z.boolean(),
+  agentId: z.string().trim().min(1).nullish(),
+})
+
+/** One setting, written by key. Values are strings; the reader owns the shape. */
+export const settingBody = z.object({
+  value: z.string().max(2000),
+})
