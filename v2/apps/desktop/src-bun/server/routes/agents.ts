@@ -90,6 +90,7 @@ export function agentsRoute(deps: Deps) {
       })
       .post('/', zValidator('json', createAgentBody), (c) => {
         const row = createAgent(deps.db, deps.agentsRoot, c.req.valid('json'))
+        deps.notifyRefresh?.()
         return c.json({ agent: row }, 201)
       })
       // Before `/:id`, which would otherwise claim it: Hono matches a method's
@@ -139,11 +140,13 @@ export function agentsRoute(deps: Deps) {
             skillsWorkspace: deps.skillsWorkspace,
           })
         }
+        deps.notifyRefresh?.()
         return c.json({ agent: row })
       })
       .delete('/:id', (c) => {
         const gone = deleteAgent(deps.db, deps.agentsRoot, c.req.param('id'))
         if (!gone) return c.json({ error: 'no such agent' }, 404)
+        deps.notifyRefresh?.()
         return c.json({ deleted: true })
       })
       .get('/:id/routines', (c) => {
